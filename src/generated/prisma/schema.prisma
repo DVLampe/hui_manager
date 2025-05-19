@@ -1,0 +1,208 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String
+  role        Role      @default(USER)
+  phone       String? // Số điện thoại (tùy chọn)
+  avatar      String? // URL ảnh đại diện
+  isActive    Boolean   @default(true) // Trạng thái tài khoản
+  lastLoginAt DateTime? // Thời gian đăng nhập cuối
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Quan hệ với các model khác
+  huiGroups        HuiGroup[]       @relation("GroupManager") // Các hụi mà user quản lý
+  memberships      HuiMember[] // Các hụi mà user tham gia
+  payments         Payment[] // Các khoản thanh toán của user
+  notifications    Notification[] // Các thông báo của user
+  auditLogs        AuditLog[] // Các log hoạt động của user
+  paymentHistories PaymentHistory[] // Thêm relation field này
+  systemSettings   SystemSettings[] // Thêm relation field này
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+enum NotificationType {
+  PAYMENT_DUE
+  PAYMENT_RECEIVED
+  GROUP_UPDATE
+  SYSTEM
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // Hành động được thực hiện
+  entity    String // Đối tượng bị tác động
+  entityId  String // ID của đối tượng
+  details   Json? // Chi tiết thay đổi
+  ipAddress String? // Địa chỉ IP
+  createdAt DateTime @default(now())
+}
+
+model HuiGroup {
+  id              String      @id @default(cuid())
+  name            String
+  description     String?
+  amount          Decimal     @db.Decimal(10, 2) // Định dạng số thập phân
+  startDate       DateTime
+  endDate         DateTime?
+  status          GroupStatus @default(ACTIVE)
+  managerId       String
+  manager         User        @relation("GroupManager", fields: [managerId], references: [id])
+  members         HuiMember[]
+  payments        Payment[] // Thêm relation với Payment
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  // Thêm các trường mới
+  cycle           Int         @default(1) // Chu kỳ hụi (tháng)
+  totalMembers    Int         @default(0) @db.SmallInt
+  currentCycle    Int         @default(1) @db.SmallInt
+  nextPaymentDate DateTime? // Ngày đóng hụi tiếp theo
+  rules           Json? // Quy định của hụi
+
+  @@index([status])
+  @@index([managerId])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model HuiMember {
+  id              String       @id @default(cuid())
+  userId          String
+  groupId         String
+  user            User         @relation(fields: [userId], references: [id])
+  group           HuiGroup     @relation(fields: [groupId], references: [id])
+  status          MemberStatus @default(ACTIVE)
+  joinedAt        DateTime     @default(now())
+  leftAt          DateTime?
+  payments        Payment[]
+  // Thêm các trường mới
+  position        Int?         @db.SmallInt
+  totalPaid       Decimal      @db.Decimal(10, 2)
+  totalDue        Decimal      @db.Decimal(10, 2)
+  lastPaymentDate DateTime? // Ngày đóng hụi cuối cùng
+  nextPaymentDate DateTime? // Ngày đóng hụi tiếp theo
+  notes           String? // Ghi chú
+
+  @@unique([userId, groupId])
+  @@index([userId])
+  @@index([groupId])
+  @@index([status])
+}
+
+enum GroupStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  REMOVED
+}
+
+model Payment {
+  id         String           @id @default(cuid())
+  amount     Decimal          @db.Decimal(10, 2)
+  type       PaymentType
+  status     PaymentStatus    @default(PENDING)
+  userId     String
+  memberId   String
+  groupId    String // Thêm groupId
+  user       User             @relation(fields: [userId], references: [id])
+  member     HuiMember        @relation(fields: [memberId], references: [id])
+  group      HuiGroup         @relation(fields: [groupId], references: [id])
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  // Thêm các trường mới
+  dueDate    DateTime // Ngày đến hạn
+  paidAt     DateTime? // Ngày thanh toán
+  cycle      Int              @db.SmallInt
+  note       String? // Ghi chú
+  receipt    String? // URL biên lai
+  verifiedBy String? // Người xác nhận
+  verifiedAt DateTime? // Thời gian xác nhận
+  history    PaymentHistory[] // Thêm relation field này
+
+  @@index([userId])
+  @@index([memberId])
+  @@index([groupId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([paidAt])
+}
+
+enum PaymentType {
+  CONTRIBUTION
+  WITHDRAWAL
+  FINE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+// Thêm model mới cho lịch sử thanh toán
+model PaymentHistory {
+  id        String        @id @default(cuid())
+  paymentId String
+  payment   Payment       @relation(fields: [paymentId], references: [id])
+  status    PaymentStatus
+  note      String?
+  createdAt DateTime      @default(now())
+  createdBy String
+  user      User          @relation(fields: [createdBy], references: [id])
+}
+
+// Thêm model mới cho cài đặt hệ thống
+model SystemSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  updatedBy String
+  user      User     @relation(fields: [updatedBy], references: [id])
+}
