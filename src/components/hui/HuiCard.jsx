@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import Button from '@/components/ui/Button' // Изменено здесь
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 
 export function HuiCard({ hui }) {

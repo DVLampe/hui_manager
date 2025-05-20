@@ -9,11 +9,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  // Thêm các options nếu cần
-  // directUrl = env("DIRECT_URL")
-  // shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Добавлено/Обновлено здесь
+  // shadowDatabaseUrl = env("SHADOW_DATABASE_URL") // Оставляем закомментированным, если не используется
 }
 
 model User {
@@ -208,4 +207,3 @@ model SystemSettings {
   updatedBy String
   user      User     @relation(fields: [updatedBy], references: [id])
 }
-
