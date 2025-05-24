@@ -30,7 +30,7 @@ export async function GET(request) {
     return criticalErrorResponse;
   }
 
-  const tokenCookie = cookies().get('huiAuthToken');
+  const tokenCookie = cookies().get('token'); // Changed from huiAuthToken
 
   if (!tokenCookie) {
     return NextResponseToUse.json({ error: 'Not authenticated: No token' }, { status: 401 });
@@ -66,7 +66,7 @@ export async function GET(request) {
       // Or if userId in token is somehow invalid
       // Clear the invalid cookie
       const response = NextResponseToUse.json({ error: 'User not found' }, { status: 401 });
-      response.cookies.set('huiAuthToken', '', { httpOnly: true, maxAge: 0, path: '/' });
+      response.cookies.set('token', '', { httpOnly: true, maxAge: 0, path: '/' }); // Changed from huiAuthToken
       return response;
     }
 
@@ -76,7 +76,7 @@ export async function GET(request) {
     console.error('GET /api/auth/me - JWT Verification Error:', error.message);
     // Clear the invalid/expired cookie
     const response = NextResponseToUse.json({ error: 'Not authenticated: Invalid or expired token' }, { status: 401 });
-    response.cookies.set('huiAuthToken', '', { httpOnly: true, maxAge: 0, path: '/' });
+    response.cookies.set('token', '', { httpOnly: true, maxAge: 0, path: '/' }); // Changed from huiAuthToken
     return response;
   }
 }

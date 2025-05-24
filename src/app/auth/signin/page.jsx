@@ -1,4 +1,3 @@
-// src/app/auth/signin/page.jsx
 'use client';
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -13,6 +12,8 @@ export default function SignInPage() {
   const router = useRouter();
   const { loading, error, isAuthenticated, user } = useSelector((state) => state.auth);
 
+  console.log('[SignInPage] Component rendered/mounted. isAuthenticated:', isAuthenticated, 'User:', !!user);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -23,7 +24,9 @@ export default function SignInPage() {
   }, [dispatch]);
 
   useEffect(() => {
+    console.log('[SignInPage] useEffect triggered. isAuthenticated:', isAuthenticated, 'User:', !!user);
     if (isAuthenticated && user) {
+      console.log('[SignInPage] useEffect redirecting to /');
       router.push('/');
     }
   }, [isAuthenticated, user, router]);

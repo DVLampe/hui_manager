@@ -76,7 +76,7 @@ export async function POST(request) {
 
     const response = NextResponseToUse.json({ user: userWithoutPassword, token });
 
-    response.cookies.set('huiAuthToken', token, {
+    response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV !== 'development',
       sameSite: 'strict',

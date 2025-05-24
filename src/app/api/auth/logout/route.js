@@ -15,9 +15,9 @@ export async function POST(request) {
   try {
     // Clear the authentication cookie
     const response = NextResponseToUse.json({ message: 'Logout successful' }, { status: 200 });
-    response.cookies.set('huiAuthToken', '', {
+    response.cookies.set('token', '', { // Changed from huiAuthToken
       httpOnly: true,
-      secure: true, // Simplified for diagnostics
+      secure: process.env.NODE_ENV !== 'development', // Keep original secure logic
       sameSite: 'strict',
       maxAge: 0, // Expire the cookie immediately
       path: '/',

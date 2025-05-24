@@ -4,7 +4,7 @@ import { NextResponse as OriginalNextResponse } from 'next/server' // Renamed
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
  
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+const JWT_SECRET = process.env.JWT_SECRET;
 
 
 // GET /api/members - Lấy danh sách thành viên
@@ -19,7 +19,7 @@ export async function GET(request) {
   }
   try {
     // Verify authentication
-    const tokenCookie = cookies().get('huiAuthToken')
+    const tokenCookie = cookies().get('token') // Changed from huiAuthToken
     
     if (!tokenCookie || !tokenCookie.value) {
       return NextResponseToUse.json(
@@ -142,7 +142,7 @@ export async function POST(request) {
 
   try {
     // Verify authentication
-    const tokenCookie = cookies().get('huiAuthToken')
+    const tokenCookie = cookies().get('token') // Changed from huiAuthToken
     
     if (!tokenCookie || !tokenCookie.value) {
       return NextResponseToUse.json(
@@ -254,12 +254,31 @@ export async function PUT(request) {
   }
 
   try {
-    const session = await getServerSession()
+    // IMPORTANT: This route seems to use getServerSession() which might be from NextAuth.js
+    // If you are using custom JWT token in cookies, you need to change this to verify your custom token.
+    // For now, I am assuming it should use the same cookie token logic as GET/POST.
+    // If it truly uses NextAuth, this part needs separate handling.
+    const tokenCookie = cookies().get('token') // Changed from huiAuthToken, assuming custom token auth
     
-    // Kiểm tra authentication
-    if (!session) {
+    if (!tokenCookie || !tokenCookie.value) {
       return NextResponseToUse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized: Please login to update members' }, // Added specific message
+        { status: 401 }
+      )
+    }
+    
+    let userData; // userData from token for authorization if needed
+    try {
+      const { payload } = await jwtVerify(
+        tokenCookie.value,
+        new TextEncoder().encode(JWT_SECRET)
+      )
+      userData = payload
+      // TODO: Add role/permission checks here if necessary, using userData.role etc.
+    } catch (error) {
+      console.error('JWT Verification Error:', error.message)
+      return NextResponseToUse.json(
+        { error: 'Unauthorized: Invalid or expired session' },
         { status: 401 }
       )
     }
@@ -352,12 +371,31 @@ export async function DELETE(request) {
   }
 
   try {
-    const session = await getServerSession()
+    // IMPORTANT: This route seems to use getServerSession() which might be from NextAuth.js
+    // If you are using custom JWT token in cookies, you need to change this to verify your custom token.
+    // For now, I am assuming it should use the same cookie token logic as GET/POST.
+    // If it truly uses NextAuth, this part needs separate handling.
+    const tokenCookie = cookies().get('token') // Changed from huiAuthToken, assuming custom token auth
 
-    // Kiểm tra authentication
-    if (!session) {
+    if (!tokenCookie || !tokenCookie.value) {
       return NextResponseToUse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized: Please login to delete members' }, // Added specific message
+        { status: 401 }
+      )
+    }
+    
+    let userData; // userData from token for authorization if needed
+    try {
+      const { payload } = await jwtVerify(
+        tokenCookie.value,
+        new TextEncoder().encode(JWT_SECRET)
+      )
+      userData = payload
+      // TODO: Add role/permission checks here if necessary, using userData.role etc.
+    } catch (error) {
+      console.error('JWT Verification Error:', error.message)
+      return NextResponseToUse.json(
+        { error: 'Unauthorized: Invalid or expired session' },
         { status: 401 }
       )
     }
@@ -390,7 +428,7 @@ export async function DELETE(request) {
         }
         return NextResponseToUse.json({ message: 'Member removed from hui successfully' });
     } else {
-        // Kịch bản 2: Xóa hoàn toàn Member (và các mối quan hệ liên quan do cascading delete nếu có)
+        // Kịch bản 2: Xóa hoàn toàn Member (và các mối quan hệ liên quan do cascading delete если có)
         // Cẩn thận: Điều này sẽ xóa Member và có thể cả các HuiMemberInHuiGroup liên quan
         // nếu schema Prisma được cấu hình với onDelete: Cascade.
         // Nếu không, bạn cần xóa các record liên quan trong HuiMemberInHuiGroup trước.
