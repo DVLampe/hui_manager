@@ -2,24 +2,32 @@
 'use client';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchHuis } from '@/store/huiSlice';
+import { fetchHuis, resetCreateHuiStatus } from '@/store/huiSlice'; // Import resetCreateHuiStatus
 import HuiCard from '@/components/ui/HuiCard';
 import Button from '@/components/ui/Button';
-import Link from 'next/link'; // Import Link
-import Loading from '@/components/ui/Loading'; // Assuming you have a Loading component
-import Alert from '@/components/ui/Alert'; // Assuming you have an Alert component
+import Link from 'next/link';
+import Loading from '@/components/ui/Loading';
+import Alert from '@/components/ui/Alert';
 
 export default function HuiPage() {
   const dispatch = useDispatch();
-  const { huis, loading: huiLoading, error: huiError } = useSelector((state) => state.hui);
+  const { huis, loading: huiLoading, error: huiError, createHuiSuccess } = useSelector((state) => state.hui); // Get createHuiSuccess
   const { isAuthenticated, user, loading: authLoading, error: authError } = useSelector((state) => state.auth);
 
   useEffect(() => {
     // Only fetch huis if authenticated and auth check is complete
-    if (isAuthenticated && authLoading === 'succeeded') { // ensure auth not pending
+    if (isAuthenticated && authLoading === 'succeeded') {
       dispatch(fetchHuis());
     }
-  }, [dispatch, isAuthenticated, authLoading]); // Add authLoading to dependency array
+  }, [dispatch, isAuthenticated, authLoading]);
+
+  // Effect to reset the createHuiSuccess status when this page loads
+  useEffect(() => {
+    if (createHuiSuccess) {
+      console.log('[HuiPage Effect] createHuiSuccess is true, dispatching resetCreateHuiStatus.');
+      dispatch(resetCreateHuiStatus());
+    }
+  }, [createHuiSuccess, dispatch]);
 
   // If authentication is still in progress, show a loading indicator
   if (authLoading === 'pending' || authLoading === 'idle') {
@@ -60,7 +68,7 @@ export default function HuiPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Danh sách Hụi</h1>
-        {isAuthenticated && ( // This check is somewhat redundant now but fine to keep
+        {isAuthenticated && (
           <Link href="/hui/create"><Button variant="primary">Tạo Hụi Mới</Button></Link>
         )}
       </div>

@@ -13,10 +13,11 @@ import Link from 'next/link';
 export default function CreateHuiPage() {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { 
+  const {
     createHuiLoading,
     createHuiError,
-    createHuiSuccess 
+    createHuiSuccess,
+    createdHuiData
   } = useSelector((state) => state.hui);
   const { user, isAuthenticated } = useSelector((state) => state.auth);
 
@@ -44,24 +45,51 @@ export default function CreateHuiPage() {
   }, [isAuthenticated, user, router, createHuiLoading, formData.managerId]);
 
   useEffect(() => {
-    if (createHuiSuccess) {
+    console.log('[Redirect Effect Check] createHuiSuccess:', createHuiSuccess, 'createdHuiData:', createdHuiData);
+    if (createHuiSuccess && createdHuiData) {
+      console.log('[Redirect Effect Action] Both conditions met. Redirecting to /hui');
       router.push('/hui');
+      // No need to dispatch resetCreateHuiStatus() here, cleanup will handle it upon unmount.
+    } else if (createHuiSuccess && !createdHuiData) {
+      console.warn('[Redirect Effect Warn] createHuiSuccess is true, but createdHuiData is missing or null. Not redirecting. Check Redux slice.');
+    } else if (!createHuiSuccess && createdHuiData) {
+      console.warn('[Redirect Effect Warn] createdHuiData is present, but createHuiSuccess is false. Not redirecting. Check Redux slice logic for setting success flag.');
     }
+
     return () => {
-      dispatch(resetCreateHuiStatus());
+      // This cleanup function runs when the component unmounts (e.g., after a successful redirect)
+      // or if the dependencies change before a redirect occurs.
+      console.log('[Redirect Effect Cleanup] Called. Current createHuiSuccess:', createHuiSuccess, '. Dispatching resetCreateHuiStatus.');
+      // dispatch(resetCreateHuiStatus()); // Commented out to prevent SEGMENT MISMATCH
     };
-  }, [createHuiSuccess, router, dispatch]);
+  }, [createHuiSuccess, createdHuiData, router, dispatch]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     setClientError('');
   };
+  
+  const tryParseJson = (jsonString) => {
+    if (typeof jsonString !== 'string' || jsonString.trim() === '') {
+      return null; 
+    }
+    try {
+      const parsed = JSON.parse(jsonString);
+      return parsed; 
+    } catch (e) {
+      setClientError('Quy định (Rules) không phải là JSON hợp lệ.');
+      return 'INVALID_JSON'; 
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setClientError('');
-    dispatch(resetCreateHuiStatus());
+    // Important: Reset status *before* a new attempt if you want to clear old errors/success messages immediately.
+    // However, for redirect logic, the useEffect handles the success flag.
+    // If createHuiSuccess is already true from a previous attempt and not reset, it might cause issues.
+    // dispatch(resetCreateHuiStatus()); // Consider if this is needed here or if useEffect cleanup is sufficient.
 
     if (!formData.name || !formData.amount || !formData.startDate || !formData.cycle || !formData.totalMembers || !formData.managerId) {
       setClientError('Vui lòng điền đầy đủ các trường bắt buộc: Tên hụi, Số tiền, Ngày bắt đầu, Chu kỳ, Tổng số thành viên, ID Quản lý.');
@@ -83,18 +111,36 @@ export default function CreateHuiPage() {
         setClientError('Ngày kết thúc không thể trước ngày bắt đầu.');
         return;
     }
+    
+    let finalEndDate = formData.endDate;
+    if (!finalEndDate && formData.startDate && formData.cycle) {
+        const startDateObj = new Date(formData.startDate);
+        const cycleMonths = parseInt(formData.cycle, 10) * 12; 
+        startDateObj.setMonth(startDateObj.getMonth() + cycleMonths);
+        finalEndDate = startDateObj.toISOString().split('T')[0];
+    }
+
+    let parsedRules = null;
+    if (formData.rules && formData.rules.trim() !== '') {
+      parsedRules = tryParseJson(formData.rules);
+      if (parsedRules === 'INVALID_JSON') {
+        return;
+      }
+    }
 
     const dataToSubmit = {
       ...formData,
       amount: parseFloat(formData.amount),
       cycle: parseInt(formData.cycle, 10),
       totalMembers: parseInt(formData.totalMembers, 10),
+      endDate: finalEndDate, 
+      rules: parsedRules, 
     };
-
+    console.log('[Handle Submit] Dispatching createHui with data:', dataToSubmit);
     dispatch(createHui(dataToSubmit));
   };
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated) { 
     return (
         <div className="container mx-auto px-4 py-8 text-center">
             <Alert type="info" message="Đang chuyển hướng đến trang đăng nhập..." />
@@ -177,14 +223,14 @@ export default function CreateHuiPage() {
               />
             </div>
             <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Ngày kết thúc (tùy chọn)</label>
+              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Ngày kết thúc (tự động tính nếu bỏ trống cho 12 kỳ)</label>
               <Input
                 id="endDate"
                 name="endDate"
                 type="date"
                 value={formData.endDate}
                 onChange={handleChange}
-                min={formData.startDate}
+                min={formData.startDate} 
               />
             </div>
           </div>
@@ -214,7 +260,7 @@ export default function CreateHuiPage() {
               onChange={handleChange}
               placeholder='{"latePaymentPenalty": 50000, "defaultCycleDay": 1}'
             />
-            <p className="mt-1 text-xs text-gray-500">Nhập dưới dạng chuỗi JSON hợp lệ nếu có.</p>
+            <p className="mt-1 text-xs text-gray-500">Nhập dưới dạng chuỗi JSON hợp lệ nếu có. VD: {JSON.stringify({duesDay: "5th", penalty: "5%"})}</p>
           </div>
           
           <div>
@@ -227,17 +273,18 @@ export default function CreateHuiPage() {
               value={formData.managerId}
               onChange={handleChange}
               placeholder="ID người quản lý hụi"
+              readOnly={!!(user && user.id)}
             />
-            <p className="mt-1 text-xs text-orange-500">LƯU Ý: Trường này sẽ được tự động hóa trong tương lai.</p>
+            {!(user && user.id) && <p className="mt-1 text-xs text-orange-500">Đăng nhập để tự động điền trường này.</p>}
           </div>
 
           {clientError && <Alert type="error" message={clientError} />}
-          {createHuiError && <Alert type="error" message={`Lỗi từ server: ${createHuiError}`} />}
-          {createHuiSuccess && <Alert type="success" message="Hụi đã được tạo thành công! Đang chuyển hướng..." />}
+          {createHuiError && <Alert type="error" message={`Lỗi từ server: ${createHuiError.message || createHuiError}`} />}
+          {createHuiSuccess && <Alert type="success" message="Hụi đã được tạo thành công! Đang xử lý chuyển hướng..." />}
 
           <div className="flex items-center justify-end space-x-4 pt-4">
             <Link href="/hui">
-                <Button type="button" variant="secondary" disabled={createHuiLoading}>
+                <Button type="button" variant="secondary" disabled={createHuiLoading} onClick={() => dispatch(resetCreateHuiStatus())}>
                     Hủy
                 </Button>
             </Link>
