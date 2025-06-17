@@ -40,18 +40,18 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
     const generatedSchedule = [];
     for (let i = 0; i < numberOfPeriods; i++) {
       const dueDate = addMonths(new Date(initialStartDate), i * cycleDurationMonths);
-      let initialDisplayStatus = 'CHO_THANH_TOAN'; 
+      let initialDisplayStatus = 'CHO_THANH_TOAN';
       if (dueDate > today) {
         initialDisplayStatus = 'CHUA_DEN_KY';
       }
-      
+
       const paymentForPeriod = huiGroup.payments?.find(p => {
         const paymentDate = new Date(p.dueDate);
         // Robust matching based on period if available, otherwise fallback to dueDate
         if (p.period) {
             return p.period === (i + 1);
         }
-        return paymentDate.getFullYear() === dueDate.getFullYear() && 
+        return paymentDate.getFullYear() === dueDate.getFullYear() &&
                paymentDate.getMonth() === dueDate.getMonth() &&
                paymentDate.getDate() === dueDate.getDate();
       });
@@ -62,7 +62,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
         amountDisplay: paymentForPeriod?.amount?.toLocaleString('vi-VN') || parseFloat(amount).toLocaleString('vi-VN'),
         thanhVienHotHui: paymentForPeriod?.memberId || '',
         tienHot: paymentForPeriod?.amountCollected?.toLocaleString('vi-VN') || '',
-        status: paymentForPeriod?.transactionStatus || initialDisplayStatus, 
+        status: paymentForPeriod?.transactionStatus || initialDisplayStatus,
         originalAmount: parseFloat(amount).toLocaleString('vi-VN'),
         originalStatus: paymentForPeriod?.transactionStatus || initialDisplayStatus,
         thamKeu: paymentForPeriod?.thamKeu || '',
@@ -91,7 +91,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
           const paymentForPeriod = huiGroup.payments?.find(p => {
             if (p.period) return p.period === (i+1);
             const paymentDate = new Date(p.dueDate);
-            return paymentDate.getFullYear() === dueDate.getFullYear() && 
+            return paymentDate.getFullYear() === dueDate.getFullYear() &&
                    paymentDate.getMonth() === dueDate.getMonth() &&
                    paymentDate.getDate() === dueDate.getDate();
           });
@@ -126,8 +126,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
         ...item,
         period: item.period,
         dueDate: item.dueDate, // Ensure dueDate is passed correctly
-        tienHot: item.tienHot ? String(item.tienHot).replace(/[^\d.]/g, '') : null, 
-        memberId: item.thanhVienHotHui, 
+        tienHot: item.tienHot ? String(item.tienHot).replace(/[^\d.]/g, '') : null,
+        memberId: item.thanhVienHotHui,
         amount: parseFloat(String(item.amountDisplay).replace(/[^\d.]/g, '')),
         thamKeu: item.thamKeu ? String(item.thamKeu).replace(/[^\d.]/g, '') : null,
         thao: item.thao ? String(item.thao).replace(/[^\d.]/g, '') : null,
@@ -198,8 +198,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{item.dueDate}</td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
                     {isEditing ? (
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={item.amountDisplay}
                         onChange={(e) => handleInputChange(item.period, 'amountDisplay', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md text-right"
@@ -209,9 +209,9 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {isEditing && !item.thanhVienHotHui ? ( 
-                      <select 
-                        value={item.thanhVienHotHui} 
+                    {isEditing && !item.thanhVienHotHui ? (
+                      <select
+                        value={item.thanhVienHotHui}
                         onChange={(e) => handleInputChange(item.period, 'thanhVienHotHui', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md"
                       >
@@ -223,15 +223,15 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                         ))}
                       </select>
                     ) : (
-                      members.find(m => (m.id || m.userId) === item.thanhVienHotHui)?.user?.name || 
-                      members.find(m => (m.id || m.userId) === item.thanhVienHotHui)?.name || 
+                      members.find(m => (m.id || m.userId) === item.thanhVienHotHui)?.user?.name ||
+                      members.find(m => (m.id || m.userId) === item.thanhVienHotHui)?.name ||
                       item.thanhVienHotHui || 'N/A'
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
-                    {isEditing && item.thanhVienHotHui ? ( 
-                      <input 
-                        type="text" 
+                    {isEditing ? (
+                      <input
+                        type="text"
                         value={item.tienHot}
                         onChange={(e) => handleInputChange(item.period, 'tienHot', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md text-right"
@@ -241,7 +241,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {isEditing && item.thanhVienHotHui ? ( 
+                    {isEditing ? (
                       <input
                         type="text"
                         value={item.thamKeu}
@@ -253,7 +253,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {isEditing && item.thanhVienHotHui ? ( 
+                    {isEditing ? (
                       <input
                         type="text"
                         value={item.thao}
@@ -266,7 +266,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {isEditing ? (
-                      <select 
+                      <select
                         value={item.status}
                         onChange={(e) => handleInputChange(item.period, 'status', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md"

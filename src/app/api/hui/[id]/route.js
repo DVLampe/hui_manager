@@ -12,7 +12,7 @@ export async function GET(request, { params }) {
     const hui = await prisma.huiGroup.findUnique({
       where: { id },
       include: {
-        members: { include: { user: true } }, 
+        members: { include: { user: true } },
         payments: {
           include: {
             member: { include: { user: true } },
@@ -58,12 +58,12 @@ export async function PUT(request, { params }) {
             startDate: huiDataToUpdate.startDate ? new Date(huiDataToUpdate.startDate) : undefined,
             endDate: huiDataToUpdate.endDate ? new Date(huiDataToUpdate.endDate) : undefined,
             status: huiDataToUpdate.status,
-            managerId: huiDataToUpdate.managerId, 
+            managerId: huiDataToUpdate.managerId,
             cycle: huiDataToUpdate.cycle, // This is HuiGroup.cycle (e.g. monthly, bimonthly)
             totalMembers: huiDataToUpdate.totalMembers,
             currentCycle: huiDataToUpdate.currentCycle, // This is HuiGroup.currentCycle (which cycle the group is in)
             nextPaymentDate: huiDataToUpdate.nextPaymentDate ? new Date(huiDataToUpdate.nextPaymentDate) : undefined,
-            rules: huiDataToUpdate.rules, 
+            rules: huiDataToUpdate.rules,
         },
       });
 
@@ -82,23 +82,25 @@ export async function PUT(request, { params }) {
           }
           return {
             huiGroupId: id,
-            period: parseInt(p.period, 10), 
+            period: parseInt(p.period, 10),
             cycle: parseInt(p.period, 10), // Payment.cycle is the specific payment period number
-            dueDate: p.dueDate ? new Date(p.dueDate.split('/').reverse().join('-')) : new Date(), 
-            amount: parseFloat(String(p.amount).replace(/[^\d]/g, '')), 
+            dueDate: p.dueDate ? new Date(p.dueDate.split('/').reverse().join('-')) : new Date(),
+            amount: parseFloat(String(p.amount).replace(/[^\d.]/g, '')),
             memberId: p.memberId || null, // HuiMember.id of the pot taker
             userId: p.userId, // User.id of the user associated with this payment (e.g. pot taker or manager)
             potTakerId: p.memberId ? p.userId : null, // User.id of the pot taker
-            amountCollected: p.amountCollected, // Changed p.tienHot to p.amountCollected
-            transactionStatus: p.status, 
-            type: 'CONTRIBUTION', 
+            amountCollected: p.amountCollected ? parseFloat(String(p.amountCollected).replace(/[^\d.]/g, '')) : null,
+            thamKeu: p.thamKeu ? parseFloat(String(p.thamKeu).replace(/[^\d.]/g, '')) : null, // Added
+            thao: p.thao ? parseFloat(String(p.thao).replace(/[^\d.]/g, '')) : null,       // Added
+            transactionStatus: p.status,
+            type: 'CONTRIBUTION',
           };
         });
-        
+
         if (paymentCreations.length > 0) {
           await tx.payment.createMany({
             data: paymentCreations,
-            skipDuplicates: true, 
+            skipDuplicates: true,
           });
         }
       }

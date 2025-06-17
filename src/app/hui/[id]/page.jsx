@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchHuiById, updateHui } from '@/store/huiSlice' 
+import { fetchHuiById, updateHui } from '@/store/huiSlice'
 import Layout from '@/components/shared/Layout'
 import Button from '@/components/ui/Button'
 import MemberList from '@/components/members/MemberList'
@@ -18,7 +18,7 @@ export default function HuiDetailPage({ params }) {
     updateHuiLoading,
     updateHuiError
   } = useSelector((state) => state.hui)
-  
+
   const [activeTab, setActiveTab] = useState('info')
   const [isSaving, setIsSaving] = useState(false);
   const FIXED_CURRENT_DATE = "2024-06-25";
@@ -32,7 +32,7 @@ export default function HuiDetailPage({ params }) {
   const handleSavePaymentScheduleChanges = async (updatedScheduleFromTable) => {
     if (!currentHui || !currentHui.members) {
       alert("Lỗi: Không tìm thấy thông tin hụi hoặc danh sách thành viên.");
-      setIsSaving(false); 
+      setIsSaving(false);
       return;
     }
     setIsSaving(true);
@@ -40,40 +40,32 @@ export default function HuiDetailPage({ params }) {
 
     const updatedPaymentsPayload = updatedScheduleFromTable.map(item => {
       let paymentUserId = null;
-      // Attempt to find the User.id from the HuiMember.id (item.thanhVienHotHui)
-      if (item.thanhVienHotHui) { 
+      if (item.thanhVienHotHui) {
         const member = currentHui.members.find(m => m.id === item.thanhVienHotHui);
         if (member && member.userId) {
-          paymentUserId = member.userId; 
+          paymentUserId = member.userId;
         } else {
           console.warn(`Could not find userId for thanhVienHotHui (HuiMember.id): ${item.thanhVienHotHui}`);
-          // Fallback or error handling if userId is strictly required and not found
-          // For now, it will remain null if not found, which might cause API error if Payment.userId is non-nullable and not defaulted
         }
       }
-      
-      // If no specific member is assigned (e.g. thanhVienHotHui is null/empty) and a userId is still required for every payment,
-      // you might default to the managerId or handle as an error.
-      // For this example, if paymentUserId is still null, and your schema demands a userId for Payment,
-      // this will likely fail at the backend unless the backend can default it (e.g. to managerId).
-      // Let's assume for now that if thanhVienHotHui is empty, then the payment is not yet assigned to a specific user for taking the pot.
-      // The backend `userId: p.userId || currentHui.managerId` will handle the fallback to managerId if needed.
 
       return {
         period: parseInt(item.period, 10),
-        dueDate: item.dueDate, 
-        amount: parseFloat(String(item.amountDisplay).replace(/[^\d]/g, '')),
-        memberId: item.thanhVienHotHui || null, 
-        userId: paymentUserId, // userId of the User who is associated with this payment (e.g., the pot taker's user ID)
-        amountCollected: item.tienHot && String(item.tienHot).trim() !== '' ? parseFloat(String(item.tienHot).replace(/[^\d]/g, '')) : null,
-        status: item.status, 
+        dueDate: item.dueDate,
+        amount: parseFloat(String(item.amountDisplay).replace(/[^\d.]/g, '')),
+        memberId: item.thanhVienHotHui || null,
+        userId: paymentUserId,
+        amountCollected: item.tienHot && String(item.tienHot).trim() !== '' ? parseFloat(String(item.tienHot).replace(/[^\d.]/g, '')) : null,
+        status: item.status,
+        thamKeu: item.thamKeu && String(item.thamKeu).trim() !== '' ? parseFloat(String(item.thamKeu).replace(/[^\d.]/g, '')) : null,
+        thao: item.thao && String(item.thao).trim() !== '' ? parseFloat(String(item.thao).replace(/[^\d.]/g, '')) : null
       };
     });
 
     const huiDataToUpdate = {
       ...currentHui,
-      id: currentHui.id, 
-      payments: updatedPaymentsPayload, 
+      id: currentHui.id,
+      payments: updatedPaymentsPayload,
     };
 
     const { manager, members, ...payload } = huiDataToUpdate;
@@ -83,7 +75,7 @@ export default function HuiDetailPage({ params }) {
     try {
       await dispatch(updateHui(payload)).unwrap();
       alert("Lịch thanh toán đã được cập nhật thành công!");
-      dispatch(fetchHuiById(params.id)); 
+      dispatch(fetchHuiById(params.id));
     } catch (err) {
       console.error('Failed to update hui:', err);
       alert(`Lỗi cập nhật lịch thanh toán: ${err.message || 'Vui lòng thử lại.'}`);
@@ -93,14 +85,14 @@ export default function HuiDetailPage({ params }) {
   };
 
   let status;
-  if (fetchHuiByIdLoading || isSaving) { 
+  if (fetchHuiByIdLoading || isSaving) {
     status = 'loading';
   } else if (fetchHuiByIdError || updateHuiError) {
     status = 'failed';
   } else if (currentHui) {
     status = 'succeeded';
   } else {
-    status = 'idle_or_not_found'; 
+    status = 'idle_or_not_found';
   }
 
   if (status === 'loading') {
@@ -132,7 +124,7 @@ export default function HuiDetailPage({ params }) {
         </div>
     </Layout>
   }
-  
+
   const selectedHui = currentHui;
 
   const completedPayments = selectedHui?.payments?.filter(p => p && (p.status === 'DA_THANH_TOAN' || p.transactionStatus === 'DA_THANH_TOAN')).length || 0;
@@ -154,8 +146,8 @@ export default function HuiDetailPage({ params }) {
                 Chỉnh sửa hụi
               </Button>
             </Link>
-            <Button 
-              variant="danger" 
+            <Button
+              variant="danger"
               className="flex items-center"
               onClick={() => alert('Chức năng xóa chưa được cài đặt')}
               disabled={isSaving}
@@ -182,7 +174,7 @@ export default function HuiDetailPage({ params }) {
                 </svg>
                 </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
                 <div className="flex justify-between">
                 <div>
@@ -194,7 +186,7 @@ export default function HuiDetailPage({ params }) {
                 </svg>
                 </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-yellow-500">
                 <div className="flex justify-between">
                 <div>
@@ -206,14 +198,14 @@ export default function HuiDetailPage({ params }) {
                 </svg>
                 </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
                 <div className="flex justify-between">
                 <div>
                     <p className="text-sm text-gray-500 mb-1">Trạng thái hụi</p>
                     <p className="text-xl font-bold text-gray-800 flex items-center">
-                    {selectedHui?.status === 'ACTIVE' ? 
-                        <><span className="text-green-500 mr-1">●</span> Đang hoạt động</> : 
+                    {selectedHui?.status === 'ACTIVE' ?
+                        <><span className="text-green-500 mr-1">●</span> Đang hoạt động</> :
                         <><span className="text-yellow-500 mr-1">●</span> {selectedHui?.status}</>
                     }
                     </p>
@@ -232,8 +224,8 @@ export default function HuiDetailPage({ params }) {
             <p className="text-sm font-semibold">{completedPayments}/{totalRounds} kỳ</p>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div 
-              className="bg-indigo-600 h-2.5 rounded-full" 
+            <div
+              className="bg-indigo-600 h-2.5 rounded-full"
               style={{ width: `${progressPercentage}%` }}
             ></div>
           </div>
@@ -340,8 +332,8 @@ export default function HuiDetailPage({ params }) {
                     <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                       {selectedHui?.rules ? (
                         <pre className="whitespace-pre-wrap bg-gray-100 p-3 rounded-md text-xs">
-                          {typeof selectedHui.rules === 'string' 
-                            ? selectedHui.rules 
+                          {typeof selectedHui.rules === 'string'
+                            ? selectedHui.rules
                             : JSON.stringify(selectedHui.rules, null, 2)
                           }
                         </pre>
@@ -370,8 +362,8 @@ export default function HuiDetailPage({ params }) {
           {activeTab === 'schedules' && (
             <div>
               {selectedHui ? (
-                <PaymentScheduleTable 
-                  huiGroup={selectedHui} 
+                <PaymentScheduleTable
+                  huiGroup={selectedHui}
                   currentDateString={FIXED_CURRENT_DATE}
                   onSaveChanges={handleSavePaymentScheduleChanges}
                   disabled={isSaving} // Pass disabled state to the table
