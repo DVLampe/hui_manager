@@ -175,6 +175,9 @@ model Payment {
   verifiedAt DateTime?                  
   history   PaymentHistory[]
 
+  thamKeu   Decimal? @db.Decimal(10, 2) // Сумма "Thăm kêu" (ставка)
+  thao      Decimal? @db.Decimal(10, 2) // Сумма "Thảo" (комиссия/корректировка)
+
   @@index([userId])
   @@index([potTakerId]) 
   @@index([huiGroupId])

@@ -1,31 +1,42 @@
-// src/components/shared/Sidebar.jsx
 'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSelector } from 'react-redux'
 import { cn } from '@/lib/utils'
 
-const navigation = [
-	{ name: 'Dashboard', href: '/admin' },
-	{ name: 'Hui Groups', href: '/hui' },
-	{ name: 'Members', href: '/members' },
-	{ name: 'Payments', href: '/payments' },
-	{ name: 'Reports', href: '/reports' },
-	{ name: 'Statistics', href: '/admin/statistics' },
-	{ name: 'Users', href: '/admin/users' },
-	{ name: 'Roles', href: '/admin/roles' },
-	{ name: 'Permissions', href: '/admin/permissions' },
+const navigationItems = [
+	{ name: 'Dashboard', href: '/admin', adminOnly: true }, // Changed to adminOnly: true
+	{ name: 'Hui Groups', href: '/hui', adminOnly: false },
+	{ name: 'Members', href: '/members', adminOnly: false },
+	{ name: 'Payments', href: '/payments', adminOnly: false },
+	{ name: 'Statistics', href: '/admin/statistics', adminOnly: true },
+	{ name: 'Users', href: '/admin/users', adminOnly: true },
+	{ name: 'Roles', href: '/admin/roles', adminOnly: true },
+	{ name: 'Permissions', href: '/admin/permissions', adminOnly: true },
 ]
 
 export default function Sidebar() {
 	const pathname = usePathname()
+	const { user } = useSelector((state) => state.auth) 
+
+	// Check if user is admin (assuming role is 'ADMIN' from Redux state)
+	const isAdmin = user && user.role === 'ADMIN'; 
+
+	const filteredNavigation = navigationItems.filter(item => {
+		if (item.adminOnly) {
+			return isAdmin;
+		}
+		return true;
+	});
+
 	return (
 		<aside className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col justify-between py-6 px-0 fixed left-0 top-0 shadow-md overflow-y-auto z-10">
 			<div className="px-6 mb-6">
 				<h1 className="text-xl font-bold text-indigo-600">HuiManager</h1>
 			</div>
 			<nav className="flex-1 flex flex-col gap-1">
-				{navigation.map(item => (
+				{filteredNavigation.map(item => (
 					<Link
 						key={item.name}
 						href={item.href}

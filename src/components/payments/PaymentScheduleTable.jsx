@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import Button from '@/components/ui/Button'; // Assuming you have a Button component
+import Button from '@/components/ui/Button';
+// Modal import removed as it's no longer used directly here for Hốt hụi
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (date) => {
@@ -30,7 +31,6 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
   const { amount, startDate, name: huiName } = huiGroup;
   const cycleDurationMonths = huiGroup.cycle || 1;
 
-  // Initialize schedule or editableSchedule when huiGroup changes or on initial load
   React.useEffect(() => {
     const today = new Date(currentDateString);
     today.setHours(0, 0, 0, 0);
@@ -40,19 +40,20 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
     const generatedSchedule = [];
     for (let i = 0; i < numberOfPeriods; i++) {
       const dueDate = addMonths(new Date(initialStartDate), i * cycleDurationMonths);
-      // Default status from Prisma schema is CHO_THANH_TOAN, but frontend logic can override for display
       let initialDisplayStatus = 'CHO_THANH_TOAN'; 
       if (dueDate > today) {
         initialDisplayStatus = 'CHUA_DEN_KY';
       }
       
       const paymentForPeriod = huiGroup.payments?.find(p => {
-        // This matching logic for payments to periods needs to be robust.
-        // Consider matching by `p.period` if available and reliable.
-        const paymentDate = new Date(p.dueDate); // Assuming payment has a dueDate
+        const paymentDate = new Date(p.dueDate);
+        // Robust matching based on period if available, otherwise fallback to dueDate
+        if (p.period) {
+            return p.period === (i + 1);
+        }
         return paymentDate.getFullYear() === dueDate.getFullYear() && 
                paymentDate.getMonth() === dueDate.getMonth() &&
-               paymentDate.getDate() === dueDate.getDate(); // Be more precise if possible
+               paymentDate.getDate() === dueDate.getDate();
       });
 
       generatedSchedule.push({
@@ -61,10 +62,11 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
         amountDisplay: paymentForPeriod?.amount?.toLocaleString('vi-VN') || parseFloat(amount).toLocaleString('vi-VN'),
         thanhVienHotHui: paymentForPeriod?.memberId || '',
         tienHot: paymentForPeriod?.amountCollected?.toLocaleString('vi-VN') || '',
-        // Use the status from the database (transactionStatus) if available, otherwise use initial display logic
         status: paymentForPeriod?.transactionStatus || initialDisplayStatus, 
         originalAmount: parseFloat(amount).toLocaleString('vi-VN'),
         originalStatus: paymentForPeriod?.transactionStatus || initialDisplayStatus,
+        thamKeu: paymentForPeriod?.thamKeu || '',
+        thao: paymentForPeriod?.thao || '',
       });
     }
     setEditableSchedule(generatedSchedule);
@@ -87,6 +89,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
           }
 
           const paymentForPeriod = huiGroup.payments?.find(p => {
+            if (p.period) return p.period === (i+1);
             const paymentDate = new Date(p.dueDate);
             return paymentDate.getFullYear() === dueDate.getFullYear() && 
                    paymentDate.getMonth() === dueDate.getMonth() &&
@@ -101,6 +104,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
             status: paymentForPeriod?.transactionStatus || initialDisplayStatus,
             originalAmount: parseFloat(amount).toLocaleString('vi-VN'),
             originalStatus: paymentForPeriod?.transactionStatus || initialDisplayStatus,
+            thamKeu: paymentForPeriod?.thamKeu || '',
+            thao: paymentForPeriod?.thao || '',
           });
         }
         setEditableSchedule(resetSchedule);
@@ -117,15 +122,16 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
 
   const handleSaveChanges = () => {
     if (onSaveChanges) {
-      // Ensure the `status` field sent to backend matches the new enum values
       const scheduleToSave = editableSchedule.map(item => ({
         ...item,
-        // Ensure `tienHot` is converted to a number or null if that's what backend expects for amountCollected
+        period: item.period,
+        dueDate: item.dueDate, // Ensure dueDate is passed correctly
         tienHot: item.tienHot ? String(item.tienHot).replace(/[^\d.]/g, '') : null, 
-        // `memberId` might be what `thanhVienHotHui` represents for saving
         memberId: item.thanhVienHotHui, 
-        // Map amountDisplay back to a number if needed for `amount` field when saving
-        amount: parseFloat(String(item.amountDisplay).replace(/[^\d.]/g, ''))
+        amount: parseFloat(String(item.amountDisplay).replace(/[^\d.]/g, '')),
+        thamKeu: item.thamKeu ? String(item.thamKeu).replace(/[^\d.]/g, '') : null,
+        thao: item.thao ? String(item.thao).replace(/[^\d.]/g, '') : null,
+        status: item.status
       }));
       onSaveChanges(scheduleToSave);
     }
@@ -135,7 +141,6 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
 
   const members = huiGroup?.members || [];
 
-  // Map enum values to display text for status
   const statusDisplayMap = {
     CHUA_DEN_KY: 'Chưa đến kỳ',
     CHO_THANH_TOAN: 'Chờ thanh toán',
@@ -145,26 +150,32 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
 
   return (
     <div className="mt-8 bg-white shadow sm:rounded-lg">
-      <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-        <div>
-          <h3 className="text-xl font-semibold leading-6 text-gray-900">
-            Lịch thanh toán dự kiến: {huiName}
-          </h3>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Tổng số kỳ: {numberOfPeriods}, Số tiền mỗi kỳ: {parseFloat(amount).toLocaleString('vi-VN')} VNĐ
-          </p>
-        </div>
-        <div>
-          {isEditing ? (
-            <div className="flex space-x-2">
-              <Button onClick={handleSaveChanges} variant="primary" size="sm">Lưu thay đổi</Button>
-              <Button onClick={handleEditToggle} variant="outline" size="sm">Hủy</Button>
+      <div className="px-4 py-5 sm:px-6">
+        <div className="flex justify-between items-start"> {/* Changed items-center to items-start for better alignment if text wraps */}
+            <div>
+              <h3 className="text-xl font-semibold leading-6 text-gray-900">
+                Lịch thanh toán dự kiến: {huiName}
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                Tổng số kỳ: {numberOfPeriods}, Số tiền mỗi kỳ: {parseFloat(amount).toLocaleString('vi-VN')} VNĐ
+              </p>
+              {/* "Hốt hụi" button removed from here */}
             </div>
-          ) : (
-            <Button onClick={handleEditToggle} variant="outline" size="sm">Chỉnh sửa</Button>
-          )}
+            <div>
+              {isEditing ? (
+                <div className="flex space-x-2">
+                  <Button onClick={handleSaveChanges} variant="primary" size="sm">Lưu thay đổi</Button>
+                  <Button onClick={handleEditToggle} variant="outline" size="sm">Hủy</Button>
+                </div>
+              ) : (
+                <Button onClick={handleEditToggle} variant="outline" size="sm">Chỉnh sửa</Button>
+              )}
+            </div>
         </div>
       </div>
+
+      {/* Modal for "Hốt hụi" and its related state/handlers are removed */}
+
       <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-300">
@@ -175,6 +186,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Số tiền kỳ (VNĐ)</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thành viên hốt hụi</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tiền hốt (VNĐ)</th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thăm kêu</th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thảo</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Trạng thái</th>
               </tr>
             </thead>
@@ -196,7 +209,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {isEditing ? (
+                    {isEditing && !item.thanhVienHotHui ? ( 
                       <select 
                         value={item.thanhVienHotHui} 
                         onChange={(e) => handleInputChange(item.period, 'thanhVienHotHui', e.target.value)}
@@ -204,7 +217,6 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                       >
                         <option value="">Chọn thành viên</option>
                         {members.map(member => (
-                          // Assuming member.user.id and member.user.name if user is nested
                           <option key={member.id || member.userId} value={member.id || member.userId}>
                             {member.user?.name || member.name || member.userId}
                           </option>
@@ -217,7 +229,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
-                    {isEditing ? (
+                    {isEditing && item.thanhVienHotHui ? ( 
                       <input 
                         type="text" 
                         value={item.tienHot}
@@ -229,11 +241,37 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {isEditing && item.thanhVienHotHui ? ( 
+                      <input
+                        type="text"
+                        value={item.thamKeu}
+                        onChange={(e) => handleInputChange(item.period, 'thamKeu', e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md"
+                      />
+                    ) : (
+                      item.thamKeu
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {isEditing && item.thanhVienHotHui ? ( 
+                      <input
+                        type="text"
+                        value={item.thao}
+                        onChange={(e) => handleInputChange(item.period, 'thao', e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md"
+                      />
+                    ) : (
+                      item.thao
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {isEditing ? (
                       <select 
-                        value={item.status} // This should be one of CHUA_DEN_KY, CHO_THANH_TOAN, etc.
+                        value={item.status}
                         onChange={(e) => handleInputChange(item.period, 'status', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md"
+                        // Disable status editing for periods that have been hốt if direct status change isn't desired post-hốt
+                        // disabled={!!item.thanhVienHotHui && item.status === 'DA_THANH_TOAN'}
                       >
                         <option value="CHUA_DEN_KY">Chưa đến kỳ</option>
                         <option value="CHO_THANH_TOAN">Chờ thanh toán</option>
@@ -246,9 +284,9 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                         item.status === 'CHO_THANH_TOAN' ? 'bg-yellow-50 text-yellow-800 ring-yellow-600/20' :
                         item.status === 'DA_THANH_TOAN' ? 'bg-green-50 text-green-700 ring-green-600/20' :
                         item.status === 'HUY' ? 'bg-red-50 text-red-700 ring-red-600/20' :
-                                                      'bg-gray-50 text-gray-600 ring-gray-500/10' // Default for any other unmapped status
+                                                      'bg-gray-50 text-gray-600 ring-gray-500/10'
                       }`}>
-                        {statusDisplayMap[item.status] || item.status} {/* Use map for display */}
+                        {statusDisplayMap[item.status] || item.status}
                       </span>
                     )}
                   </td>
