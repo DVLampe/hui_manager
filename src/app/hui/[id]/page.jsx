@@ -8,6 +8,8 @@ import MemberList from '@/components/members/MemberList'
 import PaymentList from '@/components/payments/PaymentList'
 import PaymentScheduleTable from '@/components/payments/PaymentScheduleTable'
 import Link from 'next/link'
+import Input from '@/components/ui/Input' // Import Input component
+import Select from '@/components/ui/Select' // Import Select component
 
 export default function HuiDetailPage({ params }) {
   const dispatch = useDispatch()
@@ -21,7 +23,14 @@ export default function HuiDetailPage({ params }) {
 
   const [activeTab, setActiveTab] = useState('info')
   const [isSaving, setIsSaving] = useState(false);
+  const [isHotHuiModalOpen, setIsHotHuiModalOpen] = useState(false);
   const FIXED_CURRENT_DATE = "2024-06-25";
+
+  // State for Hot Hui form fields
+  const [hotHuiKy, setHotHuiKy] = useState('');
+  const [hotHuiMemberId, setHotHuiMemberId] = useState('');
+  const [hotHuiThamKeu, setHotHuiThamKeu] = useState('');
+  const [hotHuiThao, setHotHuiThao] = useState('');
 
   useEffect(() => {
     if (params.id) {
@@ -84,6 +93,37 @@ export default function HuiDetailPage({ params }) {
     }
   };
 
+  const resetHotHuiForm = () => {
+    setHotHuiKy('');
+    setHotHuiMemberId('');
+    setHotHuiThamKeu('');
+    setHotHuiThao('');
+  };
+
+  const handleOpenHotHuiModal = () => {
+    resetHotHuiForm();
+    setIsHotHuiModalOpen(true);
+  };
+
+  const handleCloseHotHuiModal = () => {
+    setIsHotHuiModalOpen(false);
+    resetHotHuiForm();
+  };
+
+  const handleHotHuiSubmitInternal = () => {
+    const formData = {
+      ky: hotHuiKy,
+      memberId: hotHuiMemberId,
+      thamKeu: hotHuiThamKeu,
+      thao: hotHuiThao
+    };
+    // Logic to update payment schedule and save
+    console.log("Hot Hui form submitted", formData);
+    // This will eventually call handleSavePaymentScheduleChanges or similar
+    // For now, just logging and closing
+    handleCloseHotHuiModal();
+  };
+
   let status;
   if (fetchHuiByIdLoading || isSaving) {
     status = 'loading';
@@ -130,6 +170,12 @@ export default function HuiDetailPage({ params }) {
   const completedPayments = selectedHui?.payments?.filter(p => p && (p.status === 'DA_THANH_TOAN' || p.transactionStatus === 'DA_THANH_TOAN')).length || 0;
   const totalRounds = selectedHui?.totalMembers || 0;
   const progressPercentage = totalRounds > 0 ? (completedPayments / totalRounds) * 100 : 0;
+
+  const memberOptions = currentHui?.members?.map(member => ({ 
+    value: member.id, 
+    label: member.user?.name || member.name || `Member ID: ${member.id}` 
+  })) || [];
+
 
   return (
     <Layout>
@@ -231,6 +277,17 @@ export default function HuiDetailPage({ params }) {
           </div>
         </div>
 
+        {/* Hot Hui Button */}
+        <div className="mt-4 flex justify-center"> 
+          <Button 
+            variant="primary" 
+            onClick={handleOpenHotHuiModal} 
+            disabled={isSaving || selectedHui?.status !== 'ACTIVE'}
+          >
+            Hốt Hụi
+          </Button>
+        </div>
+
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -295,7 +352,7 @@ export default function HuiDetailPage({ params }) {
                       {selectedHui?.description || "Không có mô tả"}
                     </dd>
                   </div>
-                  {/* ... other info fields ... */}
+                  
                   <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500">Số tiền mỗi kỳ</dt>
                     <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
@@ -366,7 +423,7 @@ export default function HuiDetailPage({ params }) {
                   huiGroup={selectedHui}
                   currentDateString={FIXED_CURRENT_DATE}
                   onSaveChanges={handleSavePaymentScheduleChanges}
-                  disabled={isSaving} // Pass disabled state to the table
+                  disabled={isSaving} 
                 />
               ) : (
                 <p>Chưa có thông tin hụi để hiển thị lịch thanh toán.</p>
@@ -389,6 +446,72 @@ export default function HuiDetailPage({ params }) {
           )}
         </div>
       </div>
+      
+      {isHotHuiModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md mx-auto">
+            <h2 className="text-xl font-semibold mb-6 text-gray-800">Hốt Hụi</h2>
+            
+            <form onSubmit={(e) => { e.preventDefault(); handleHotHuiSubmitInternal(); }} className="space-y-4">
+              <div>
+                <label htmlFor="hotHuiKy" className="block text-sm font-medium text-gray-700 mb-1">Kỳ</label>
+                <Input 
+                  id="hotHuiKy" 
+                  type="number" // Assuming Ky is a period number
+                  value={hotHuiKy} 
+                  onChange={(e) => setHotHuiKy(e.target.value)} 
+                  placeholder="Nhập số kỳ"
+                  className="w-full"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="hotHuiMemberId" className="block text-sm font-medium text-gray-700 mb-1">Thành viên hốt hụi</label>
+                <Select
+                  id="hotHuiMemberId"
+                  value={hotHuiMemberId}
+                  onChange={(e) => setHotHuiMemberId(e.target.value)}
+                  options={[{ value: '', label: 'Chọn thành viên' }, ...memberOptions]}
+                  className="w-full"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="hotHuiThamKeu" className="block text-sm font-medium text-gray-700 mb-1">Thăm kêu (số tiền)</label>
+                <Input 
+                  id="hotHuiThamKeu" 
+                  type="number" 
+                  value={hotHuiThamKeu} 
+                  onChange={(e) => setHotHuiThamKeu(e.target.value)} 
+                  placeholder="Nhập số tiền thăm kêu"
+                  className="w-full"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="hotHuiThao" className="block text-sm font-medium text-gray-700 mb-1">Thảo (số tiền)</label>
+                <Input 
+                  id="hotHuiThao" 
+                  type="number" 
+                  value={hotHuiThao} 
+                  onChange={(e) => setHotHuiThao(e.target.value)} 
+                  placeholder="Nhập số tiền thảo"
+                  className="w-full"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <Button type="button" variant="outline" onClick={handleCloseHotHuiModal}>Hủy</Button>
+                <Button type="submit" variant="primary">Xác nhận Hốt Hụi</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
