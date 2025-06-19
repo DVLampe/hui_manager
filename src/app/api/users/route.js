@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse as OriginalNextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+// Revert to the original NextResponse handling pattern
+const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
 
 // API lấy danh sách users
 export async function GET(request) {

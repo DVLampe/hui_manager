@@ -19,13 +19,17 @@ export const createMember = createAsyncThunk(
   'member/createMember',
   async (memberData, { rejectWithValue }) => {
     try {
-      const response = await axios.post('/api/members', memberData)
-      return response.data
+      // Transform memberData: rename huiId to groupId
+      const { huiId, ...restOfData } = memberData;
+      const transformedData = { ...restOfData, groupId: huiId };
+      
+      const response = await axios.post('/api/members', transformedData); // Send transformedData
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to create member')
+      return rejectWithValue(error.response?.data?.error || 'Failed to create member');
     }
   }
-)
+);
 
 const initialState = {
   members: [],

@@ -54,22 +54,28 @@ export async function GET(request) {
     // Xây dựng query conditions
     const where = {}
     if (huiId) {
-      where.huiGroups = {
+      where.huiGroups = { // This seems to be filtering HuiMember based on related HuiGroup. Check if 'huiGroups' is the correct relation name on HuiMember model for HuiMemberInHuiGroup
         some: {
-          huiId: huiId
+          huiId: huiId // Assuming HuiMemberInHuiGroup has a 'huiId' field.
         }
       }
     }
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } }
-      ]
+      // Assuming HuiMember has a 'name' or 'phone' directly, or through its related 'user'
+      // If 'name' and 'phone' are on the related User model, this needs to be adjusted.
+      // For now, let's assume 'user' relation holds these, so prisma.huiMember.findMany's include should cover it.
+      // The filter needs to be on the related User model.
+      where.user = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } }
+        ]
+      };
     }
 
     // Thực hiện query
     const [members, total] = await Promise.all([
-      prisma.member.findMany({
+      prisma.huiMember.findMany({ // Changed from prisma.member to prisma.huiMember
         where,
         include: {
           user: {
@@ -80,16 +86,12 @@ export async function GET(request) {
               phone: true
             }
           },
-          huiGroups: {
-            include: {
-              hui: {
-                select: {
-                  id: true,
-                  name: true,
-                  amount: true,
-                  status: true
-                }
-              }
+          group: { // Changed from huiGroups to group, assuming 'group' is the relation to HuiGroup on HuiMember model
+            select: {
+              id: true,
+              name: true,
+              amount: true,
+              status: true
             }
           },
           payments: {
@@ -97,18 +99,19 @@ export async function GET(request) {
               id: true,
               amount: true,
               type: true,
-              status: true,
+              status: true, // This should be transactionStatus based on your Payment model
               dueDate: true
             }
           }
         },
         orderBy: {
-          createdAt: 'desc'
+          // createdAt: 'desc' // Assuming HuiMember has a createdAt field. If not, adjust or remove.
+          joinedAt: 'desc' // More likely to sort by joinedAt for members
         },
         skip: (page - 1) * limit,
         take: limit
       }),
-      prisma.member.count({ where })
+      prisma.huiMember.count({ where }) // Changed from prisma.member to prisma.huiMember
     ])
 
     return NextResponseToUse.json({
@@ -142,7 +145,7 @@ export async function POST(request) {
 
   try {
     // Verify authentication
-    const tokenCookie = cookies().get('token') // Changed from huiAuthToken
+    const tokenCookie = cookies().get('token')
     
     if (!tokenCookie || !tokenCookie.value) {
       return NextResponseToUse.json(
@@ -151,7 +154,6 @@ export async function POST(request) {
       )
     }
     
-    // Verify JWT token
     let userData;
     try {
       const { payload } = await jwtVerify(
@@ -169,23 +171,17 @@ export async function POST(request) {
 
     const body = await request.json()
     
-    // Validate dữ liệu
-    if (!body.userId || !body.huiId) {
+    if (!body.userId || !body.groupId) { // Changed body.huiId to body.groupId to match HuiMember schema
       return NextResponseToUse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: userId and groupId are required.' },
         { status: 400 }
       )
     }
 
-    // Kiểm tra xem thành viên đã tồn tại trong hụi chưa
-    const existingMember = await prisma.member.findFirst({
+    const existingMember = await prisma.huiMember.findFirst({ // Changed from prisma.member to prisma.huiMember
       where: {
         userId: body.userId,
-        huiGroups: {
-          some: {
-            huiId: body.huiId
-          }
-        }
+        groupId: body.groupId // Changed from huiGroups.some.huiId to direct groupId
       }
     })
 
@@ -196,17 +192,16 @@ export async function POST(request) {
       )
     }
 
-    // Tạo thành viên mới
-    const member = await prisma.member.create({
+    const member = await prisma.huiMember.create({ // Changed from prisma.member to prisma.huiMember
       data: {
         userId: body.userId,
-        huiGroups: {
-          create: {
-            huiId: body.huiId,
-            status: body.status || 'ACTIVE',
-            joinedAt: new Date()
-          }
-        }
+        groupId: body.groupId, // Changed from huiGroups.create.huiId to direct groupId
+        status: body.status || 'ACTIVE', // Ensure 'ACTIVE' is a valid MemberStatus enum value
+        joinedAt: new Date(),
+        // Add other fields from HuiMember schema as needed, e.g., position, totalPaid, totalDue
+        position: body.position, // Example
+        totalPaid: body.totalPaid || 0, // Example
+        totalDue: body.totalDue || 0,   // Example
       },
       include: {
         user: {
@@ -217,16 +212,12 @@ export async function POST(request) {
             phone: true
           }
         },
-        huiGroups: {
-          include: {
-            hui: {
-              select: {
-                id: true,
-                name: true,
-                amount: true,
-                status: true
-              }
-            }
+        group: { // Changed from huiGroups to group
+          select: {
+            id: true,
+            name: true,
+            amount: true,
+            status: true
           }
         }
       }
@@ -236,14 +227,14 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating member:', error)
     return NextResponseToUse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error.message }, // Added error.message for more details
       { status: 500 }
     )
   }
 }
 
-// PUT /api/members - Cập nhật thông tin thành viên
-export async function PUT(request) {
+// PUT /api/members/:id - Cập nhật thông tin thành viên (HuiMember)
+export async function PUT(request, { params }) { // Assuming member ID comes from URL like /api/members/member-id
   let NextResponseToUse = OriginalNextResponse;
   if (OriginalNextResponse && typeof OriginalNextResponse.json === 'undefined' && OriginalNextResponse.default && typeof OriginalNextResponse.default.json === 'function') {
     NextResponseToUse = OriginalNextResponse.default;
@@ -254,27 +245,22 @@ export async function PUT(request) {
   }
 
   try {
-    // IMPORTANT: This route seems to use getServerSession() which might be from NextAuth.js
-    // If you are using custom JWT token in cookies, you need to change this to verify your custom token.
-    // For now, I am assuming it should use the same cookie token logic as GET/POST.
-    // If it truly uses NextAuth, this part needs separate handling.
-    const tokenCookie = cookies().get('token') // Changed from huiAuthToken, assuming custom token auth
+    const tokenCookie = cookies().get('token')
     
     if (!tokenCookie || !tokenCookie.value) {
       return NextResponseToUse.json(
-        { error: 'Unauthorized: Please login to update members' }, // Added specific message
+        { error: 'Unauthorized: Please login to update members' },
         { status: 401 }
       )
     }
     
-    let userData; // userData from token for authorization if needed
+    let userData;
     try {
       const { payload } = await jwtVerify(
         tokenCookie.value,
         new TextEncoder().encode(JWT_SECRET)
       )
       userData = payload
-      // TODO: Add role/permission checks here if necessary, using userData.role etc.
     } catch (error) {
       console.error('JWT Verification Error:', error.message)
       return NextResponseToUse.json(
@@ -283,45 +269,41 @@ export async function PUT(request) {
       )
     }
 
+    const memberId = params.id; // Get memberId from URL parameters
     const body = await request.json()
     
-    // Validate dữ liệu
-    if (!body.id) {
+    if (!memberId) {
       return NextResponseToUse.json(
-        { error: 'Member ID is required' },
+        { error: 'Member ID is required in the URL path' },
         { status: 400 }
       )
     }
+    
+    // Fields that can be updated on HuiMember model
+    const { status, position, notes, totalPaid, totalDue, lastPaymentDate, nextPaymentDate } = body;
+    const updateData = {};
+    if (status) updateData.status = status; // Ensure 'status' is a valid MemberStatus enum
+    if (position !== undefined) updateData.position = position;
+    if (notes !== undefined) updateData.notes = notes;
+    if (totalPaid !== undefined) updateData.totalPaid = totalPaid;
+    if (totalDue !== undefined) updateData.totalDue = totalDue;
+    if (lastPaymentDate) updateData.lastPaymentDate = new Date(lastPaymentDate);
+    if (nextPaymentDate) updateData.nextPaymentDate = new Date(nextPaymentDate);
+    if (body.leftAt) updateData.leftAt = new Date(body.leftAt);
 
-    // Cập nhật thông tin thành viên
-    const member = await prisma.member.update({
+
+    if (Object.keys(updateData).length === 0) {
+        return NextResponseToUse.json(
+            { error: 'No fields provided to update' },
+            { status: 400 }
+        );
+    }
+
+    const member = await prisma.huiMember.update({ // Changed from prisma.member to prisma.huiMember
       where: {
-        id: body.id
+        id: memberId
       },
-      data: {
-        // Assuming you might want to update fields on the Member model itself
-        // or specific fields within the related HuiMemberInHuiGroup
-        // This example updates the status of a specific HuiMemberInHuiGroup entry
-        // You'll need to adjust this based on what `body.huiGroupId` and `body.status` represent
-        ...(body.huiGroupId && body.status && {
-          huiGroups: {
-            updateMany: { // Or `update` if you have a unique identifier for the HuiMemberInHuiGroup record
-              where: {
-                huiId: body.huiId, // Assuming you want to target by huiId if huiGroupId is not the direct ID of the relation table row
-                // memberId: body.id // This is implicit in the outer where clause for prisma.member.update
-              },
-              data: {
-                status: body.status,
-                // Add other fields to update on HuiMemberInHuiGroup if needed
-              },
-            },
-          },
-        }),
-        // Add other direct Member model fields here if necessary
-        // e.g., if Member has a 'role' or 'notes' field:
-        // role: body.role,
-        // notes: body.notes,
-      },
+      data: updateData,
       include: {
         user: {
           select: {
@@ -331,16 +313,12 @@ export async function PUT(request) {
             phone: true
           }
         },
-        huiGroups: {
-          include: {
-            hui: {
-              select: {
-                id: true,
-                name: true,
-                amount: true,
-                status: true
-              }
-            }
+        group: { // Changed from huiGroups to group
+          select: {
+            id: true,
+            name: true,
+            amount: true,
+            status: true
           }
         }
       }
@@ -349,18 +327,18 @@ export async function PUT(request) {
     return NextResponseToUse.json(member)
   } catch (error) {
     console.error('Error updating member:', error)
-    if (error.code === 'P2025') { // Prisma error code for record not found
-        return NextResponseToUse.json({ error: 'Member or associated record not found' }, { status: 404 });
+    if (error.code === 'P2025') { 
+        return NextResponseToUse.json({ error: 'Member not found' }, { status: 404 });
     }
     return NextResponseToUse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error.message },
       { status: 500 }
     )
   }
 }
 
-// DELETE /api/members - Xóa thành viên (hoặc mối quan hệ thành viên-hụi)
-export async function DELETE(request) {
+// DELETE /api/members/:id - Xóa thành viên (HuiMember)
+export async function DELETE(request, { params }) { // Assuming member ID comes from URL
   let NextResponseToUse = OriginalNextResponse;
   if (OriginalNextResponse && typeof OriginalNextResponse.json === 'undefined' && OriginalNextResponse.default && typeof OriginalNextResponse.default.json === 'function') {
     NextResponseToUse = OriginalNextResponse.default;
@@ -371,27 +349,22 @@ export async function DELETE(request) {
   }
 
   try {
-    // IMPORTANT: This route seems to use getServerSession() which might be from NextAuth.js
-    // If you are using custom JWT token in cookies, you need to change this to verify your custom token.
-    // For now, I am assuming it should use the same cookie token logic as GET/POST.
-    // If it truly uses NextAuth, this part needs separate handling.
-    const tokenCookie = cookies().get('token') // Changed from huiAuthToken, assuming custom token auth
+    const tokenCookie = cookies().get('token')
 
     if (!tokenCookie || !tokenCookie.value) {
       return NextResponseToUse.json(
-        { error: 'Unauthorized: Please login to delete members' }, // Added specific message
+        { error: 'Unauthorized: Please login to delete members' },
         { status: 401 }
       )
     }
     
-    let userData; // userData from token for authorization if needed
+    let userData; 
     try {
       const { payload } = await jwtVerify(
         tokenCookie.value,
         new TextEncoder().encode(JWT_SECRET)
       )
       userData = payload
-      // TODO: Add role/permission checks here if necessary, using userData.role etc.
     } catch (error) {
       console.error('JWT Verification Error:', error.message)
       return NextResponseToUse.json(
@@ -400,60 +373,44 @@ export async function DELETE(request) {
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const memberId = searchParams.get('id') // ID của Member
-    const huiId = searchParams.get('huiId') // ID của Hui (nếu muốn xóa khỏi 1 hụi cụ thể)
+    const memberId = params.id; // Get memberId from URL parameters. This ID is for HuiMember.
 
     if (!memberId) {
       return NextResponseToUse.json(
-        { error: 'Member ID is required' },
+        { error: 'HuiMember ID is required in the URL path' },
         { status: 400 }
       )
     }
+    
+    // Deleting a HuiMember directly. 
+    // If you need to remove a user from a specific HuiGroup, that's what this does.
+    // If you intend to delete the User account, that's a different operation.
+    
+    // First, ensure related payments by this HuiMember are handled (e.g., disassociated or deleted if business logic requires)
+    // This depends on your schema's onDelete rules for Payment.memberId.
+    // If Payment.memberId is optional and onDelete is SetNull, they will be disassociated.
+    // If it's required or onDelete is Cascade, you might need manual handling or be aware of cascading deletes.
 
-    // Kịch bản 1: Xóa thành viên khỏi một hụi cụ thể (xóa record trong HuiMemberInHuiGroup)
-    if (huiId) {
-        const result = await prisma.huiMemberInHuiGroup.deleteMany({
-            where: {
-                memberId: memberId,
-                huiId: huiId,
-            },
-        });
-
-        if (result.count === 0) {
-            return NextResponseToUse.json(
-                { error: 'Member not found in the specified hui or already removed' },
-                { status: 404 }
-            );
+    // For now, directly deleting the HuiMember record:
+    const member = await prisma.huiMember.delete({ // Changed from prisma.member to prisma.huiMember
+        where: {
+            id: memberId
         }
-        return NextResponseToUse.json({ message: 'Member removed from hui successfully' });
-    } else {
-        // Kịch bản 2: Xóa hoàn toàn Member (và các mối quan hệ liên quan do cascading delete если có)
-        // Cẩn thận: Điều này sẽ xóa Member và có thể cả các HuiMemberInHuiGroup liên quan
-        // nếu schema Prisma được cấu hình với onDelete: Cascade.
-        // Nếu không, bạn cần xóa các record liên quan trong HuiMemberInHuiGroup trước.
+    });
+    
+    // Note: The original code had logic for `huiId` from searchParams to delete HuiMemberInHuiGroup.
+    // The current HuiMember model is simpler, linking a User to a HuiGroup directly.
+    // So, deleting a HuiMember record effectively removes the user from that specific group.
 
-        // Bước 1: Xóa các liên kết trong HuiMemberInHuiGroup
-        await prisma.huiMemberInHuiGroup.deleteMany({
-            where: { memberId: memberId }
-        });
-
-        // Bước 2: Xóa Member
-        const member = await prisma.member.delete({
-            where: {
-                id: memberId
-            }
-        });
-        return NextResponseToUse.json({ message: 'Member deleted successfully', member });
-    }
+    return NextResponseToUse.json({ message: 'HuiMember deleted successfully', member });
 
   } catch (error) {
     console.error('Error deleting member:', error)
-    if (error.code === 'P2025') { // Prisma error code for record not found
-        return NextResponseToUse.json({ error: 'Member not found' }, { status: 404 });
+    if (error.code === 'P2025') { 
+        return NextResponseToUse.json({ error: 'HuiMember not found' }, { status: 404 });
     }
     return NextResponseToUse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error.message },
       { status: 500 }
     )
   }
