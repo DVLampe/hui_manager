@@ -1,187 +1,174 @@
+// src/app/api/payments/[id]/route.js
 import { NextResponse as OriginalNextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { cookies } from 'next/headers';
 import { jwtVerify } from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const prisma = new PrismaClient();
+const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
 
-// GET /api/payments/[id]
-// Lấy thông tin chi tiết một khoản thanh toán
+// GET /api/payments/[id] - Fetch details of a single payment period (Kỳ)
 export async function GET(request, { params }) {
-  let NextResponseToUse = OriginalNextResponse;
-  if (OriginalNextResponse && typeof OriginalNextResponse.json === 'undefined' && OriginalNextResponse.default && typeof OriginalNextResponse.default.json === 'function') {
-    NextResponseToUse = OriginalNextResponse.default;
-  }
-  if (typeof NextResponseToUse.json !== 'function') {
-    console.error('CRITICAL: NextResponseToUse.json is NOT a function in GET /api/payments/[id]!');
-    return new Response(JSON.stringify({ message: 'Internal server error.' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-  }
-    try {
-    // Get JWT token from cookies
-    const tokenCookie = cookies().get('huiAuthToken');
+  const { id } = params;
+  try {
+    const tokenCookie = cookies().get('token');
     if (!tokenCookie || !tokenCookie.value) {
-      return NextResponseToUse.json(
-        { error: 'Unauthorized: Please login to view payment details' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized: Please login' }, { status: 401 });
     }
+    await jwtVerify(tokenCookie.value, new TextEncoder().encode(JWT_SECRET));
 
-    // Verify the token
-    let userData;
-    try {
-      const { payload } = await jwtVerify(
-        tokenCookie.value,
-        new TextEncoder().encode(JWT_SECRET)
-      );
-      userData = payload;
-    } catch (error) {
-      console.error('JWT Verification Error:', error.message);
-      return NextResponseToUse.json(
-        { error: 'Unauthorized: Invalid or expired session' },
-        { status: 401 }
-      );
-    }
-    const { id } = params;
-
-    const payment = await prisma.payment.findUnique({
+    const paymentPeriod = await prisma.payment.findUnique({
       where: { id },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },        member: {
+        huiGroup: { select: { id: true, name: true, amount: true } }, // Include group amount as reference
+        user: { select: { id: true, name: true } }, // User who created/managed this period
+        potTakerMember: {
           include: {
-            user: true,
-            group: {
-              select: {
-                id: true,
-                name: true,
-                amount: true,
-                startDate: true,
-                endDate: true
-              }
-            }
+            user: { select: { id: true, name: true } }, // User details for the pot taker
+          },
+        },
+        memberContributions: {
+          orderBy: { member: { user : {name: 'asc'} } }, // Order by member name for consistent display
+          include: {
+            member: {
+              include: {
+                user: { select: { id: true, name: true, email: true } }, // User details for the contributing member
+              },
+            },
+          },
+        },
+        history: { // Include payment history for this period
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {select: {id: true, name: true}}
           }
         },
-        group: true
-      }
-    });    if (!payment) {
-      return NextResponseToUse.json(
-        { error: 'Không tìm thấy khoản thanh toán' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponseToUse.json(payment);
-  } catch (error) {
-    console.error('Lỗi lấy thông tin thanh toán:', error);
-    return NextResponseToUse.json(
-      { error: 'Lỗi server' },
-      { status: 500 }
-    );
-  }
-}
-
-// PATCH /api/payments/[id]
-// Cập nhật thông tin thanh toán
-export async function PATCH(request, { params }) {
-  try {
-    const { id } = params;
-    const body = await request.json();
-    const { amount, type, status, note } = body;
-
-    // Kiểm tra xem payment có tồn tại không
-    const existingPayment = await prisma.payment.findUnique({
-      where: { id }
-    });
-
-    if (!existingPayment) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy khoản thanh toán' },
-        { status: 404 }
-      );
-    }
-
-    // Cập nhật thông tin thanh toán
-    const updatedPayment = await prisma.payment.update({
-      where: { id },
-      data: {
-        amount,
-        type,
-        status,
-        note,
-        updatedAt: new Date()
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },        member: {
-          include: {
-            user: true,
-            group: {
-              select: {
-                id: true,
-                name: true,
-                amount: true
-              }
-            }
-          }
-        },
-        group: true
-      }
     });
 
-    return NextResponse.json(updatedPayment);
+    if (!paymentPeriod) {
+      return NextResponse.json({ error: 'Payment period not found' }, { status: 404 });
+    }
+    return NextResponse.json(paymentPeriod);
   } catch (error) {
-    console.error('Lỗi cập nhật thanh toán:', error);
-    return NextResponse.json(
-      { error: 'Lỗi server' },
-      { status: 500 }
-    );
+    console.error(`Error fetching payment period by ID ${id}:`, error);
+    if (error.name === 'JOSEError') {
+      return NextResponse.json({ error: 'Unauthorized: Invalid session' }, { status: 401 });
+    }
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }
 
-// DELETE /api/payments/[id]
-// Xóa một khoản thanh toán
-export async function DELETE(request, { params }) {
+// PUT /api/payments/[id] - Update an existing payment period (Kỳ)
+export async function PUT(request, { params }) {
+  const { id } = params;
   try {
-    const { id } = params;
-
-    // Kiểm tra xem payment có tồn tại không
-    const existingPayment = await prisma.payment.findUnique({
-      where: { id }
-    });
-
-    if (!existingPayment) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy khoản thanh toán' },
-        { status: 404 }
-      );
+    const tokenCookie = cookies().get('token');
+    if (!tokenCookie || !tokenCookie.value) {
+      return NextResponse.json({ error: 'Unauthorized: Please login' }, { status: 401 });
     }
+    // Add role-based access control if needed, e.g., only manager of the group can update
+    await jwtVerify(tokenCookie.value, new TextEncoder().encode(JWT_SECRET));
 
-    // Xóa thanh toán
-    await prisma.payment.delete({
-      where: { id }
+    const body = await request.json();
+    const {
+      // huiGroupId, // Should not be changed ideally, period belongs to a group
+      // period, // Period number should not be changed ideally
+      dueDate,
+      potTakerMemberId,
+      amount,
+      amountCollected,
+      thamKeu,
+      thao,
+      transactionStatus,
+      cycle,
+      note,
+      type,
+      userId, // User managing this record, if changed
+    } = body;
+
+    const updateData = {};
+    if (dueDate !== undefined) updateData.dueDate = new Date(dueDate);
+    if (potTakerMemberId !== undefined) updateData.potTakerMemberId = potTakerMemberId; // Can be null
+    if (amount !== undefined) updateData.amount = new Prisma.Decimal(amount);
+    if (amountCollected !== undefined) updateData.amountCollected = amountCollected !== null ? new Prisma.Decimal(amountCollected) : null;
+    if (thamKeu !== undefined) updateData.thamKeu = thamKeu !== null ? new Prisma.Decimal(thamKeu) : null;
+    if (thao !== undefined) updateData.thao = thao !== null ? new Prisma.Decimal(thao) : null;
+    if (transactionStatus !== undefined) updateData.transactionStatus = transactionStatus;
+    if (cycle !== undefined) updateData.cycle = parseInt(cycle, 10);
+    if (note !== undefined) updateData.note = note;
+    if (type !== undefined) updateData.type = type;
+    if (userId !== undefined) updateData.userId = userId; // If admin changes the record manager
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields provided to update' }, { status: 400 });
+    }
+    
+    updateData.updatedAt = new Date(); // Explicitly set updatedAt
+
+    const updatedPaymentPeriod = await prisma.payment.update({
+      where: { id },
+      data: updateData,
+      include: {
+        huiGroup: { select: { id: true, name: true, amount: true } },
+        user: { select: { id: true, name: true } },
+        potTakerMember: { include: { user: { select: { id: true, name: true } } } },
+        memberContributions: { include: { member: { include: { user: { select: { id: true, name: true } } } } } },
+        history: { include: { user: {select: {id: true, name: true}}}},
+      },
     });
 
-    return NextResponse.json(
-      { message: 'Xóa thanh toán thành công' },
-      { status: 200 }
-    );
+    return NextResponse.json(updatedPaymentPeriod);
   } catch (error) {
-    console.error('Lỗi xóa thanh toán:', error);
-    return NextResponse.json(
-      { error: 'Lỗi server' },
-      { status: 500 }
-    );
+    console.error(`Error updating payment period ${id}:`, error);
+    if (error.name === 'JOSEError') {
+      return NextResponse.json({ error: 'Unauthorized: Invalid session' }, { status: 401 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Payment period not found for update' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+  }
+}
+
+// DELETE /api/payments/[id] - Delete a payment period (Kỳ)
+export async function DELETE(request, { params }) {
+  const { id } = params;
+  try {
+    const tokenCookie = cookies().get('token');
+    if (!tokenCookie || !tokenCookie.value) {
+      return NextResponse.json({ error: 'Unauthorized: Please login' }, { status: 401 });
+    }
+    // Add role-based access control if needed
+    await jwtVerify(tokenCookie.value, new TextEncoder().encode(JWT_SECRET));
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete associated MemberPeriodContributions
+      await tx.memberPeriodContribution.deleteMany({
+        where: { paymentId: id },
+      });
+
+      // 2. Delete associated PaymentHistory
+      await tx.paymentHistory.deleteMany({
+        where: { paymentId: id },
+      });
+
+      // 3. Delete the Payment period itself
+      await tx.payment.delete({
+        where: { id },
+      });
+    });
+
+    return NextResponse.json({ message: 'Payment period and associated contributions/history deleted successfully' }, { status: 200 });
+  } catch (error) {
+    console.error(`Error deleting payment period ${id}:`, error);
+    if (error.name === 'JOSEError') {
+      return NextResponse.json({ error: 'Unauthorized: Invalid session' }, { status: 401 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Payment period not found for deletion' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }

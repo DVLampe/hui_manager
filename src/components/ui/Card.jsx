@@ -1,7 +1,7 @@
 // src/components/ui/Card.jsx
 import { cn } from '@/lib/utils'
 
-export function Card({
+export default function Card({
     title,
     children,
     className = '',

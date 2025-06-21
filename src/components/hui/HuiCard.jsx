@@ -1,5 +1,5 @@
-import { Card } from '@/components/ui/Card'
-import Button from '@/components/ui/Button' // Изменено здесь
+import Card from '@/components/ui/Card' // Изменено на импорт по умолчанию
+import Button from '@/components/ui/Button'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 
 export function HuiCard({ hui }) {
@@ -30,7 +30,7 @@ export function HuiCard({ hui }) {
           <div className="flex justify-between">
             <dt className="text-sm text-gray-500">Members</dt>
             <dd className="text-sm font-medium text-gray-900">
-              {hui.members.length}/{hui.totalMembers}
+              {hui.members?.length || 0}/{hui.totalMembers}
             </dd>
           </div>
           <div className="flex justify-between">
@@ -49,13 +49,13 @@ export function HuiCard({ hui }) {
           >
             View Details
           </Button>
-          <Button
+          {/* <Button
             href={`/hui/${hui.id}/edit`}
             variant="secondary"
             className="flex-1"
           >
             Edit
-          </Button>
+          </Button> */}
         </div>
       </div>
     </Card>

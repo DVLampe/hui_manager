@@ -11,7 +11,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") 
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -20,22 +20,22 @@ model User {
   password      String
   name          String
   role          Role      @default(USER)
-  phone         String?   
-  avatar        String?   
-  isActive      Boolean   @default(true) 
-  lastLoginAt   DateTime? 
+  phone         String?
+  avatar        String?
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  huiGroups     HuiGroup[]    @relation("GroupManager") 
-  memberships   HuiMember[]   
-  payments      Payment[]     @relation("UserPayments")
-  notifications Notification[] 
-  auditLogs     AuditLog[]    
-  paymentHistories PaymentHistory[]  
-  systemSettings SystemSettings[]    
-  
-  takenPots     Payment[]     @relation("PotTakerUser")
+  huiGroups     HuiGroup[]    @relation("GroupManager")
+  memberships   HuiMember[]
+  payments      Payment[]     @relation("UserPayments") // Payments managed by this user
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  paymentHistories PaymentHistory[]
+  systemSettings SystemSettings[]
+
+  // removed: takenPots     Payment[]     @relation("PotTakerUser")
 
   @@index([email])
   @@index([role])
@@ -71,11 +71,11 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  action    String   
-  entity    String   
-  entityId  String   
-  details   Json?    
-  ipAddress String?  
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  ipAddress String?
   createdAt DateTime @default(now())
 }
 
@@ -83,21 +83,21 @@ model HuiGroup {
   id          String      @id @default(cuid())
   name        String
   description String?
-  amount      Decimal     @db.Decimal(10, 2)  
+  amount      Decimal     @db.Decimal(10, 2) // Base amount per member per period
   startDate   DateTime
   endDate     DateTime?
   status      GroupStatus @default(ACTIVE)
   managerId   String
   manager     User        @relation("GroupManager", fields: [managerId], references: [id])
   members     HuiMember[]
-  payments    Payment[]   
+  payments    Payment[] // Represents periods/events in this group
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  cycle       Int         @default(1)     
+  cycle       Int         @default(1)
   totalMembers Int        @default(0) @db.SmallInt
   currentCycle Int        @default(1) @db.SmallInt
-  nextPaymentDate DateTime?              
-  rules       Json?                       
+  nextPaymentDate DateTime?
+  rules       Json?
 
   @@index([status])
   @@index([managerId])
@@ -113,13 +113,17 @@ model HuiMember {
   group     HuiGroup @relation(fields: [groupId], references: [id])
   joinedAt  DateTime @default(now())
   leftAt    DateTime?
-  payments  Payment[] 
   position  Int?    @db.SmallInt
-  totalPaid Decimal   @db.Decimal(10, 2)
-  totalDue  Decimal   @db.Decimal(10, 2)
-  lastPaymentDate DateTime?             
-  nextPaymentDate DateTime?             
-  notes     String?                     
+  totalPaid Decimal   @db.Decimal(10, 2) // Could be calculated from MemberPeriodContribution
+  totalDue  Decimal   @db.Decimal(10, 2) // Could be calculated
+  lastPaymentDate DateTime?
+  nextPaymentDate DateTime?
+  notes     String?
+
+  contributions     MemberPeriodContribution[] @relation("MemberContributions")
+  takenPaymentPeriods Payment[]                @relation("PotTakenByMemberInPayment") // Periods where this member took the pot
+
+  // removed: payments  Payment[] // was ambiguous
 
   @@index([userId])
   @@index([groupId])
@@ -133,74 +137,111 @@ enum GroupStatus {
 }
 
 model Payment {
-  id        String   @id @default(cuid())
-  
-  period    Int                       // Required field
-  amount    Decimal  @db.Decimal(10, 2) 
-  amountCollected Decimal? @db.Decimal(10, 2) 
-  scheduleStatus String?                  // Potentially redundant with new PaymentStatus enum
+  id        String   @id @default(cuid()) // Represents a specific period (Kỳ) event in a HuiGroup
+  huiGroupId   String
+  huiGroup     HuiGroup @relation(fields: [huiGroupId], references: [id])
+  period    Int         // Номер Kỳ (периода)
 
-  type      PaymentType             
-  transactionStatus PaymentStatus @default(CHO_THANH_TOAN) @map("status") // Uses new enum and default
-  
-  userId    String                  
+  // Who takes the pot in this period
+  potTakerMemberId String?    // HuiMember.id
+  potTakerMember   HuiMember? @relation("PotTakenByMemberInPayment", fields: [potTakerMemberId], references: [id])
+
+  amountCollected Decimal?  @db.Decimal(10, 2) // Total amount collected by potTakerMember
+  thamKeu   Decimal? @db.Decimal(10, 2) // "Thăm kêu" amount for this period
+  thao      Decimal? @db.Decimal(10, 2) // "Thảo" amount for this period
+
+  dueDate   DateTime                    // Due date for this period's contributions
+  paidAt    DateTime?                   // When potTakerMember actually received the money
+
+  transactionStatus PaymentStatus @default(CHO_THANH_TOAN) @map("status") // Overall status of this period
+
+  // User (manager/admin) who recorded/manages this payment period
+  userId    String
   user      User     @relation("UserPayments", fields: [userId], references: [id])
-  
-  potTakerId String?                 
-  potTaker   User?    @relation("PotTakerUser", fields: [potTakerId], references: [id])
 
-  huiGroupId   String                 // Required field
-  huiGroup     HuiGroup @relation(fields: [huiGroupId], references: [id]) // Corresponding relation also required
-  
-  memberId  String?                 
-  member    HuiMember? @relation(fields: [memberId], references: [id])
+  // Individual contributions from members for this period
+  memberContributions MemberPeriodContribution[] @relation("ContributionsForPaymentPeriod")
 
+  // Retained fields
+  amount    Decimal  @db.Decimal(10, 2) // Base amount expected per contributing member (can be HuiGroup.amount)
+  type      PaymentType // e.g., CONTRIBUTION (for member period contributions), WITHDRAWAL (for pot taker) - may need rethink for period
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  dueDate   DateTime                    
-  paidAt    DateTime?                   
-  cycle     Int     @db.SmallInt
-  note      String?                     
-  receipt   String?                     
-  verifiedBy String?                    
-  verifiedAt DateTime?                  
+  cycle     Int     @db.SmallInt // if specific cycle info is needed here
+  note      String?
+  receipt   String?
+  verifiedBy String?
+  verifiedAt DateTime?
   history   PaymentHistory[]
 
-  thamKeu   Decimal? @db.Decimal(10, 2) // Сумма "Thăm kêu" (ставка)
-  thao      Decimal? @db.Decimal(10, 2) // Сумма "Thảo" (комиссия/корректировка)
+  // Fields to review or remove:
+  // scheduleStatus String? // Potentially redundant with transactionStatus
 
+  @@index([huiGroupId, period], name: "unique_period_in_group") // Ensure period is unique within a group
+  @@index([potTakerMemberId])
   @@index([userId])
-  @@index([potTakerId]) 
-  @@index([huiGroupId])
   @@index([transactionStatus])
   @@index([dueDate])
   @@index([paidAt])
-  @@index([scheduleStatus])
+  // @@index([scheduleStatus]) // if kept
+}
+
+// New model for individual member contributions per period
+model MemberPeriodContribution {
+  id        String    @id @default(cuid())
+  paymentId String    // Link to the Payment (Kỳ)
+  payment   Payment   @relation("ContributionsForPaymentPeriod", fields: [paymentId], references: [id])
+
+  memberId  String    // Link to the HuiMember
+  member    HuiMember @relation("MemberContributions", fields: [memberId], references: [id])
+
+  amountContributed Decimal @db.Decimal(10, 2) // Actual amount contributed by this member for this period
+  status            MemberContributionStatus @default(CHUA_DONG) // Status of this specific contribution
+
+  notes             String?
+  contributionDate  DateTime? // Date of actual contribution
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([paymentId, memberId]) // A member has one contribution record per period
+  @@index([memberId])
+  @@index([status])
 }
 
 enum PaymentType {
-  CONTRIBUTION
-  WITHDRAWAL
+  CONTRIBUTION // Represents an individual act of contributing money
+  WITHDRAWAL   // Represents an individual act of withdrawing money (e.g., pot taker)
   FINE
+  PERIOD_SETTLEMENT // Could represent the overall event of a period
 }
 
-// Updated PaymentStatus enum with new values
-enum PaymentStatus { 
-  CHUA_DEN_KY
-  CHO_THANH_TOAN
-  DA_THANH_TOAN
-  HUY
+// Overall status of a Payment period
+enum PaymentStatus {
+  CHUA_DEN_KY     // Period has not started yet
+  CHO_THANH_TOAN  // Period is active, awaiting contributions/settlement
+  DA_THANH_TOAN   // Period is settled, pot has been paid
+  HUY             // Period is cancelled
+}
+
+// Status of an individual member's contribution for a period
+enum MemberContributionStatus {
+  CHUA_DONG     // Not Paid
+  DA_DONG       // Paid
+  MIEN_DONG     // Exempted (e.g., if they are the pot taker for this period)
+  TRE_HAN       // Overdue
+  CHO_XAC_NHAN // Pending confirmation
 }
 
 model PaymentHistory {
   id        String   @id @default(cuid())
   paymentId String
   payment   Payment  @relation(fields: [paymentId], references: [id])
-  status    PaymentStatus // This should also use the new PaymentStatus enum
+  // Consider if status here should be PaymentStatus or a more generic event status string
+  status    String   // Changed from PaymentStatus to String to be more generic for history log
   note      String?
   createdAt DateTime @default(now())
-  createdBy String
+  createdBy String   // User.id
   user      User     @relation(fields: [createdBy], references: [id])
 }
 
@@ -210,6 +251,6 @@ model SystemSettings {
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  updatedBy String
+  updatedBy String   // User.id
   user      User     @relation(fields: [updatedBy], references: [id])
 }

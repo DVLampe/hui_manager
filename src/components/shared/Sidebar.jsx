@@ -6,7 +6,7 @@ import { useSelector } from 'react-redux'
 import { cn } from '@/lib/utils'
 
 const navigationItems = [
-	{ name: 'Dashboard', href: '/admin', adminOnly: true }, // Changed to adminOnly: true
+	{ name: 'Dashboard', href: '/admin', adminOnly: true }, 
 	{ name: 'Hui Groups', href: '/hui', adminOnly: false },
 	{ name: 'Members', href: '/members', adminOnly: false },
 	{ name: 'Payments', href: '/payments', adminOnly: false },
@@ -20,7 +20,6 @@ export default function Sidebar() {
 	const pathname = usePathname()
 	const { user } = useSelector((state) => state.auth) 
 
-	// Check if user is admin (assuming role is 'ADMIN' from Redux state)
 	const isAdmin = user && user.role === 'ADMIN'; 
 
 	const filteredNavigation = navigationItems.filter(item => {
@@ -51,11 +50,37 @@ export default function Sidebar() {
 					</Link>
 				))}
 			</nav>
+			{/* Profile and Settings Links */}
 			<div className="flex flex-col gap-1 px-8 pb-4 border-t border-gray-200 pt-4 mt-4">
-				<Link href="/settings" className="block py-3 text-gray-500 hover:text-primary-600 text-base rounded-md">
+				{user && (
+					<Link 
+						href="/profile" 
+						className={cn(
+							'block py-3 text-base font-medium transition-colors',
+							pathname === '/profile'
+								? 'text-indigo-600 font-semibold' // Slightly different active style for these links
+								: 'text-gray-500 hover:text-indigo-600'
+						)}
+					>
+						Profile
+					</Link>
+				)}
+				<Link 
+					href="/settings" 
+					className={cn(
+						'block py-3 text-base font-medium transition-colors',
+						pathname === '/settings'
+							? 'text-indigo-600 font-semibold'
+							: 'text-gray-500 hover:text-indigo-600'
+					)}
+				>
 					Settings
 				</Link>
-				<Link href="/auth/signin" className="block py-3 text-gray-500 hover:text-primary-600 text-base rounded-md">
+				<Link 
+					href="/auth/signin" // Should be changed to an actual logout mechanism
+					className="block py-3 text-gray-500 hover:text-indigo-600 text-base rounded-md"
+					// onClick={handleLogout} // Example: if you implement a logout function
+				>
 					Log out
 				</Link>
 			</div>

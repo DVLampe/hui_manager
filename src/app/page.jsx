@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchHuis } from '@/store/huiSlice'
-import { Card } from '@/components/ui/Card'
+import Card from '@/components/ui/Card' // Изменено на импорт по умолчанию
 import { Button } from '@/components/ui/Button'
 import { HuiCard } from '@/components/hui/HuiCard'
 import { cn } from '@/lib/utils'
