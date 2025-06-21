@@ -5,6 +5,21 @@ const prisma = new PrismaClient();
 // Revert to the original NextResponse handling pattern
 const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
 
+const huiMemberSelect = {
+  id: true,
+  userId: true,
+  groupId: true,
+  joinedAt: true,
+  leftAt: true,
+  position: true,
+  totalPaid: true,
+  totalDue: true,
+  lastPaymentDate: true,
+  nextPaymentDate: true,
+  notes: true,
+  user: true // Include the user relation with its scalar fields
+};
+
 // GET: Fetch details of a single Hui group
 export async function GET(request, { params }) {
   const { id } = params;
@@ -12,10 +27,14 @@ export async function GET(request, { params }) {
     const hui = await prisma.huiGroup.findUnique({
       where: { id },
       include: {
-        members: { include: { user: true } },
+        members: { 
+          select: huiMemberSelect 
+        },
         payments: {
           include: {
-            member: { include: { user: true } },
+            member: { 
+              select: huiMemberSelect 
+            },
             user: true,
             history: true,
           },
@@ -30,6 +49,10 @@ export async function GET(request, { params }) {
     return NextResponse.json(hui);
   } catch (error) {
     console.error('Error fetching hui by ID:', error);
+    // Check if the error is the specific Prisma error we are trying to fix
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2022' && error.meta && error.meta.column === 'HuiMember.status') {
+        console.error('Caught specific P2022 error for HuiMember.status. This should have been fixed by explicit select.');
+    }
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
@@ -59,9 +82,9 @@ export async function PUT(request, { params }) {
             endDate: huiDataToUpdate.endDate ? new Date(huiDataToUpdate.endDate) : undefined,
             status: huiDataToUpdate.status,
             managerId: huiDataToUpdate.managerId,
-            cycle: huiDataToUpdate.cycle, // This is HuiGroup.cycle (e.g. monthly, bimonthly)
+            cycle: huiDataToUpdate.cycle,
             totalMembers: huiDataToUpdate.totalMembers,
-            currentCycle: huiDataToUpdate.currentCycle, // This is HuiGroup.currentCycle (which cycle the group is in)
+            currentCycle: huiDataToUpdate.currentCycle,
             nextPaymentDate: huiDataToUpdate.nextPaymentDate ? new Date(huiDataToUpdate.nextPaymentDate) : undefined,
             rules: huiDataToUpdate.rules,
         },
@@ -83,15 +106,15 @@ export async function PUT(request, { params }) {
           return {
             huiGroupId: id,
             period: parseInt(p.period, 10),
-            cycle: parseInt(p.period, 10), // Payment.cycle is the specific payment period number
+            cycle: parseInt(p.period, 10),
             dueDate: p.dueDate ? new Date(p.dueDate.split('/').reverse().join('-')) : new Date(),
             amount: parseFloat(String(p.amount).replace(/[^\d.]/g, '')),
-            memberId: p.memberId || null, // HuiMember.id of the pot taker
-            userId: p.userId, // User.id of the user associated with this payment (e.g. pot taker or manager)
-            potTakerId: p.memberId ? p.userId : null, // User.id of the pot taker
+            memberId: p.memberId || null,
+            userId: p.userId,
+            potTakerId: p.memberId ? p.userId : null,
             amountCollected: p.amountCollected ? parseFloat(String(p.amountCollected).replace(/[^\d.]/g, '')) : null,
-            thamKeu: p.thamKeu ? parseFloat(String(p.thamKeu).replace(/[^\d.]/g, '')) : null, // Added
-            thao: p.thao ? parseFloat(String(p.thao).replace(/[^\d.]/g, '')) : null,       // Added
+            thamKeu: p.thamKeu ? parseFloat(String(p.thamKeu).replace(/[^\d.]/g, '')) : null,
+            thao: p.thao ? parseFloat(String(p.thao).replace(/[^\d.]/g, '')) : null,
             transactionStatus: p.status,
             type: 'CONTRIBUTION',
           };
@@ -109,10 +132,14 @@ export async function PUT(request, { params }) {
     const fullyUpdatedHui = await prisma.huiGroup.findUnique({
         where: { id },
         include: {
-            members: { include: { user: true } },
+            members: { 
+              select: huiMemberSelect 
+            },
             payments: {
                 include: {
-                    member: { include: { user: true } },
+                    member: { 
+                      select: huiMemberSelect 
+                    },
                     user: true,
                     history: true,
                 },
@@ -142,12 +169,14 @@ export async function DELETE(request, { params }) {
   const { id } = params;
   try {
     await prisma.$transaction(async (tx) => {
+      // First delete dependent records
       await tx.payment.deleteMany({
         where: { huiGroupId: id },
       });
-      await tx.huiMember.deleteMany({
-        where: { huiGroupId: id },
+      await tx.huiMember.deleteMany({ // Corrected: huiGroupId instead of groupId if your schema has this relation on HuiMember directly
+        where: { groupId: id }, // Assuming HuiMember.groupId links to HuiGroup.id
       });
+      // Then delete the HuiGroup itself
       await tx.huiGroup.delete({
         where: { id },
       });
@@ -155,6 +184,9 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ message: 'Hui deleted successfully' }, { status: 200 });
   } catch (error) {
     console.error(`Error deleting hui ${id}:`, error);
+     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Hui group not found or related records missing for deletion' }, { status: 404 });
+    }
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

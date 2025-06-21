@@ -9,9 +9,20 @@ export async function GET(request, { params }) {
   try {
     const member = await prisma.huiMember.findUnique({
       where: { id: params.id },
-      include: {
-        user: true,
-        group: true
+      select: { // Explicit select
+        id: true,
+        userId: true,
+        groupId: true,
+        joinedAt: true,
+        leftAt: true,
+        position: true,
+        totalPaid: true,
+        totalDue: true,
+        lastPaymentDate: true,
+        nextPaymentDate: true,
+        notes: true,
+        user: true, // Assuming default select for user is fine or define it explicitly
+        group: true // Assuming default select for group is fine or define it explicitly
       }
     })
 
@@ -26,7 +37,7 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error('Error fetching member:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
@@ -37,10 +48,24 @@ export async function PUT(request, { params }) {
   const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
   try {
     const body = await request.json()
+    // Remove fields that should not be directly updated or don't exist
+    const { user, group, ...updateData } = body;
+
     const member = await prisma.huiMember.update({
       where: { id: params.id },
-      data: body,
-      include: {
+      data: updateData, // Use filtered updateData
+      select: { // Explicit select
+        id: true,
+        userId: true,
+        groupId: true,
+        joinedAt: true,
+        leftAt: true,
+        position: true,
+        totalPaid: true,
+        totalDue: true,
+        lastPaymentDate: true,
+        nextPaymentDate: true,
+        notes: true,
         user: true,
         group: true
       }
@@ -50,7 +75,7 @@ export async function PUT(request, { params }) {
   } catch (error) {
     console.error('Error updating member:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
@@ -61,7 +86,8 @@ export async function DELETE(request, { params }) {
   const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
   try {
     await prisma.huiMember.delete({
-      where: { id: params.id }
+      where: { id: params.id },
+      select: { id: true } // Added explicit select to potentially avoid the error
     })
 
     return NextResponse.json(
@@ -70,8 +96,12 @@ export async function DELETE(request, { params }) {
     )
   } catch (error) {
     console.error('Error deleting member:', error)
+    // Check if the error is the specific Prisma error we are trying to fix
+    if (error.code === 'P2022' && error.meta && error.meta.column === 'HuiMember.status') {
+      console.error('P2022 error for HuiMember.status during delete. This indicates an unexpected Prisma behavior.');
+    }
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message, code: error.code },
       { status: 500 }
     )
   }

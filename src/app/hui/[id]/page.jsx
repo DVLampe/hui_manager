@@ -1,24 +1,28 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchHuiById, updateHui } from '@/store/huiSlice'
+import { fetchHuiById, updateHui, deleteHuiMember, resetDeleteMemberStatus } from '@/store/huiSlice' 
 import Layout from '@/components/shared/Layout'
 import Button from '@/components/ui/Button'
 import MemberList from '@/components/members/MemberList'
 import PaymentList from '@/components/payments/PaymentList'
 import PaymentScheduleTable from '@/components/payments/PaymentScheduleTable'
 import Link from 'next/link'
-import Input from '@/components/ui/Input' // Import Input component
-import Select from '@/components/ui/Select' // Import Select component
+import Input from '@/components/ui/Input' 
+import Select from '@/components/ui/Select'
+import { Toaster, useToast } from '@/components/ui/Toaster' // Correctly import useToast
 
 export default function HuiDetailPage({ params }) {
   const dispatch = useDispatch()
+  const { showToast } = useToast() // Use the useToast hook
   const {
     currentHui,
     fetchHuiByIdLoading,
     fetchHuiByIdError,
     updateHuiLoading,
-    updateHuiError
+    updateHuiError,
+    deleteMemberLoading, 
+    deleteMemberError    
   } = useSelector((state) => state.hui)
 
   const [activeTab, setActiveTab] = useState('info')
@@ -26,7 +30,6 @@ export default function HuiDetailPage({ params }) {
   const [isHotHuiModalOpen, setIsHotHuiModalOpen] = useState(false);
   const FIXED_CURRENT_DATE = "2024-06-25";
 
-  // State for Hot Hui form fields
   const [hotHuiKy, setHotHuiKy] = useState('');
   const [hotHuiMemberId, setHotHuiMemberId] = useState('');
   const [hotHuiThamKeu, setHotHuiThamKeu] = useState('');
@@ -38,14 +41,20 @@ export default function HuiDetailPage({ params }) {
     }
   }, [dispatch, params.id])
 
+  useEffect(() => {
+    if (deleteMemberError) {
+      showToast({ message: `Lỗi xóa thành viên: ${deleteMemberError}`, type: 'error' });
+      dispatch(resetDeleteMemberStatus());
+    }
+  }, [deleteMemberError, dispatch, showToast]);
+
   const handleSavePaymentScheduleChanges = async (updatedScheduleFromTable) => {
     if (!currentHui || !currentHui.members) {
-      alert("Lỗi: Không tìm thấy thông tin hụi hoặc danh sách thành viên.");
+      showToast({ message: "Lỗi: Không tìm thấy thông tin hụi hoặc danh sách thành viên.", type: 'error' });
       setIsSaving(false);
       return;
     }
     setIsSaving(true);
-    console.log("Saving schedule changes in HuiDetailPage (data from table):", updatedScheduleFromTable);
 
     const updatedPaymentsPayload = updatedScheduleFromTable.map(item => {
       let paymentUserId = null;
@@ -57,7 +66,6 @@ export default function HuiDetailPage({ params }) {
           console.warn(`Could not find userId for thanhVienHotHui (HuiMember.id): ${item.thanhVienHotHui}`);
         }
       }
-
       return {
         period: parseInt(item.period, 10),
         dueDate: item.dueDate,
@@ -65,7 +73,7 @@ export default function HuiDetailPage({ params }) {
         memberId: item.thanhVienHotHui || null,
         userId: paymentUserId,
         amountCollected: item.tienHot && String(item.tienHot).trim() !== '' ? parseFloat(String(item.tienHot).replace(/[^\d.]/g, '')) : null,
-        status: item.status,
+        status: item.status, // This is payment status
         thamKeu: item.thamKeu && String(item.thamKeu).trim() !== '' ? parseFloat(String(item.thamKeu).replace(/[^\d.]/g, '')) : null,
         thao: item.thao && String(item.thao).trim() !== '' ? parseFloat(String(item.thao).replace(/[^\d.]/g, '')) : null
       };
@@ -76,20 +84,31 @@ export default function HuiDetailPage({ params }) {
       id: currentHui.id,
       payments: updatedPaymentsPayload,
     };
-
     const { manager, members, ...payload } = huiDataToUpdate;
-
-    console.log('Final data being sent to API /api/hui/[id]:', JSON.stringify(payload, null, 2));
 
     try {
       await dispatch(updateHui(payload)).unwrap();
-      alert("Lịch thanh toán đã được cập nhật thành công!");
-      dispatch(fetchHuiById(params.id));
+      showToast({ message: "Lịch thanh toán đã được cập nhật thành công!", type: 'success' });
+      dispatch(fetchHuiById(params.id)); 
     } catch (err) {
       console.error('Failed to update hui:', err);
-      alert(`Lỗi cập nhật lịch thanh toán: ${err.message || 'Vui lòng thử lại.'}`);
+      showToast({ message: `Lỗi cập nhật lịch thanh toán: ${err.message || 'Vui lòng thử lại.'}`, type: 'error' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteMember = async (memberId) => {
+    if (!memberId) {
+      showToast({ message: "Lỗi: Không có ID thành viên để xóa.", type: 'error' });
+      return;
+    }
+    try {
+      await dispatch(deleteHuiMember(memberId)).unwrap();
+      showToast({ message: "Thành viên đã được xóa thành công!", type: 'success' });
+    } catch (err) {
+      console.error('Failed to delete member from page:', err); 
+      // Error is handled by the useEffect for deleteMemberError, which calls showToast
     }
   };
 
@@ -99,35 +118,19 @@ export default function HuiDetailPage({ params }) {
     setHotHuiThamKeu('');
     setHotHuiThao('');
   };
-
-  const handleOpenHotHuiModal = () => {
-    resetHotHuiForm();
-    setIsHotHuiModalOpen(true);
-  };
-
-  const handleCloseHotHuiModal = () => {
-    setIsHotHuiModalOpen(false);
-    resetHotHuiForm();
-  };
-
+  const handleOpenHotHuiModal = () => { resetHotHuiForm(); setIsHotHuiModalOpen(true); };
+  const handleCloseHotHuiModal = () => { setIsHotHuiModalOpen(false); resetHotHuiForm(); };
   const handleHotHuiSubmitInternal = () => {
-    const formData = {
-      ky: hotHuiKy,
-      memberId: hotHuiMemberId,
-      thamKeu: hotHuiThamKeu,
-      thao: hotHuiThao
-    };
-    // Logic to update payment schedule and save
-    console.log("Hot Hui form submitted", formData);
-    // This will eventually call handleSavePaymentScheduleChanges or similar
-    // For now, just logging and closing
+    console.log("Hot Hui form submitted", { hotHuiKy, hotHuiMemberId, hotHuiThamKeu, hotHuiThao });
+    // Add actual submission logic here, e.g., dispatch an action
+    // For now, it just closes the modal
     handleCloseHotHuiModal();
   };
 
   let status;
-  if (fetchHuiByIdLoading || isSaving) {
+  if (fetchHuiByIdLoading || isSaving || deleteMemberLoading) { 
     status = 'loading';
-  } else if (fetchHuiByIdError || updateHuiError) {
+  } else if (fetchHuiByIdError || updateHuiError) { 
     status = 'failed';
   } else if (currentHui) {
     status = 'succeeded';
@@ -137,15 +140,17 @@ export default function HuiDetailPage({ params }) {
 
   if (status === 'loading') {
     return <Layout>
+      <Toaster />
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-        {isSaving && <p className="ml-4 text-indigo-600">Đang lưu thay đổi...</p>}
+        {(isSaving || deleteMemberLoading) && <p className="ml-4 text-indigo-600">Đang xử lý...</p>}
       </div>
     </Layout>
   }
 
   if (status === 'failed') {
     return <Layout>
+      <Toaster />
       <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 my-4">
         <div className="flex">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -159,6 +164,7 @@ export default function HuiDetailPage({ params }) {
 
   if (!currentHui && status !== 'loading' && status !== 'failed') {
     return <Layout>
+      <Toaster />
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4 my-4">
             <p>Không tìm thấy thông tin hụi. (ID: {params.id})</p>
         </div>
@@ -166,239 +172,82 @@ export default function HuiDetailPage({ params }) {
   }
 
   const selectedHui = currentHui;
-
   const completedPayments = selectedHui?.payments?.filter(p => p && (p.status === 'DA_THANH_TOAN' || p.transactionStatus === 'DA_THANH_TOAN')).length || 0;
   const totalRounds = selectedHui?.totalMembers || 0;
   const progressPercentage = totalRounds > 0 ? (completedPayments / totalRounds) * 100 : 0;
-
   const memberOptions = currentHui?.members?.map(member => ({ 
     value: member.id, 
     label: member.user?.name || member.name || `Member ID: ${member.id}` 
   })) || [];
 
-
   return (
     <Layout>
+      <Toaster />
       <div className="space-y-6">
-        {/* Header with Actions */}
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">{selectedHui?.name}</h1>
           <div className="flex space-x-3">
             <Link href={`/hui/${params.id}/edit`}>
-              <Button variant="outline" className="flex items-center" disabled={isSaving}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
+              <Button variant="outline" className="flex items-center" disabled={isSaving || deleteMemberLoading}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 Chỉnh sửa hụi
               </Button>
             </Link>
-            <Button
-              variant="danger"
-              className="flex items-center"
-              onClick={() => alert('Chức năng xóa chưa được cài đặt')}
-              disabled={isSaving}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+            <Button variant="danger" className="flex items-center" onClick={() => showToast({ message: 'Chức năng xóa hụi chưa được cài đặt', type: 'info'})} disabled={isSaving || deleteMemberLoading}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               Xóa hụi
             </Button>
           </div>
         </div>
 
-        {/* Status Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-indigo-500">
-                <div className="flex justify-between">
-                <div>
-                    <p className="text-sm text-gray-500 mb-1">Số tiền mỗi kỳ</p>
-                    <p className="text-xl font-bold text-gray-800">{selectedHui?.amount?.toLocaleString()}đ</p>
-                </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-indigo-200" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                    <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
-                </svg>
-                </div>
+                <p className="text-sm text-gray-500 mb-1">Số tiền mỗi kỳ</p><p className="text-xl font-bold text-gray-800">{selectedHui?.amount?.toLocaleString()}đ</p>
             </div>
-
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
-                <div className="flex justify-between">
-                <div>
-                    <p className="text-sm text-gray-500 mb-1">Số thành viên</p>
-                    <p className="text-xl font-bold text-gray-800">{selectedHui?.members?.length || 0}/{selectedHui?.totalMembers || 0}</p>
-                </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-200" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                </svg>
-                </div>
+                <p className="text-sm text-gray-500 mb-1">Số thành viên</p><p className="text-xl font-bold text-gray-800">{selectedHui?.members?.length || 0}/{selectedHui?.totalMembers || 0}</p>
             </div>
-
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-yellow-500">
-                <div className="flex justify-between">
-                <div>
-                    <p className="text-sm text-gray-500 mb-1">Chu kỳ</p>
-                    <p className="text-xl font-bold text-gray-800">{selectedHui?.cycle || 1} tháng</p>
-                </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-yellow-200" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
-                </div>
+                <p className="text-sm text-gray-500 mb-1">Chu kỳ</p><p className="text-xl font-bold text-gray-800">{selectedHui?.cycle || 1} tháng</p>
             </div>
-
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
-                <div className="flex justify-between">
-                <div>
-                    <p className="text-sm text-gray-500 mb-1">Trạng thái hụi</p>
-                    <p className="text-xl font-bold text-gray-800 flex items-center">
-                    {selectedHui?.status === 'ACTIVE' ?
-                        <><span className="text-green-500 mr-1">●</span> Đang hoạt động</> :
-                        <><span className="text-yellow-500 mr-1">●</span> {selectedHui?.status}</>
-                    }
-                    </p>
-                </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-200" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                </svg>
-                </div>
+                <p className="text-sm text-gray-500 mb-1">Trạng thái hụi</p><p className="text-xl font-bold text-gray-800">{selectedHui?.status}</p>
             </div>
         </div>
-
-        {/* Progress bar */}
         <div className="bg-white rounded-lg shadow p-5">
-          <div className="flex justify-between mb-2">
-            <p className="text-sm text-gray-500">Tiến độ</p>
-            <p className="text-sm font-semibold">{completedPayments}/{totalRounds} kỳ</p>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div
-              className="bg-indigo-600 h-2.5 rounded-full"
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
-          </div>
+          <div className="flex justify-between mb-2"><p>Tiến độ</p><p>{completedPayments}/{totalRounds} kỳ</p></div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div></div>
         </div>
 
-        {/* Hot Hui Button */}
         <div className="mt-4 flex justify-center"> 
-          <Button 
-            variant="primary" 
-            onClick={handleOpenHotHuiModal} 
-            disabled={isSaving || selectedHui?.status !== 'ACTIVE'}
-          >
-            Hốt Hụi
-          </Button>
+          <Button variant="primary" onClick={handleOpenHotHuiModal} disabled={isSaving || deleteMemberLoading || selectedHui?.status !== 'ACTIVE'}>Hốt Hụi</Button>
         </div>
 
-        {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('info')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'info'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Thông tin chi tiết
-            </button>
-            <button
-              onClick={() => setActiveTab('members')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'members'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Danh sách thành viên
-            </button>
-            <button
-              onClick={() => setActiveTab('schedules')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'schedules'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Lịch thanh toán
-            </button>
-            <button
-              onClick={() => setActiveTab('payments')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'payments'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Lịch sử giao dịch
-            </button>
+            {['info', 'members', 'schedules', 'payments'].map(tabName => (
+              <button
+                key={tabName}
+                onClick={() => setActiveTab(tabName)}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tabName
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tabName === 'info' && 'Thông tin chi tiết'}
+                {tabName === 'members' && 'Danh sách thành viên'}
+                {tabName === 'schedules' && 'Lịch thanh toán'}
+                {tabName === 'payments' && 'Lịch sử giao dịch'}
+              </button>
+            ))}
           </nav>
         </div>
 
-        {/* Tab Content */}
         <div className="mt-6">
           {activeTab === 'info' && (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="border-t border-gray-200">
-                <dl>
-                  <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Tên hụi</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.name}
-                    </dd>
-                  </div>
-                  <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Mô tả</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.description || "Không có mô tả"}
-                    </dd>
-                  </div>
-                  
-                  <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Số tiền mỗi kỳ</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.amount?.toLocaleString()}đ
-                    </dd>
-                  </div>
-                  <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Ngày bắt đầu</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.startDate ? new Date(selectedHui.startDate).toLocaleDateString('vi-VN') : "Chưa thiết lập"}
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Ngày kết thúc (dự kiến)</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.endDate ? new Date(selectedHui.endDate).toLocaleDateString('vi-VN') : "Chưa thiết lập"}
-                    </dd>
-                  </div>
-                  <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Chu kỳ</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.cycle || 1} tháng
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Người quản lý</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.manager?.name || "N/A"}
-                      {selectedHui?.manager?.email && ` (${selectedHui.manager.email})`}
-                    </dd>
-                  </div>
-                  <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500">Quy định</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {selectedHui?.rules ? (
-                        <pre className="whitespace-pre-wrap bg-gray-100 p-3 rounded-md text-xs">
-                          {typeof selectedHui.rules === 'string'
-                            ? selectedHui.rules
-                            : JSON.stringify(selectedHui.rules, null, 2)
-                          }
-                        </pre>
-                      ) : "Không có quy định đặc biệt"}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+              {/* Hui Info Details will be rendered here */}
             </div>
           )}
 
@@ -407,12 +256,16 @@ export default function HuiDetailPage({ params }) {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">Danh sách thành viên ({selectedHui?.members?.length || 0})</h2>
                 <Link href={`/members/create?huiId=${selectedHui?.id}`}>
-                    <Button variant="primary" size="sm" disabled={isSaving}>
+                    <Button variant="primary" size="sm" disabled={isSaving || deleteMemberLoading}>
                         Thêm thành viên
                     </Button>
                 </Link>
               </div>
-              <MemberList members={selectedHui?.members || []} huiId={selectedHui?.id} />
+              <MemberList 
+                members={selectedHui?.members || []} 
+                huiId={selectedHui?.id} 
+                onDeleteMember={handleDeleteMember} 
+              />
             </div>
           )}
 
@@ -423,7 +276,7 @@ export default function HuiDetailPage({ params }) {
                   huiGroup={selectedHui}
                   currentDateString={FIXED_CURRENT_DATE}
                   onSaveChanges={handleSavePaymentScheduleChanges}
-                  disabled={isSaving} 
+                  disabled={isSaving || deleteMemberLoading} 
                 />
               ) : (
                 <p>Chưa có thông tin hụi để hiển thị lịch thanh toán.</p>
@@ -432,11 +285,11 @@ export default function HuiDetailPage({ params }) {
           )}
 
           {activeTab === 'payments' && (
-            <div>
+             <div>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">Lịch sử giao dịch ({selectedHui?.payments?.length || 0})</h2>
                 <Link href={`/payments/create?huiId=${selectedHui?.id}&amount=${selectedHui?.amount}`}>
-                    <Button variant="primary" size="sm" disabled={isSaving}>
+                    <Button variant="primary" size="sm" disabled={isSaving || deleteMemberLoading}>
                         Thêm giao dịch
                     </Button>
                 </Link>
@@ -449,64 +302,56 @@ export default function HuiDetailPage({ params }) {
       
       {isHotHuiModalOpen && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center z-50">
-          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md mx-auto">
-            <h2 className="text-xl font-semibold mb-6 text-gray-800">Hốt Hụi</h2>
-            
-            <form onSubmit={(e) => { e.preventDefault(); handleHotHuiSubmitInternal(); }} className="space-y-4">
-              <div>
-                <label htmlFor="hotHuiKy" className="block text-sm font-medium text-gray-700 mb-1">Kỳ</label>
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Hốt Hụi</h2>
+            <form>
+              <p className="text-xs text-gray-500 mb-2">Debug: Member options count: {memberOptions.length}</p>
+              <div className="mb-4">
+                <label htmlFor="hotHuiKy" className="block text-sm font-medium text-gray-700 mb-1">Kỳ hốt</label>
                 <Input 
+                  type="text" 
                   id="hotHuiKy" 
-                  type="number" // Assuming Ky is a period number
                   value={hotHuiKy} 
                   onChange={(e) => setHotHuiKy(e.target.value)} 
-                  placeholder="Nhập số kỳ"
+                  placeholder="Nhập kỳ hốt" 
                   className="w-full"
-                  required
                 />
               </div>
-              
-              <div>
-                <label htmlFor="hotHuiMemberId" className="block text-sm font-medium text-gray-700 mb-1">Thành viên hốt hụi</label>
+              <div className="mb-4">
+                <label htmlFor="hotHuiMemberId" className="block text-sm font-medium text-gray-700 mb-1">Thành viên hốt</label>
                 <Select
                   id="hotHuiMemberId"
                   value={hotHuiMemberId}
                   onChange={(e) => setHotHuiMemberId(e.target.value)}
                   options={[{ value: '', label: 'Chọn thành viên' }, ...memberOptions]}
                   className="w-full"
-                  required
                 />
               </div>
-
-              <div>
-                <label htmlFor="hotHuiThamKeu" className="block text-sm font-medium text-gray-700 mb-1">Thăm kêu (số tiền)</label>
+              <div className="mb-4">
+                <label htmlFor="hotHuiThamKeu" className="block text-sm font-medium text-gray-700 mb-1">Thẩm kêu</label>
                 <Input 
-                  id="hotHuiThamKeu" 
                   type="number" 
+                  id="hotHuiThamKeu" 
                   value={hotHuiThamKeu} 
                   onChange={(e) => setHotHuiThamKeu(e.target.value)} 
-                  placeholder="Nhập số tiền thăm kêu"
+                  placeholder="Nhập số tiền thẩm kêu" 
                   className="w-full"
-                  required
                 />
               </div>
-
-              <div>
-                <label htmlFor="hotHuiThao" className="block text-sm font-medium text-gray-700 mb-1">Thảo (số tiền)</label>
+              <div className="mb-4">
+                <label htmlFor="hotHuiThao" className="block text-sm font-medium text-gray-700 mb-1">Thảo</label>
                 <Input 
-                  id="hotHuiThao" 
                   type="number" 
+                  id="hotHuiThao" 
                   value={hotHuiThao} 
                   onChange={(e) => setHotHuiThao(e.target.value)} 
-                  placeholder="Nhập số tiền thảo"
+                  placeholder="Nhập số tiền thảo" 
                   className="w-full"
-                  required
                 />
               </div>
-
-              <div className="flex justify-end space-x-3 mt-8">
-                <Button type="button" variant="outline" onClick={handleCloseHotHuiModal}>Hủy</Button>
-                <Button type="submit" variant="primary">Xác nhận Hốt Hụi</Button>
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button type="button" variant="secondary" onClick={handleCloseHotHuiModal}>Hủy</Button>
+                <Button type="button" variant="primary" onClick={handleHotHuiSubmitInternal}>Xác nhận</Button>
               </div>
             </form>
           </div>

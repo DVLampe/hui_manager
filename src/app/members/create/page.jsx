@@ -23,8 +23,7 @@ export default function CreateMemberPage() {
   
   const [formData, setFormData] = useState({
     userId: '',
-    huiId: huiIdFromUrl || '',
-    status: 'ACTIVE'
+    huiId: huiIdFromUrl || ''
   })
   
   const [users, setUsers] = useState([])
@@ -131,16 +130,6 @@ export default function CreateMemberPage() {
             </Select>
             {loading && <p className="text-sm text-gray-500 mt-1">Đang tải danh sách người dùng...</p>}
             {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Trạng thái</label>
-            <Select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            >
-              <option value="ACTIVE">Hoạt động</option>
-              <option value="INACTIVE">Không hoạt động</option>
-            </Select>
           </div>
           <div className="flex space-x-4">
             <Button 

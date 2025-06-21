@@ -13,9 +13,11 @@ const initialState = {
   createdHuiData: null,
   fetchHuiByIdLoading: false,
   fetchHuiByIdError: null,
-  updateHuiLoading: false, // Added for update
-  updateHuiError: null,   // Added for update
-  updateHuiSuccess: false, // Added for update
+  updateHuiLoading: false,
+  updateHuiError: null,
+  updateHuiSuccess: false,
+  deleteMemberLoading: false, // For deleting a member
+  deleteMemberError: null,   // For deleting a member
 };
 
 // Async thunk to fetch hui groups
@@ -62,11 +64,24 @@ export const updateHui = createAsyncThunk(
   'hui/updateHui',
   async (huiData, { rejectWithValue }) => {
     try {
-      const { id, ...dataToUpdate } = huiData; // Destructure id and the rest of the data
+      const { id, ...dataToUpdate } = huiData;
       const response = await axios.put(`/api/hui/${id}`, dataToUpdate);
-      return response.data; // API should return the updated hui object
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update hui');
+    }
+  }
+);
+
+// Async thunk to delete a member from a hui
+export const deleteHuiMember = createAsyncThunk(
+  'hui/deleteHuiMember',
+  async (memberId, { getState, rejectWithValue }) => {
+    try {
+      await axios.delete(`/api/members/${memberId}`);
+      return memberId; // Return the ID of the deleted member for reducer logic
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete member');
     }
   }
 );
@@ -87,11 +102,15 @@ const huiSlice = createSlice({
     clearCurrentHui: (state) => {
       state.currentHui = null;
     },
-    resetUpdateHuiStatus: (state) => { // Added to reset update status
+    resetUpdateHuiStatus: (state) => {
       state.updateHuiLoading = false;
       state.updateHuiError = null;
       state.updateHuiSuccess = false;
     },
+    resetDeleteMemberStatus: (state) => {
+      state.deleteMemberLoading = false;
+      state.deleteMemberError = null;
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -134,7 +153,6 @@ const huiSlice = createSlice({
       .addCase(fetchHuiById.pending, (state) => {
         state.fetchHuiByIdLoading = true;
         state.fetchHuiByIdError = null;
-        // state.currentHui = null; // Keep currentHui for better UX during optimistic updates or re-fetches
       })
       .addCase(fetchHuiById.fulfilled, (state, action) => {
         state.fetchHuiByIdLoading = false;
@@ -153,8 +171,7 @@ const huiSlice = createSlice({
       .addCase(updateHui.fulfilled, (state, action) => {
         state.updateHuiLoading = false;
         state.updateHuiSuccess = true;
-        state.currentHui = action.payload; // Update currentHui with the response from API
-        // Optionally, update the hui in the `huis` list as well
+        state.currentHui = action.payload;
         const index = state.huis.findIndex(h => h.id === action.payload.id);
         if (index !== -1) {
           state.huis[index] = action.payload;
@@ -164,6 +181,30 @@ const huiSlice = createSlice({
         state.updateHuiLoading = false;
         state.updateHuiError = action.payload;
         state.updateHuiSuccess = false;
+      })
+      // Delete Hui Member
+      .addCase(deleteHuiMember.pending, (state) => {
+        state.deleteMemberLoading = true;
+        state.deleteMemberError = null;
+      })
+      .addCase(deleteHuiMember.fulfilled, (state, action) => {
+        state.deleteMemberLoading = false;
+        if (state.currentHui && state.currentHui.members) {
+          state.currentHui.members = state.currentHui.members.filter(
+            (member) => member.id !== action.payload
+          );
+        }
+        // Optionally, if you want to reflect this change in the main `huis` list as well:
+        if (state.currentHui) {
+          const huiIndex = state.huis.findIndex(h => h.id === state.currentHui.id);
+          if (huiIndex !== -1) {
+            state.huis[huiIndex] = { ...state.currentHui }; // Update the hui in the list
+          }
+        }
+      })
+      .addCase(deleteHuiMember.rejected, (state, action) => {
+        state.deleteMemberLoading = false;
+        state.deleteMemberError = action.payload;
       });
   },
 });
@@ -172,7 +213,8 @@ export const {
   resetCreateHuiStatus, 
   setCurrentHui, 
   clearCurrentHui,
-  resetUpdateHuiStatus // Export new action
+  resetUpdateHuiStatus,
+  resetDeleteMemberStatus // Export new action
 } = huiSlice.actions;
 
 export default huiSlice.reducer;

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Button from '@/components/ui/Button';
-// Modal import removed as it's no longer used directly here for Hốt hụi
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (date) => {
@@ -159,7 +158,6 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
               <p className="mt-1 max-w-2xl text-sm text-gray-500">
                 Tổng số kỳ: {numberOfPeriods}, Số tiền mỗi kỳ: {parseFloat(amount).toLocaleString('vi-VN')} VNĐ
               </p>
-              {/* "Hốt hụi" button removed from here */}
             </div>
             <div>
               {isEditing ? (
@@ -174,7 +172,6 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
         </div>
       </div>
 
-      {/* Modal for "Hốt hụi" and its related state/handlers are removed */}
 
       <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
         <div className="overflow-x-auto">
@@ -185,9 +182,9 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Ngày đến hạn</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Số tiền kỳ (VNĐ)</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thành viên hốt hụi</th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tiền hốt (VNĐ)</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thăm kêu</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thảo</th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tiền hốt (VNĐ)</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Trạng thái</th>
               </tr>
             </thead>
@@ -228,18 +225,6 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                       item.thanhVienHotHui || 'N/A'
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={item.tienHot}
-                        onChange={(e) => handleInputChange(item.period, 'tienHot', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-right"
-                      />
-                    ) : (
-                      item.tienHot
-                    )}
-                  </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {isEditing ? (
                       <input
@@ -262,6 +247,18 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                       />
                     ) : (
                       item.thao
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={item.tienHot}
+                        onChange={(e) => handleInputChange(item.period, 'tienHot', e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-right"
+                      />
+                    ) : (
+                      item.tienHot
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
