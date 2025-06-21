@@ -180,7 +180,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
               <tr>
                 <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Kỳ</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Ngày đến hạn</th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Số tiền kỳ (VNĐ)</th>
+                {/* <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Số tiền kỳ (VNĐ)</th> */}
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thành viên hốt hụi</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thăm kêu</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Thảo</th>
@@ -193,6 +193,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                 <tr key={item.period}>
                   <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{item.period}</td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{item.dueDate}</td>
+                  {/*
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
                     {isEditing ? (
                       <input
@@ -205,6 +206,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                       item.amountDisplay
                     )}
                   </td>
+                  */}
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {isEditing && !item.thanhVienHotHui ? (
                       <select

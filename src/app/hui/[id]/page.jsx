@@ -7,14 +7,15 @@ import Button from '@/components/ui/Button'
 import MemberList from '@/components/members/MemberList'
 import PaymentList from '@/components/payments/PaymentList'
 import PaymentScheduleTable from '@/components/payments/PaymentScheduleTable'
+import DetailedPaymentScheduleTable from '@/components/payments/DetailedPaymentScheduleTable' // Import the new component
 import Link from 'next/link'
 import Input from '@/components/ui/Input' 
 import Select from '@/components/ui/Select'
-import { Toaster, useToast } from '@/components/ui/Toaster' // Correctly import useToast
+import { Toaster, useToast } from '@/components/ui/Toaster' 
 
 export default function HuiDetailPage({ params }) {
   const dispatch = useDispatch()
-  const { showToast } = useToast() // Use the useToast hook
+  const { showToast } = useToast() 
   const {
     currentHui,
     fetchHuiByIdLoading,
@@ -28,7 +29,7 @@ export default function HuiDetailPage({ params }) {
   const [activeTab, setActiveTab] = useState('info')
   const [isSaving, setIsSaving] = useState(false);
   const [isHotHuiModalOpen, setIsHotHuiModalOpen] = useState(false);
-  const FIXED_CURRENT_DATE = "2024-06-25";
+  const FIXED_CURRENT_DATE = "2024-06-25"; // This should ideally come from a configurable source or global state
 
   const [hotHuiKy, setHotHuiKy] = useState('');
   const [hotHuiMemberId, setHotHuiMemberId] = useState('');
@@ -66,16 +67,23 @@ export default function HuiDetailPage({ params }) {
           console.warn(`Could not find userId for thanhVienHotHui (HuiMember.id): ${item.thanhVienHotHui}`);
         }
       }
+      // Helper to parse localized string to number
+      const parseLocaleNumber = (str) => {
+        if (typeof str !== 'string' || !str.trim()) return null;
+        // Remove dots (thousands separators) and then replace comma (decimal) with dot
+        return parseFloat(str.replace(/\./g, '').replace(',', '.'));
+      };
+
       return {
         period: parseInt(item.period, 10),
-        dueDate: item.dueDate,
-        amount: parseFloat(String(item.amountDisplay).replace(/[^\d.]/g, '')),
+        dueDate: item.dueDate, // Date should be in YYYY-MM-DD or parsable format if not already
+        amount: parseLocaleNumber(String(item.amountDisplay)),
         memberId: item.thanhVienHotHui || null,
         userId: paymentUserId,
-        amountCollected: item.tienHot && String(item.tienHot).trim() !== '' ? parseFloat(String(item.tienHot).replace(/[^\d.]/g, '')) : null,
+        amountCollected: parseLocaleNumber(String(item.tienHot)),
         status: item.status, // This is payment status
-        thamKeu: item.thamKeu && String(item.thamKeu).trim() !== '' ? parseFloat(String(item.thamKeu).replace(/[^\d.]/g, '')) : null,
-        thao: item.thao && String(item.thao).trim() !== '' ? parseFloat(String(item.thao).replace(/[^\d.]/g, '')) : null
+        thamKeu: parseLocaleNumber(String(item.thamKeu)),
+        thao: parseLocaleNumber(String(item.thao))
       };
     });
 
@@ -106,9 +114,12 @@ export default function HuiDetailPage({ params }) {
     try {
       await dispatch(deleteHuiMember(memberId)).unwrap();
       showToast({ message: "Thành viên đã được xóa thành công!", type: 'success' });
+      // No need to manually refetch hui if the store is updated correctly by the slice
+      // However, if there are local state dependencies that need hui re-fetch, uncomment:
+      // dispatch(fetchHuiById(params.id)); 
     } catch (err) {
       console.error('Failed to delete member from page:', err); 
-      // Error is handled by the useEffect for deleteMemberError, which calls showToast
+      // Error toast is handled by useEffect on deleteMemberError
     }
   };
 
@@ -121,9 +132,12 @@ export default function HuiDetailPage({ params }) {
   const handleOpenHotHuiModal = () => { resetHotHuiForm(); setIsHotHuiModalOpen(true); };
   const handleCloseHotHuiModal = () => { setIsHotHuiModalOpen(false); resetHotHuiForm(); };
   const handleHotHuiSubmitInternal = () => {
+    // This is where you would dispatch an action to update the payment with hốt hụi details
+    // For example, finding the payment for hotHuiKy, updating its memberId, thamKeu, thao, amountCollected, status
+    // Then calling handleSavePaymentScheduleChanges or a similar update function.
     console.log("Hot Hui form submitted", { hotHuiKy, hotHuiMemberId, hotHuiThamKeu, hotHuiThao });
-    // Add actual submission logic here, e.g., dispatch an action
-    // For now, it just closes the modal
+    // Placeholder: show a toast and close
+    showToast({ message: 'Chức năng Hốt Hụi đang được phát triển.', type: 'info' });
     handleCloseHotHuiModal();
   };
 
@@ -135,7 +149,7 @@ export default function HuiDetailPage({ params }) {
   } else if (currentHui) {
     status = 'succeeded';
   } else {
-    status = 'idle_or_not_found';
+    status = 'idle_or_not_found'; // Represents a state where no hui is loaded, not necessarily an error yet.
   }
 
   if (status === 'loading') {
@@ -180,10 +194,19 @@ export default function HuiDetailPage({ params }) {
     label: member.user?.name || member.name || `Member ID: ${member.id}` 
   })) || [];
 
+  const tabItems = [
+    { id: 'info', label: 'Thông tin chi tiết' },
+    { id: 'members', label: 'Danh sách thành viên' },
+    { id: 'schedules', label: 'Lịch thanh toán' },
+    { id: 'detailed_schedules', label: 'Lịch thanh toán chi tiết' }, // New tab added
+    { id: 'payments', label: 'Lịch sử giao dịch' },
+  ];
+
   return (
     <Layout>
       <Toaster />
       <div className="space-y-6">
+        {/* Header and Hui Stats - unchanged */}
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">{selectedHui?.name}</h1>
           <div className="flex space-x-3">
@@ -202,7 +225,7 @@ export default function HuiDetailPage({ params }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-indigo-500">
-                <p className="text-sm text-gray-500 mb-1">Số tiền mỗi kỳ</p><p className="text-xl font-bold text-gray-800">{selectedHui?.amount?.toLocaleString()}đ</p>
+                <p className="text-sm text-gray-500 mb-1">Số tiền mỗi kỳ</p><p className="text-xl font-bold text-gray-800">{selectedHui?.amount?.toLocaleString('vi-VN')}đ</p>
             </div>
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
                 <p className="text-sm text-gray-500 mb-1">Số thành viên</p><p className="text-xl font-bold text-gray-800">{selectedHui?.members?.length || 0}/{selectedHui?.totalMembers || 0}</p>
@@ -223,31 +246,46 @@ export default function HuiDetailPage({ params }) {
           <Button variant="primary" onClick={handleOpenHotHuiModal} disabled={isSaving || deleteMemberLoading || selectedHui?.status !== 'ACTIVE'}>Hốt Hụi</Button>
         </div>
 
+        {/* Tabs - unchanged structure, new item added to tabItems */}
         <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-            {['info', 'members', 'schedules', 'payments'].map(tabName => (
+          <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+            {tabItems.map(tab => (
               <button
-                key={tabName}
-                onClick={() => setActiveTab(tabName)}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
                 className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tabName
+                  activeTab === tab.id
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                {tabName === 'info' && 'Thông tin chi tiết'}
-                {tabName === 'members' && 'Danh sách thành viên'}
-                {tabName === 'schedules' && 'Lịch thanh toán'}
-                {tabName === 'payments' && 'Lịch sử giao dịch'}
+                {tab.label}
               </button>
             ))}
           </nav>
         </div>
 
+        {/* Tab Content */}
         <div className="mt-6">
           {activeTab === 'info' && (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-              {/* Hui Info Details will be rendered here */}
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Thông tin chi tiết Hụi</h3>
+                <dl className="mt-5 grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Tên Hụi</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{selectedHui?.name}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Ngày bắt đầu</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{new Date(selectedHui?.startDate).toLocaleDateString('vi-VN')}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Ghi chú</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{selectedHui?.note || 'Không có ghi chú'}</dd>
+                  </div>
+                </dl>
+              </div>
             </div>
           )}
 
@@ -265,6 +303,7 @@ export default function HuiDetailPage({ params }) {
                 members={selectedHui?.members || []} 
                 huiId={selectedHui?.id} 
                 onDeleteMember={handleDeleteMember} 
+                disabled={isSaving || deleteMemberLoading} 
               />
             </div>
           )}
@@ -284,10 +323,26 @@ export default function HuiDetailPage({ params }) {
             </div>
           )}
 
+          {/* Render DetailedPaymentScheduleTable for the new tab */}
+          {activeTab === 'detailed_schedules' && (
+            <div>
+              {selectedHui ? (
+                <DetailedPaymentScheduleTable
+                  huiGroup={selectedHui}
+                  currentDateString={FIXED_CURRENT_DATE}
+                  // Add any other props DetailedPaymentScheduleTable might need in the future
+                />
+              ) : (
+                <p>Chưa có thông tin hụi để hiển thị lịch thanh toán chi tiết.</p>
+              )}
+            </div>
+          )}
+
           {activeTab === 'payments' && (
              <div>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">Lịch sử giao dịch ({selectedHui?.payments?.length || 0})</h2>
+                {/* Link to create payment might need adjustment based on how payments relate to schedule vs ad-hoc */}
                 <Link href={`/payments/create?huiId=${selectedHui?.id}&amount=${selectedHui?.amount}`}>
                     <Button variant="primary" size="sm" disabled={isSaving || deleteMemberLoading}>
                         Thêm giao dịch
@@ -300,6 +355,7 @@ export default function HuiDetailPage({ params }) {
         </div>
       </div>
       
+      {/* Hot Hui Modal - unchanged */}
       {isHotHuiModalOpen && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
@@ -328,7 +384,7 @@ export default function HuiDetailPage({ params }) {
                 />
               </div>
               <div className="mb-4">
-                <label htmlFor="hotHuiThamKeu" className="block text-sm font-medium text-gray-700 mb-1">Thẩm kêu</label>
+                <label htmlFor="hotHuiThamKeu" className="block text-sm font-medium text-gray-700 mb-1">Thăm kêu</label>
                 <Input 
                   type="number" 
                   id="hotHuiThamKeu" 
