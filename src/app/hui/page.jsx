@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchHuis, resetCreateHuiStatus } from '@/store/huiSlice'; // Import resetCreateHuiStatus
-import HuiCard from '@/components/ui/HuiCard';
+import { HuiCard } from '@/components/hui/HuiCard';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import Loading from '@/components/ui/Loading';

@@ -59,7 +59,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
         period: i + 1,
         dueDate: formatDate(dueDate),
         amountDisplay: paymentForPeriod?.amount?.toLocaleString('vi-VN') || parseFloat(amount).toLocaleString('vi-VN'),
-        thanhVienHotHui: paymentForPeriod?.memberId || '',
+        thanhVienHotHui: paymentForPeriod?.potTakerMemberId || '',
         tienHot: paymentForPeriod?.amountCollected?.toLocaleString('vi-VN') || '',
         status: paymentForPeriod?.transactionStatus || initialDisplayStatus,
         originalAmount: parseFloat(amount).toLocaleString('vi-VN'),
@@ -98,7 +98,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
             period: i + 1,
             dueDate: formatDate(dueDate),
             amountDisplay: paymentForPeriod?.amount?.toLocaleString('vi-VN') || parseFloat(amount).toLocaleString('vi-VN'),
-            thanhVienHotHui: paymentForPeriod?.memberId || '',
+            thanhVienHotHui: paymentForPeriod?.potTakerMemberId || '',
             tienHot: paymentForPeriod?.amountCollected?.toLocaleString('vi-VN') || '',
             status: paymentForPeriod?.transactionStatus || initialDisplayStatus,
             originalAmount: parseFloat(amount).toLocaleString('vi-VN'),
@@ -126,7 +126,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
         period: item.period,
         dueDate: item.dueDate, // Ensure dueDate is passed correctly
         tienHot: item.tienHot ? String(item.tienHot).replace(/[^\d.]/g, '') : null,
-        memberId: item.thanhVienHotHui,
+        memberId: item.thanhVienHotHui, // This will now correctly carry the potTakerMemberId
         amount: parseFloat(String(item.amountDisplay).replace(/[^\d.]/g, '')),
         thamKeu: item.thamKeu ? String(item.thamKeu).replace(/[^\d.]/g, '') : null,
         thao: item.thao ? String(item.thao).replace(/[^\d.]/g, '') : null,
@@ -208,7 +208,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                   </td>
                   */}
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {isEditing && !item.thanhVienHotHui ? (
+                    {isEditing ? (
                       <select
                         value={item.thanhVienHotHui}
                         onChange={(e) => handleInputChange(item.period, 'thanhVienHotHui', e.target.value)}

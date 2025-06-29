@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 // src/components/hui/HuiList.jsx
 export function HuiList({ huis }) {
     return (
@@ -5,7 +7,7 @@ export function HuiList({ huis }) {
         <ul className="divide-y divide-gray-200">
           {huis.map((hui) => (
             <li key={hui.id}>
-              <a href={`/hui/${hui.id}`} className="block hover:bg-gray-50">
+              <Link href={`/hui/${hui.id}`} className="block hover:bg-gray-50">
                 <div className="px-4 py-4 sm:px-6">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-indigo-600 truncate">
@@ -30,7 +32,7 @@ export function HuiList({ huis }) {
                     </div>
                   </div>
                 </div>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>

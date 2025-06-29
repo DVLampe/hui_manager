@@ -19,11 +19,9 @@ export const createMember = createAsyncThunk(
   'member/createMember',
   async (memberData, { rejectWithValue }) => {
     try {
-      // Transform memberData: rename huiId to groupId
-      const { huiId, ...restOfData } = memberData;
-      const transformedData = { ...restOfData, groupId: huiId };
-      
-      const response = await axios.post('/api/members', transformedData); // Send transformedData
+      // The memberData should already be in the correct format: { userId, groupId, ...otherOptionalFields }
+      // No transformation is needed if the dispatch sends the correct keys.
+      const response = await axios.post('/api/members', memberData); 
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to create member');

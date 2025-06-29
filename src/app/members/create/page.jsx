@@ -1,149 +1,279 @@
-// src/app/members/create/page.jsx
-'use client'
-import { useState, useEffect } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { createMember, resetCreateStatus } from '@/store/memberSlice'
-import { fetchHuis } from '@/store/huiSlice'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Layout from '@/components/shared/Layout'
-import Button from '@/components/ui/Button'
-import Select from '@/components/ui/Select'
-import Link from 'next/link'
-import axios from 'axios'
+'use client';
+import { useState, useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { createMember, resetCreateStatus } from '@/store/memberSlice';
+import { fetchHuis, fetchHuiById } from '@/store/huiSlice';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Layout from '@/components/shared/Layout';
+import Button from '@/components/ui/Button';
+import Select from '@/components/ui/Select';
+import Link from 'next/link';
+import axios from 'axios';
+import { useToast } from '@/components/ui/Toaster';
 
-export default function CreateMemberPage() {
-  const dispatch = useDispatch()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const huiIdFromUrl = searchParams.get('huiId')
-  
-  const { huis } = useSelector(state => state.hui)
-  const { createStatus, createError } = useSelector(state => state.member)
-  const { isAuthenticated } = useSelector(state => state.auth)
-  
-  const [formData, setFormData] = useState({
-    userId: '',
-    huiId: huiIdFromUrl || ''
-  })
-  
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+export default function CreateMultipleMembersPage() {
+  const dispatch = useDispatch();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const huiIdFromUrl = searchParams.get('huiId');
+  const { showToast } = useToast();
 
-  // Fetch huis on component mount
-  useEffect(() => {
-    dispatch(fetchHuis())
-  }, [dispatch])
+  const { huis, currentHui, fetchHuiByIdLoading } = useSelector(state => state.hui);
+  const { isAuthenticated } = useSelector(state => state.auth);
+
+  const [selectedHuiId, setSelectedHuiId] = useState(huiIdFromUrl || '');
+  const [allUsers, setAllUsers] = useState([]);
+  const [loadingAllUsers, setLoadingAllUsers] = useState(false);
+  const [fetchAllUsersError, setFetchAllUsersError] = useState(null);
   
-  // Fetch users
+  const [stagedForAdditionUserIds, setStagedForAdditionUserIds] = useState(new Set());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
-    async function fetchUsers() {
+    dispatch(fetchHuis());
+  }, [dispatch]);
+
+  useEffect(() => {
+    async function fetchAllSystemUsers() {
+      if (!isAuthenticated) return;
+      setLoadingAllUsers(true);
       try {
-        setLoading(true)
-        const response = await axios.get('/api/users')
-        setUsers(response.data)
-        setError(null)
+        const response = await axios.get('/api/users');
+        setAllUsers(response.data || []);
+        setFetchAllUsersError(null);
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to fetch users')
+        setFetchAllUsersError(err.response?.data?.error || 'Failed to fetch users');
+        setAllUsers([]);
       } finally {
-        setLoading(false)
+        setLoadingAllUsers(false);
       }
     }
-    
-    if (isAuthenticated) {
-      fetchUsers()
-    }
-  }, [isAuthenticated])
-  
-  // Handle successful member creation
-  useEffect(() => {
-    if (createStatus === 'succeeded') {
-      router.push('/members')
-      dispatch(resetCreateStatus())
-    }
-  }, [createStatus, router, dispatch])
+    fetchAllSystemUsers();
+  }, [isAuthenticated]);
 
-  // Update huiId when URL parameter changes
+  useEffect(() => {
+    if (selectedHuiId && isAuthenticated) {
+      dispatch(fetchHuiById(selectedHuiId));
+      setStagedForAdditionUserIds(new Set()); // Clear staged users when hui selection changes
+    }
+  }, [selectedHuiId, isAuthenticated, dispatch]);
+  
   useEffect(() => {
     if (huiIdFromUrl) {
-      setFormData(prev => ({ ...prev, huiId: huiIdFromUrl }))
+      setSelectedHuiId(huiIdFromUrl);
     }
-  }, [huiIdFromUrl])
+  }, [huiIdFromUrl]);
+
+  const currentHuiMemberUserIds = useMemo(() => {
+    return new Set(currentHui?.members?.map(member => member.userId) || []);
+  }, [currentHui]);
+
+  const leftPanelAvailableUsers = useMemo(() => {
+    if (loadingAllUsers || fetchHuiByIdLoading) return [];
+    return allUsers.filter(user => 
+      !currentHuiMemberUserIds.has(user.id) && 
+      !stagedForAdditionUserIds.has(user.id)
+    );
+  }, [allUsers, currentHuiMemberUserIds, stagedForAdditionUserIds, loadingAllUsers, fetchHuiByIdLoading]);
+
+  const rightPanelStagedUsers = useMemo(() => {
+    if (loadingAllUsers) return [];
+    return allUsers.filter(user => stagedForAdditionUserIds.has(user.id));
+  }, [allUsers, stagedForAdditionUserIds, loadingAllUsers]);
+  
+  const huiCapacity = currentHui?.totalMembers || 0;
+  const currentMemberCount = currentHui?.members?.length || 0;
+  const remainingCapacity = huiCapacity - currentMemberCount;
+  const canStageMoreUsers = stagedForAdditionUserIds.size < remainingCapacity;
+
+  const handleStageUser = (userId) => {
+    if (canStageMoreUsers) {
+      setStagedForAdditionUserIds(prevIds => new Set(prevIds).add(userId));
+    } else {
+      showToast({ message: "Đã đạt số lượng thành viên tối đa cho hụi này.", type: 'warning' });
+    }
+  };
+
+  const handleUnstageUser = (userId) => {
+    setStagedForAdditionUserIds(prevIds => {
+      const newIds = new Set(prevIds);
+      newIds.delete(userId);
+      return newIds;
+    });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    dispatch(createMember(formData))
-  }
+    e.preventDefault();
+    if (stagedForAdditionUserIds.size === 0 || !selectedHuiId) {
+      showToast({ message: "Vui lòng chọn một hụi và ít nhất một thành viên để thêm.", type: 'error' });
+      return;
+    }
+    setIsSubmitting(true);
+    
+    const results = { succeeded: [], failed: [] };
+    const memberCreationPromises = [];
+
+    stagedForAdditionUserIds.forEach(userId => {
+      memberCreationPromises.push(
+        dispatch(createMember({ userId: userId, groupId: selectedHuiId })).unwrap()
+          .then(createdMember => results.succeeded.push(createdMember.user ? createdMember.user.name : userId))
+          .catch(error => results.failed.push({ userId, error: error.message || 'Unknown error' }))
+      );
+    });
+
+    await Promise.allSettled(memberCreationPromises);
+    setIsSubmitting(false);
+
+    let message = "";
+    let messageType = 'info';
+
+    if (results.succeeded.length > 0) {
+      message += `Đã thêm thành công ${results.succeeded.length} thành viên: ${results.succeeded.join(', ')}. `;
+      messageType = 'success';
+    }
+    if (results.failed.length > 0) {
+      const failedNames = results.failed.map(f => {
+        const user = allUsers.find(u => u.id === f.userId);
+        return user ? `${user.name} (${f.error})` : `${f.userId} (${f.error})`;
+      });
+      message += `Thêm thất bại ${results.failed.length} thành viên: ${failedNames.join(', ')}.`;
+      messageType = results.succeeded.length > 0 ? 'warning' : 'error';
+    }
+    showToast({ message, type: messageType, duration: results.failed.length > 0 ? 7000 : 4000 });
+
+    if (results.succeeded.length > 0) {
+        dispatch(fetchHuiById(selectedHuiId)); // Re-fetch hui details to update its member list in Redux store
+        setStagedForAdditionUserIds(new Set()); // Clear the staged users list
+        router.push(`/hui/${selectedHuiId}`); // Navigate to the hui detail page
+    }
+    dispatch(resetCreateStatus()); // Reset the create status in Redux store
+  };
 
   if (!isAuthenticated) {
     return (
       <Layout>
         <div className="max-w-2xl mx-auto py-6 text-center">
-          <p className="mb-4">Bạn cần đăng nhập để thêm thành viên</p>
-          <Link href="/auth/signin">
-            <Button>Đăng nhập</Button>
-          </Link>
+          <p className="mb-4">Bạn cần đăng nhập để thêm thành viên.</p>
+          <Link href="/auth/signin"><Button>Đăng nhập</Button></Link>
         </div>
       </Layout>
-    )
+    );
   }
+  
+  const UserListItem = ({ user, onAction, actionLabel, disabled }) => {
+    const isRemoveAction = actionLabel.includes("Xóa") || actionLabel.includes("Remove");
+
+    return (
+      <div className="flex items-center justify-between px-4 py-3 sm:px-6 hover:bg-gray-50">
+        <div>
+          <p className="text-sm font-medium text-gray-800 truncate">{user.name}</p>
+          <p className="text-xs text-gray-500 truncate">{user.email || 'No email'}</p>
+        </div>
+        <Button 
+          type="button" 
+          variant={isRemoveAction ? 'danger' : 'primary'} // Use variants from Button.jsx
+          size="sm" 
+          onClick={() => onAction(user.id)} 
+          disabled={disabled}
+        >
+          {actionLabel}
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto py-6">
-        <h1 className="text-2xl font-bold mb-6">Thêm thành viên mới</h1>
-        
-        {createError && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {createError}
-          </div>
-        )}
+      <div className="max-w-6xl mx-auto py-6">
+        <h1 className="text-2xl font-bold mb-6">Thêm nhiều thành viên vào Hụi</h1>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Chọn hụi</label>
+            <label className="block text-sm font-medium text-gray-700">Chọn Hụi</label>
             <Select
-              value={formData.huiId}
-              onChange={(e) => setFormData({ ...formData, huiId: e.target.value })}
+              value={selectedHuiId}
+              onChange={(e) => setSelectedHuiId(e.target.value)}
+              disabled={isSubmitting || fetchHuiByIdLoading}
             >
-              <option value="">Chọn hụi</option>
+              <option value="">-- Chọn Hụi --</option>
               {huis && huis.map(hui => (
                 <option key={hui.id} value={hui.id}>
-                  {hui.name} - {hui.amount.toLocaleString()}đ
+                  {hui.name} (Số chỗ: {hui.totalMembers || 'N/A'})
                 </option>
               ))}
             </Select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Chọn người dùng</label>
-            <Select
-              value={formData.userId}
-              onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-              disabled={loading}
-            >
-              <option value="">Chọn người dùng</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>
-                  {user.name} - {user.email}
-                </option>
-              ))}
-            </Select>
-            {loading && <p className="text-sm text-gray-500 mt-1">Đang tải danh sách người dùng...</p>}
-            {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
-          </div>
-          <div className="flex space-x-4">
+
+          {!selectedHuiId && (
+            <p className="text-gray-600 mt-4 text-center">Vui lòng chọn một hụi để quản lý thành viên.</p>
+          )}
+
+          {fetchHuiByIdLoading && selectedHuiId && <p className="text-center mt-4">Đang tải chi tiết hụi...</p>}
+          {fetchAllUsersError && <p className="text-red-500 text-center mt-4">Lỗi tải người dùng: {fetchAllUsersError}</p>}
+
+          {selectedHuiId && !fetchHuiByIdLoading && currentHui && (
+            <div className="mt-6">
+              <div className="flex flex-col md:flex-row md:space-x-6">
+                {/* Left Panel: Available System Users */}
+                <div className="md:w-1/2 bg-white shadow-lg rounded-lg overflow-hidden">
+                  <h3 className="text-lg font-semibold px-6 py-4 text-gray-800 border-b border-gray-200">
+                    Người dùng khả dụng ({leftPanelAvailableUsers.length})
+                  </h3>
+                  {loadingAllUsers && <p className="px-6 py-4 text-gray-500">Đang tải danh sách người dùng...</p>}
+                  {!loadingAllUsers && leftPanelAvailableUsers.length === 0 && !fetchAllUsersError && (
+                    <p className="px-6 py-4 text-gray-500">Không có người dùng nào khả dụng hoặc tất cả đã được chọn.</p>
+                  )}
+                  <div className="max-h-96 overflow-y-auto divide-y divide-gray-200">
+                    {leftPanelAvailableUsers.map(user => (
+                      <UserListItem 
+                        key={user.id} 
+                        user={user} 
+                        onAction={handleStageUser} 
+                        actionLabel="Thêm vào Hụi ->"
+                        disabled={!canStageMoreUsers && !stagedForAdditionUserIds.has(user.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right Panel: Users Staged for Addition */}
+                <div className="md:w-1/2 mt-6 md:mt-0 bg-white shadow-lg rounded-lg overflow-hidden">
+                  <h3 className="text-lg font-semibold px-6 py-4 text-gray-800 border-b border-gray-200">
+                    Thành viên sẽ thêm ({stagedForAdditionUserIds.size})
+                  </h3>
+                  {rightPanelStagedUsers.length === 0 && (
+                    <p className="px-6 py-4 text-gray-500">Chưa chọn thành viên nào để thêm.</p>
+                  )}
+                  <div className="max-h-96 overflow-y-auto divide-y divide-gray-200">
+                    {rightPanelStagedUsers.map(user => (
+                      <UserListItem 
+                        key={user.id} 
+                        user={user} 
+                        onAction={handleUnstageUser} 
+                        actionLabel="<- Xóa" 
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex space-x-4 pt-6">
             <Button 
               type="submit" 
               className="flex-1"
-              disabled={createStatus === 'loading' || !formData.huiId || !formData.userId}
+              disabled={isSubmitting || stagedForAdditionUserIds.size === 0 || !selectedHuiId || fetchHuiByIdLoading}
+              variant="primary" // Main submit button
             >
-              {createStatus === 'loading' ? 'Đang thêm...' : 'Thêm thành viên'}
+              {isSubmitting ? `Đang xử lý...` : `Xác nhận thêm ${stagedForAdditionUserIds.size} thành viên`}
             </Button>
             <Button 
               type="button" 
               variant="secondary"
               className="flex-1"
               onClick={() => router.back()}
+              disabled={isSubmitting}
             >
               Hủy bỏ
             </Button>
@@ -151,5 +281,5 @@ export default function CreateMemberPage() {
         </form>
       </div>
     </Layout>
-  )
+  );
 }

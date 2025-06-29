@@ -10,6 +10,7 @@ const navigationItems = [
 	{ name: 'Hui Groups', href: '/hui', adminOnly: false },
 	{ name: 'Members', href: '/members', adminOnly: false },
 	{ name: 'Payments', href: '/payments', adminOnly: false },
+    { name: 'График платежей', href: '/future-schedule', adminOnly: false }, // Added this line
 	{ name: 'Statistics', href: '/admin/statistics', adminOnly: true },
 	{ name: 'Users', href: '/admin/users', adminOnly: true },
 	{ name: 'Roles', href: '/admin/roles', adminOnly: true },
