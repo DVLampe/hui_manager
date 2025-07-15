@@ -35,92 +35,96 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
     const today = new Date(currentDateString);
     today.setHours(0, 0, 0, 0);
 
+    // Pre-calculate the set of members who have taken the pot in settled periods for efficient lookup.
+    const membersWhoHaveTakenPot = new Set();
+    [...groupPeriods]
+      .sort((a, b) => a.period - b.period)
+      .forEach(p => {
+        if (p.status === 'DA_THANH_TOAN' && p.potTakerMemberId) {
+            membersWhoHaveTakenPot.add(p.potTakerMemberId);
+        }
+      });
+
     const generatedScheduleDetails = groupPeriods.map(periodPayment => {
       const rawDueDate = new Date(periodPayment.dueDate);
       rawDueDate.setHours(0,0,0,0);
 
-      // Determine overall period status if not directly provided or needs adjustment
-      // The API now provides transactionStatus on the payment (period) object directly
-      let calculatedPeriodStatus = periodPayment.transactionStatus || 'CHUA_DEN_KY';
-      if (calculatedPeriodStatus === 'CHO_THANH_TOAN' && rawDueDate > today) {
-        // This logic might be too simplistic, API should be source of truth for CHUA_DEN_KY
-        // calculatedPeriodStatus = 'CHUA_DEN_KY'; 
-      }
-      // If period is paid, but due date is in future (e.g. pre-paid), it's still DA_THANH_TOAN
-
       const periodDetail = {
-        id: periodPayment.id, // ID of the Payment record (period)
-        period: periodPayment.period, // Kỳ number
+        id: periodPayment.id,
+        period: periodPayment.period,
         dueDate: formatDate(periodPayment.dueDate),
         rawDueDate: rawDueDate,
-        potTakerMemberId: periodPayment.potTakerMemberId, // HuiMember.id of the pot taker
+        potTakerMemberId: periodPayment.potTakerMemberId,
         potTakerName: periodPayment.potTakerMember?.user?.name || 'Chưa xác định',
-        amountCollected: periodPayment.amountCollected, // Total amount for the pot taker
-        status: calculatedPeriodStatus, // Overall status of the period (PaymentStatus enum)
+        amountCollected: periodPayment.amountCollected,
+        status: periodPayment.transactionStatus || 'CHUA_DEN_KY',
         thamKeu: periodPayment.thamKeu,
         thao: periodPayment.thao,
-        memberContributions: periodPayment.memberContributions || [], // Array of MemberPeriodContribution
-        subRows: [], // This will be populated below
+        memberContributions: periodPayment.memberContributions || [],
+        subRows: [],
       };
 
-      const baseAmountForPeriod = parseFloat(periodPayment.amount || groupBaseAmount); // Use period specific amount or group default
+      const baseAmountForPeriod = parseFloat(periodPayment.amount || groupBaseAmount);
+      const thamKeuAmount = parseFloat(periodPayment.thamKeu) || 0;
+
+      // Keep track of members who have taken the pot up to the period *before* the current one.
+      const membersWhoTookPotBeforeThisPeriod = new Set();
+       groupPeriods.forEach(p => {
+        if (p.period < periodDetail.period && p.status === 'DA_THANH_TOAN' && p.potTakerMemberId) {
+            membersWhoTookPotBeforeThisPeriod.add(p.potTakerMemberId);
+        }
+      });
+
 
       groupMembers.forEach(member => {
         const isPotTakerThisPeriod = member.id === periodDetail.potTakerMemberId;
+        const hasTakenPotPreviously = membersWhoTookPotBeforeThisPeriod.has(member.id);
         const contributionRecord = periodDetail.memberContributions.find(c => c.memberId === member.id);
 
-        let individualPaymentAmount = baseAmountForPeriod;
-        let memberContributionStatus = 'CHUA_DONG'; // Default if no record and not pot taker
+        let individualPaymentAmount = 0;
+        let memberContributionStatus = 'CHUA_DONG';
 
-        if (contributionRecord) {
-          individualPaymentAmount = parseFloat(contributionRecord.amountContributed);
-          memberContributionStatus = contributionRecord.status;
+        // --- NEW CONTRIBUTION CALCULATION LOGIC ---
+        if (isPotTakerThisPeriod) {
+            // Rule: Pot taker for the current period pays 0.
+            individualPaymentAmount = 0;
+            memberContributionStatus = 'MIEN_DONG';
+        } else if (hasTakenPotPreviously) {
+            // Rule: "Hụi chết" (already taken pot) pays the full base amount.
+            individualPaymentAmount = baseAmountForPeriod;
         } else {
-          // If no specific contribution record, derive status and amount
-          if (periodDetail.status === 'DA_THANH_TOAN') {
-            if (isPotTakerThisPeriod) {
-              memberContributionStatus = 'MIEN_DONG'; // Or HOT_HUI from old system if that's preferred
-              individualPaymentAmount = 0;
-            } else {
-              // If period is DA_THANH_TOAN, non-takers without a record are assumed DA_DONG
-              // with amount based on thamKeu if available for the period
-              memberContributionStatus = 'DA_DONG'; 
-              if (periodDetail.thamKeu && parseFloat(periodDetail.thamKeu) > 0) {
-                individualPaymentAmount = parseFloat(periodDetail.thamKeu);
-              } else {
-                individualPaymentAmount = baseAmountForPeriod; // Fallback to base if no thamkeu
-              }
-            }
-          } else if (periodDetail.status === 'CHO_THANH_TOAN') {
-            if (isPotTakerThisPeriod) {
-              memberContributionStatus = 'MIEN_DONG'; // Pot taker doesn't pay themselves
-              individualPaymentAmount = 0;
-            } else {
-              memberContributionStatus = 'CHUA_DONG';
-              individualPaymentAmount = baseAmountForPeriod;
-            }
-          } else if (periodDetail.status === 'CHUA_DEN_KY') {
-            memberContributionStatus = 'CHUA_DEN_KY';
-             if (isPotTakerThisPeriod) {
-              // Even if CHUA_DEN_KY, if they are designated pot taker, amount is 0
-              individualPaymentAmount = 0;
-            }
-          }
+            // Rule: "Hụi sống" (not yet taken pot) pays base amount minus the bid amount.
+            individualPaymentAmount = baseAmountForPeriod - thamKeuAmount;
         }
-        
-        // Override for pot taker if MIEN_DONG is not set by contributionRecord.status
-        if (isPotTakerThisPeriod && memberContributionStatus !== 'MIEN_DONG') {
-            // memberContributionStatus = 'MIEN_DONG'; // Assuming pot taker is exempt
-            individualPaymentAmount = 0; 
-        }
+        // --- END OF NEW LOGIC ---
 
+        // Determine the display status based on actual contribution records or period status
+        if (contributionRecord) {
+            memberContributionStatus = contributionRecord.status;
+            // Pot-taker status overrides any other status
+            if(isPotTakerThisPeriod) memberContributionStatus = 'MIEN_DONG';
+        } else {
+             if (isPotTakerThisPeriod) {
+                memberContributionStatus = 'MIEN_DONG';
+            } else if (periodDetail.status === 'DA_THANH_TOAN') {
+                memberContributionStatus = 'DA_DONG';
+            } else if (periodDetail.status === 'CHO_THANH_TOAN') {
+                 if (rawDueDate < today) {
+                    memberContributionStatus = 'TRE_HAN';
+                } else {
+                    memberContributionStatus = 'CHUA_DONG';
+                }
+            } else if (periodDetail.status === 'CHUA_DEN_KY') {
+                memberContributionStatus = 'CHUA_DEN_KY';
+            }
+        }
 
         periodDetail.subRows.push({
           contributionId: contributionRecord?.id || null,
           memberId: member.id,
           memberName: member.user?.name || `Member ${member.id}`,
           amountDue: individualPaymentAmount,
-          status: memberContributionStatus, // MemberContributionStatus enum
+          status: memberContributionStatus,
         });
       });
 
@@ -129,89 +133,77 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
 
     setScheduleDetails(generatedScheduleDetails);
 
-    // Auto-select current or first period
+    // Auto-select the most relevant period
     let currentPeriodIndex = generatedScheduleDetails.findIndex(p => p.rawDueDate >= today && p.status !== 'DA_THANH_TOAN');
-    if (currentPeriodIndex === -1) { // if all past or paid, find first non-paid or just first
+    if (currentPeriodIndex === -1) {
         currentPeriodIndex = generatedScheduleDetails.findIndex(p => p.status === 'CHO_THANH_TOAN');
     }
-    if (currentPeriodIndex === -1) { // if all paid, select last, or if all chua_den_ky, select first
-        currentPeriodIndex = generatedScheduleDetails.length > 0 ? Math.min(generatedScheduleDetails.findIndex(p=>p.rawDueDate >= today), generatedScheduleDetails.length -1 ) : 0;
+    if (currentPeriodIndex === -1 && generatedScheduleDetails.length > 0) {
+        currentPeriodIndex = generatedScheduleDetails.length - 1; // Fallback to last if all paid
     }
-     if (currentPeriodIndex === -1 && generatedScheduleDetails.length > 0) currentPeriodIndex = 0;
-
     setSelectedPeriodIndex(currentPeriodIndex >= 0 ? currentPeriodIndex : 0);
 
   }, [huiGroup, currentDateString, groupBaseAmount, groupMembers, groupPeriods]);
 
   const statusDisplayMap = {
-    // PaymentStatus (Overall Period Status)
     CHUA_DEN_KY: 'Chưa đến kỳ',
     CHO_THANH_TOAN: 'Chờ thanh toán',
     DA_THANH_TOAN: 'Đã thanh toán',
     HUY: 'Hủy',
-    // MemberContributionStatus (Individual Member's Contribution Status)
     CHUA_DONG: 'Chưa đóng',
     DA_DONG: 'Đã đóng',
     MIEN_DONG: 'Miễn đóng (Hốt)',
     TRE_HAN: 'Trễ hạn',
     CHO_XAC_NHAN: 'Chờ xác nhận',
-    // Old statuses for compatibility if needed, map them or remove
-    HOT_HUI: 'Đã hốt hụi', // Covered by MIEN_DONG + period status DA_THANH_TOAN for pot taker
-    DUOC_HOT: 'Đến lượt hốt', // Pot taker for current CHO_THANH_TOAN period
-    DUOC_HOT_SAU: 'Sẽ hốt kỳ này', // Pot taker for CHUA_DEN_KY period
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'DA_THANH_TOAN': // Period status
-      case 'DA_DONG': // Member contribution status
+      case 'DA_THANH_TOAN':
+      case 'DA_DONG':
         return 'bg-green-100 text-green-700 ring-green-600/20';
-      case 'CHO_THANH_TOAN': // Period status
-      case 'CHO_XAC_NHAN': // Member contribution status
+      case 'CHO_THANH_TOAN':
+      case 'CHO_XAC_NHAN':
         return 'bg-yellow-100 text-yellow-800 ring-yellow-600/20';
-      case 'HUY': // Period status
-      case 'TRE_HAN': // Member contribution status
+      case 'HUY':
+      case 'TRE_HAN':
         return 'bg-red-100 text-red-700 ring-red-600/20';
-      case 'MIEN_DONG': // Member contribution status (pot taker)
-      // Explicitly for pot-taker related visual cues from old system
-      case 'HOT_HUI': 
-      case 'DUOC_HOT':
-      case 'DUOC_HOT_SAU':
+      case 'MIEN_DONG':
         return 'bg-blue-100 text-blue-700 ring-blue-600/20';
-      case 'CHUA_DEN_KY': // Period status & Member contribution status
-      case 'CHUA_DONG': // Member contribution status
+      case 'CHUA_DEN_KY':
+      case 'CHUA_DONG':
       default:
         return 'bg-gray-100 text-gray-600 ring-gray-500/10';
     }
   };
-  
-  // Determines the overall status of a member within the Hui context for the selected period
-  const getMemberOverallStatus = (memberId, currentPeriodData, allPeriods) => {
-    if (!currentPeriodData || !allPeriods || allPeriods.length === 0) return 'N/A';
+
+  const getMemberOverallStatus = (memberId, currentPeriodData, allPeriodsData) => {
+    if (!currentPeriodData || !allPeriodsData || allPeriodsData.length === 0) return 'N/A';
 
     if (memberId === currentPeriodData.potTakerMemberId) {
       if (currentPeriodData.status === 'DA_THANH_TOAN') return 'Hốt hụi (Đã nhận)';
       if (currentPeriodData.status === 'CHO_THANH_TOAN') return 'Hốt hụi (Đến lượt)';
-      return 'Hốt hụi (Sẽ hốt)'; // CHUA_DEN_KY or other
+      return 'Hốt hụi (Sẽ hốt)';
     }
 
-    // Check if member has taken the pot in any previous *settled* period
-    for (let i = 0; i < currentPeriodData.period - 1; i++) {
-      const pastPeriod = allPeriods.find(p => p.period === (i + 1));
-      if (pastPeriod && pastPeriod.potTakerMemberId === memberId && pastPeriod.status === 'DA_THANH_TOAN') {
+    const hasTakenPotPreviously = allPeriodsData.some(p =>
+        p.period < currentPeriodData.period &&
+        p.potTakerMemberId === memberId &&
+        p.status === 'DA_THANH_TOAN'
+    );
+
+    if (hasTakenPotPreviously) {
         return 'Hụi chết (Đã hốt)';
-      }
     }
+
     return 'Hụi sống (Chưa hốt)';
   };
 
   if (!huiGroup || !groupPeriods || groupPeriods.length === 0) {
-    return <p className="text-center text-gray-600 py-10">Chưa có thông tin kỳ thanh toán cho hụi này hoặc hụi không đầy đủ.</p>;
+    return <p className="text-center text-gray-600 py-10">Chưa có thông tin kỳ thanh toán cho hụi này.</p>;
   }
 
   if (scheduleDetails.length === 0) {
-     // This might briefly show if huiGroup is present but scheduleDetails isn't populated yet by useEffect.
-     // Consider a more specific loading state if huiGroup is present but processing is ongoing.
     return <p className="text-center text-gray-500 py-10">Đang tải dữ liệu chi tiết...</p>;
   }
 
@@ -235,18 +227,17 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
               <button
                 key={`period-nav-${period.id || period.period}`}
                 onClick={() => setSelectedPeriodIndex(index)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium flex justify-between items-center 
-                            ${selectedPeriodIndex === index 
-                              ? 'bg-indigo-50 text-indigo-700' 
+                className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium flex justify-between items-center
+                            ${selectedPeriodIndex === index
+                              ? 'bg-indigo-50 text-indigo-700'
                               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
               >
                 <div>
                   <p className={`${selectedPeriodIndex === index ? 'font-semibold' : 'font-normal'}`}>Kỳ {period.period}</p>
                   <p className={`text-xs ${selectedPeriodIndex === index ? 'text-indigo-600' : 'text-gray-500'}`}>{period.dueDate}</p>
                 </div>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset 
-                                ${getStatusColor(period.status).replace('bg-', 'bg-opacity-20 bg-')}
-                                ${selectedPeriodIndex === index ? '' : 'opacity-80'}`}>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset
+                                ${getStatusColor(period.status)}`}>
                   {statusDisplayMap[period.status] || period.status}
                 </span>
               </button>
@@ -261,7 +252,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                 <h4 className="text-lg font-semibold text-gray-800 mb-1">Chi tiết Kỳ {selectedPeriodData.period}</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
                   <p><span className="text-gray-500">Ngày đến hạn:</span> <span className="font-medium">{selectedPeriodData.dueDate}</span></p>
-                  <p><span className="text-gray-500">Trạng thái kỳ:</span> 
+                  <p><span className="text-gray-500">Trạng thái kỳ:</span>
                     <span className={`ml-1 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusColor(selectedPeriodData.status)}`}>
                         {statusDisplayMap[selectedPeriodData.status] || selectedPeriodData.status}
                     </span>

@@ -75,7 +75,13 @@ export default function HuiDetailPage({ params }) {
         for (let i = 0; i < numberOfPeriods; i++) {
             const dueDate = addMonths(new Date(initialStartDate), i * cycleDurationMonths);
             dueDate.setHours(0,0,0,0);
-            const status = dueDate > today ? 'CHUA_DEN_KY' : 'CHO_THANH_TOAN';
+            
+            const isFirstPeriod = i === 0;
+            let status = 'CHUA_DEN_KY';
+            if (isFirstPeriod || dueDate <= today) {
+                status = 'CHO_THANH_TOAN';
+            }
+
             generatedPayments.push({
               period: i + 1,
               dueDate: dueDate.toISOString(), 
@@ -117,7 +123,24 @@ export default function HuiDetailPage({ params }) {
   };
 
   const selectedHui = currentHui;
-
+  
+  const memberOptions = useMemo(() => {
+    if (!selectedHui?.members) return [];
+    
+    const paidMemberIds = new Set(
+      selectedHui.payments
+        .filter(p => p.potTakerMemberId !== null)
+        .map(p => p.potTakerMemberId)
+    );
+    
+    return selectedHui.members
+      .filter(member => !paidMemberIds.has(member.id))
+      .map(member => ({
+        value: member.id,
+        label: member.user.name 
+      }));
+  }, [selectedHui]);
+  
   const availableKyOptions = useMemo(() => {
     if (!selectedHui?.payments) return [];
     return selectedHui.payments
@@ -221,7 +244,8 @@ export default function HuiDetailPage({ params }) {
   const handleCloseHotHuiModal = () => { setIsHotHuiModalOpen(false); resetHotHuiForm(); };
   
   const handleHotHuiSubmitInternal = () => {
-    const paymentToUpdate = currentHui?.payments?.find(p => p.period === parseInt(hotHuiKy, 10));
+    const periodNumber = parseInt(hotHuiKy, 10);
+    const paymentToUpdate = currentHui?.payments?.find(p => p.period === periodNumber);
 
     if (!paymentToUpdate) {
         showToast({ message: 'Lỗi: Không tìm thấy kỳ hốt đã chọn.', type: 'error' });
@@ -232,33 +256,74 @@ export default function HuiDetailPage({ params }) {
         return;
     }
 
+    const baseAmountForPeriod = parseFloat(paymentToUpdate.amount || currentHui.amount);
+    const thamKeuAmount = parseFloat(hotHuiThamKeu) || 0;
+
+    const membersWhoTookPotBeforeThisPeriod = new Set();
+    currentHui.payments.forEach(p => {
+        if (p.period < periodNumber && (p.status === 'DA_THANH_TOAN' || p.transactionStatus === 'DA_THANH_TOAN') && p.potTakerMemberId) {
+            membersWhoTookPotBeforeThisPeriod.add(p.potTakerMemberId);
+        }
+    });
+
+    const memberContributions = currentHui.members.map(member => {
+        const isPotTakerThisPeriod = member.id === hotHuiMemberId;
+        const hasTakenPotPreviously = membersWhoTookPotBeforeThisPeriod.has(member.id);
+        
+        let amountContributed = 0;
+        let contributionStatus = 'CHUA_DONG'; 
+
+        if (isPotTakerThisPeriod) {
+            amountContributed = 0;
+            contributionStatus = 'MIEN_DONG'; 
+        } else if (hasTakenPotPreviously) {
+            amountContributed = baseAmountForPeriod;
+            contributionStatus = 'DA_DONG';
+        } else {
+            amountContributed = baseAmountForPeriod - thamKeuAmount;
+            contributionStatus = 'DA_DONG';
+        }
+
+        return {
+            memberId: member.id,
+            amountContributed: amountContributed,
+            status: contributionStatus,
+            paymentId: paymentToUpdate.id,
+        };
+    });
+
     const updatedPayment = {
         ...paymentToUpdate,
         potTakerMemberId: hotHuiMemberId, 
-        thamKeu: parseFloat(hotHuiThamKeu) || 0,
+        thamKeu: thamKeuAmount,
         thao: parseFloat(hotHuiThao) || 0,
-        amountCollected: currentHui.amount * (currentHui.members.length -1) - (parseFloat(hotHuiThamKeu) || 0),
-        transactionStatus: 'DA_THANH_TOAN', 
+        amountCollected: currentHui.amount * (currentHui.members.length - 1) - thamKeuAmount,
+        transactionStatus: 'DA_THANH_TOAN',
+        status: 'DA_THANH_TOAN',
+        memberContributions: memberContributions,
     };
     
-    const updatedPayments = currentHui.payments.map(p => p.id === updatedPayment.id ? updatedPayment : p);
+    let nextPeriodSet = false;
+    const updatedPayments = currentHui.payments.map(p => {
+        if (p.id === updatedPayment.id) {
+            return updatedPayment;
+        }
+        if (p.period > periodNumber && !p.potTakerMemberId && !nextPeriodSet) {
+             if (p.transactionStatus !== 'DA_THANH_TOAN' && p.status !== 'DA_THANH_TOAN') {
+                p.status = 'CHO_THANH_TOAN';
+                p.transactionStatus = 'CHO_THANH_TOAN';
+                nextPeriodSet = true;
+            }
+        }
+        return p;
+    });
     
     const huiDataToUpdate = {
         ...currentHui,
         id: currentHui.id,
-        payments: updatedPayments.map(p => ({ 
-            id: p.id,
-            period: p.period,
-            dueDate: p.dueDate,
-            amount: p.amount,
-            potTakerMemberId: p.potTakerMemberId,
-            userId: p.userId, 
-            amountCollected: p.amountCollected,
-            status: p.transactionStatus, 
-            thamKeu: p.thamKeu,
-            thao: p.thao,
-        })),
+        payments: updatedPayments,
     };
+
     const { manager, members, ...payload } = huiDataToUpdate;
 
     setIsSaving(true);
@@ -271,6 +336,7 @@ export default function HuiDetailPage({ params }) {
         .catch(err => showToast({ message: `Lỗi Hốt Hụi: ${err.message || 'Vui lòng thử lại.'}`, type: 'error' }))
         .finally(() => setIsSaving(false));
   };
+
 
   const isLoading = fetchHuiByIdLoading || isSaving || deleteMemberLoading || deleteHuiLoading;
 
