@@ -1,80 +1,83 @@
-import NextAuth from "next-auth/next"
-import prisma from "../../../../lib/prisma"
-import { compare } from "bcryptjs"
-
-const CredentialsProvider = {
-  id: "credentials",
-  name: "Credentials",
-  type: "credentials",
-  credentials: {
-    username: { label: "Username", type: "text" },
-    password: { label: "Password", type: "password" }
-  },
-  async authorize(credentials) {
-    try {
-      // Find user by username
-      const user = await prisma.user.findUnique({
-        where: { username: credentials.username }
-      });
-      
-      // If user not found or password doesn't match
-      if (!user || !(await compare(credentials.password, user.hashedPassword))) {
-        return null;
-      }
-      
-      // Return user object (without password)
-      return {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.name
-      };
-    } catch (error) {
-      console.error("Error in authorize function:", error);
-      return null;
-    }
-  }
-};
+// src/app/api/auth/[...nextauth]/route.js
+import NextAuth from "next-auth"
+import { PrismaAdapter } from "@auth/prisma-adapter"
+import prisma from "@/lib/prisma"
+import CredentialsProvider from "next-auth/providers/credentials"
+import bcrypt from "bcrypt"
 
 export const authOptions = {
+  adapter: PrismaAdapter(prisma),
   providers: [
-    CredentialsProvider
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: "Email", type: "text", placeholder: "jsmith@example.com" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials.email || !credentials.password) {
+          console.log('Missing credentials');
+          return null;
+        }
+
+        const user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email
+          }
+        });
+
+        if (!user) {
+          console.log('No user found with that email');
+          return null;
+        }
+        
+        // Use bcrypt to compare the provided password with the stored hash
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        
+        if (!isPasswordValid) {
+          console.log('Password is not valid');
+          return null;
+        }
+
+        console.log('User authorized:', user.email);
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        };
+      }
+    })
   ],
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
   },
   callbacks: {
     async jwt({ token, user }) {
+      // Add role to the JWT token
       if (user) {
+        token.role = user.role;
         token.id = user.id;
-        token.username = user.username;
       }
       return token;
     },
     async session({ session, token }) {
-      if (token) {
+      // Add role to the session object
+      if (session.user) {
+        session.user.role = token.role;
         session.user.id = token.id;
-        session.user.username = token.username;
       }
       return session;
     }
   },
   pages: {
-    signIn: "/login",
-    error: "/login"
-  }
+    signIn: '/auth/signin', // We will create this page next
+    // error: '/auth/error', // (optional)
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
-// Handle potential differences in NextAuth export structure
-let NextAuthToUse = NextAuth;
-if (typeof NextAuth !== 'function' && NextAuth.default && typeof NextAuth.default === 'function') {
-  NextAuthToUse = NextAuth.default;
-}
+const handler = NextAuth(authOptions);
 
-if (typeof NextAuthToUse !== 'function') {
-  console.error('CRITICAL: NextAuthToUse is NOT a function!');
-  throw new Error('NextAuth initialization failed: NextAuthToUse is not a function');
-}
-
-const handler = NextAuthToUse(authOptions);
 export { handler as GET, handler as POST };
+

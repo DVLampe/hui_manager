@@ -9,8 +9,8 @@ import { checkAuthStatus } from '@/store/authSlice'; // Import checkAuthStatus
 
 import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/Toaster';
-// import { Header } from '@/components/shared/Header'; // Assuming Header is part of the page content or conditionally rendered
-// import { Sidebar } from '@/components/shared/Sidebar'; // Assuming Sidebar is part of the page content or conditionally rendered
+import { Header } from '@/components/shared/Header';
+import { Sidebar } from '@/components/shared/Sidebar';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
@@ -27,23 +27,16 @@ function AuthInitializer({ children }) {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={cn('h-full bg-gray-100', inter.className)}>
-      <body className="h-full">
-        <StoreProvider> { /* Wrap with StoreProvider */}
-          <AuthInitializer> { /* Initialize auth status */}
-            {/* <Header /> */}
-            {/* <div className="flex"> */}
-              {/* <Sidebar /> */}
-              {/* <main className="flex-grow p-6 md:p-10"> */}
-                {/* The old container mx-auto can be here or within individual page layouts */}
-                {/* <div className="container mx-auto px-4 py-8"> */}
-                {children}
-                {/* </div> */}
-              {/* </main> */}
-            {/* </div> */}
-            <Toaster /> { /* Toaster for notifications */}
-          </AuthInitializer>
-        </StoreProvider>
+    <html lang="en" className="h-full bg-gray-50">
+      <body className={`h-full ${inter.className}`}>
+        <AuthProvider>
+          <div className="flex flex-col h-full">
+            <Header />
+            <main className="flex-grow">
+              {children}
+            </main>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

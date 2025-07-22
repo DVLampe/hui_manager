@@ -1,20 +1,38 @@
-import { NextResponse as OriginalNextResponse } from 'next/server';
-import prisma from '../../../lib/prisma';
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-
-const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // GET /api/hui
-// Lấy danh sách các hụi
+// Lấy danh sách các hụi mà user là manager hoặc member
 export async function GET(request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = session.user.id;
+
   try {
     const huis = await prisma.huiGroup.findMany({
+      where: {
+        OR: [
+          { managerId: userId }, // User is the manager
+          {
+            members: {
+              some: {
+                userId: userId, // User is one of the members
+              },
+            },
+          },
+        ],
+      },
       include: {
-        manager: { 
+        manager: {
           select: { id: true, name: true, email: true },
         },
-        _count: { 
-          select: { members: true, payments: true }, // Added count of payments (periods)
+        _count: {
+          select: { members: true, payments: true },
         },
       },
       orderBy: {
@@ -29,25 +47,31 @@ export async function GET(request) {
 }
 
 // POST /api/hui
-// Tạo một hụi mới, possibly with initial members and payment periods
+// Tạo một hụi mới, with the current user as manager
 export async function POST(request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+  const managerId = session.user.id; // Manager is the authenticated user
+
   try {
     const body = await request.json();
     const {
       name,
       amount,
       startDate,
-      managerId, // TODO: Should be derived from authenticated user
+      // managerId is now derived from session
       cycle,
       totalMembers,
       description,
       endDate,
       rules,
-      members: initialMembers, // Optional array of initial members { userId: string, position?: number, notes?: string }
-      payments: initialPayments // Optional array of initial payment periods { period: number, dueDate: string, potTakerMemberId?: string, ... }
+      members: initialMembers,
+      payments: initialPayments
     } = body;
 
-    if (!name || !amount || !startDate || !managerId || cycle === undefined || totalMembers === undefined) {
+    if (!name || !amount || !startDate || cycle === undefined || totalMembers === undefined) {
       return NextResponse.json({ message: 'Missing required fields for HuiGroup' }, { status: 400 });
     }
 
@@ -106,7 +130,7 @@ export async function POST(request) {
           amount: parsedAmount,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
-          managerId,
+          managerId, // Set from session
           cycle: parsedCycle,
           totalMembers: parsedTotalMembers,
           nextPaymentDate,
@@ -120,25 +144,22 @@ export async function POST(request) {
           userId: m.userId,
           position: m.position,
           notes: m.notes,
-          // other HuiMember fields with defaults or to be set later
         }));
         await tx.huiMember.createMany({
           data: memberCreations,
-          skipDuplicates: true, // based on @@unique([userId, groupId])
+          skipDuplicates: true,
         });
       }
 
       if (initialPayments && Array.isArray(initialPayments)) {
-        // Fetch created members if potTakerMemberId might refer to a symbolic ID or requires mapping
-        // For now, assumes potTakerMemberId is the actual HuiMember.id if provided.
         const paymentCreations = initialPayments.map(p => ({
           huiGroupId: group.id,
           period: parseInt(p.period, 10),
           cycle: p.cycle !== undefined ? parseInt(p.cycle, 10) : parseInt(p.period, 10),
-          dueDate: p.dueDate ? new Date(p.dueDate) : new Date(), // Ensure correct date parsing
+          dueDate: p.dueDate ? new Date(p.dueDate) : new Date(),
           amount: p.amount ? new Prisma.Decimal(p.amount) : parsedAmount,
           potTakerMemberId: p.potTakerMemberId || null,
-          userId: p.userId || managerId, // User managing this period, defaults to group manager
+          userId: p.userId || managerId,
           amountCollected: p.amountCollected ? new Prisma.Decimal(p.amountCollected) : null,
           thamKeu: p.thamKeu ? new Prisma.Decimal(p.thamKeu) : null,
           thao: p.thao ? new Prisma.Decimal(p.thao) : null,
@@ -164,11 +185,11 @@ export async function POST(request) {
     return NextResponse.json(newHuiGroup, { status: 201 });
   } catch (error) {
     console.error('Error creating hui group:', error);
-    if (error.code === 'P2002') { 
-      return NextResponse.json({ message: `Hui group creation failed due to unique constraint: \${error.meta?.target}` }, { status: 409 });
+    if (error.code === 'P2002') {
+      return NextResponse.json({ message: `Hui group creation failed due to unique constraint: ${error.meta?.target}` }, { status: 409 });
     }
-    if (error.code === 'P2003') { 
-      return NextResponse.json({ message: `Foreign key constraint failed: \${error.meta?.field_name}` }, { status: 400 });
+    if (error.code === 'P2003') {
+      return NextResponse.json({ message: `Foreign key constraint failed: ${error.meta?.field_name}` }, { status: 400 });
     }
     return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
   }

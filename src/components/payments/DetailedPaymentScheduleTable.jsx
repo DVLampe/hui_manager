@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -75,20 +74,16 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
         }
       });
 
-
       groupMembers.forEach(member => {
         const isPotTakerThisPeriod = member.id === periodDetail.potTakerMemberId;
         const hasTakenPotPreviously = membersWhoTookPotBeforeThisPeriod.has(member.id);
         const contributionRecord = periodDetail.memberContributions.find(c => c.memberId === member.id);
 
         let individualPaymentAmount = 0;
-        let memberContributionStatus = 'CHUA_DONG';
-
         // --- NEW CONTRIBUTION CALCULATION LOGIC ---
         if (isPotTakerThisPeriod) {
             // Rule: Pot taker for the current period pays 0.
             individualPaymentAmount = 0;
-            memberContributionStatus = 'MIEN_DONG';
         } else if (hasTakenPotPreviously) {
             // Rule: "Hụi chết" (already taken pot) pays the full base amount.
             individualPaymentAmount = baseAmountForPeriod;
@@ -98,33 +93,11 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
         }
         // --- END OF NEW LOGIC ---
 
-        // Determine the display status based on actual contribution records or period status
-        if (contributionRecord) {
-            memberContributionStatus = contributionRecord.status;
-            // Pot-taker status overrides any other status
-            if(isPotTakerThisPeriod) memberContributionStatus = 'MIEN_DONG';
-        } else {
-             if (isPotTakerThisPeriod) {
-                memberContributionStatus = 'MIEN_DONG';
-            } else if (periodDetail.status === 'DA_THANH_TOAN') {
-                memberContributionStatus = 'DA_DONG';
-            } else if (periodDetail.status === 'CHO_THANH_TOAN') {
-                 if (rawDueDate < today) {
-                    memberContributionStatus = 'TRE_HAN';
-                } else {
-                    memberContributionStatus = 'CHUA_DONG';
-                }
-            } else if (periodDetail.status === 'CHUA_DEN_KY') {
-                memberContributionStatus = 'CHUA_DEN_KY';
-            }
-        }
-
         periodDetail.subRows.push({
           contributionId: contributionRecord?.id || null,
           memberId: member.id,
           memberName: member.user?.name || `Member ${member.id}`,
           amountDue: individualPaymentAmount,
-          status: memberContributionStatus,
         });
       });
 
@@ -272,7 +245,6 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                       <tr>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thành viên</th>
                         <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền đóng (VNĐ)</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái đóng</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái thành viên</th>
                       </tr>
                     </thead>
@@ -283,11 +255,6 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                           <tr key={`sub-${selectedPeriodData.id || selectedPeriodData.period}-${subRow.memberId}-${subRow.contributionId || 'no-contrib'}`}>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">{subRow.memberName}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 text-right">{formatNumber(subRow.amountDue)}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusColor(subRow.status)}`}>
-                                {statusDisplayMap[subRow.status] || subRow.status}
-                              </span>
-                            </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{memberOverallStatus}</td>
                           </tr>
                         );

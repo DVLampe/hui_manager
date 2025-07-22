@@ -1,12 +1,12 @@
-// src/app/auth/signin/page.jsx
+// src/app/auth/register/page.jsx
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const SignInPage = () => {
+const RegisterPage = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,21 +19,26 @@ const SignInPage = () => {
     setIsLoading(true);
 
     try {
-      const result = await signIn('credentials', {
-        redirect: false, // We will handle redirect manually
-        email,
-        password,
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
       });
 
-      if (result.error) {
-        setError('Email hoặc mật khẩu không đúng. Vui lòng thử lại.');
-        setIsLoading(false);
-      } else {
-        // Redirect to a protected page or homepage on successful login
-        router.push('/profile');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to register');
       }
+
+      // On successful registration, redirect to the sign-in page
+      router.push('/auth/signin?registered=true');
+
     } catch (err) {
-      setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+      setError(err.message === 'User with this email already exists' 
+        ? 'Tài khoản với email này đã tồn tại.' 
+        : 'Đã xảy ra lỗi. Vui lòng thử lại.');
       setIsLoading(false);
     }
   };
@@ -42,13 +47,31 @@ const SignInPage = () => {
     <div className="flex min-h-screen flex-col justify-center bg-gray-100 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-          Đăng nhập vào tài khoản
+          Tạo tài khoản mới
         </h2>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Họ và tên
+              </label>
+              <div className="mt-1">
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Địa chỉ email
@@ -76,7 +99,7 @@ const SignInPage = () => {
                   id="password"
                   name="password"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -84,13 +107,12 @@ const SignInPage = () => {
                 />
               </div>
             </div>
-
+            
             {error && (
                 <div className="rounded-md bg-red-50 p-4">
                     <p className="text-sm text-red-700">{error}</p>
                 </div>
             )}
-
 
             <div>
               <button
@@ -98,27 +120,19 @@ const SignInPage = () => {
                 disabled={isLoading}
                 className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
               >
-                {isLoading ? 'Đang xử lý...' : 'Đăng nhập'}
+                {isLoading ? 'Đang xử lý...' : 'Đăng ký'}
               </button>
             </div>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-gray-500">Chưa có tài khoản?</span>
-              </div>
+            <div className="mt-6 text-center">
+                 <p className="text-sm text-gray-600">
+                    Đã có tài khoản?{' '}
+                    <Link href="/auth/signin" className="font-medium text-indigo-600 hover:text-indigo-500">
+                        Đăng nhập
+                    </Link>
+                </p>
             </div>
-
-            <div className="mt-6">
-               <Link href="/auth/register" className="flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
-                  Đăng ký ngay
-                </Link>
-            </div>
-          </div>
 
         </div>
       </div>
@@ -126,4 +140,4 @@ const SignInPage = () => {
   );
 };
 
-export default SignInPage;
+export default RegisterPage;

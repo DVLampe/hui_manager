@@ -22,6 +22,8 @@ model User {
   role          Role      @default(USER)
   phone         String?
   avatar        String?
+  dateOfBirth   DateTime? // Added for user age calculation
+  about         String?   // Added for user profile description
   isActive      Boolean   @default(true)
   lastLoginAt   DateTime?
   createdAt     DateTime  @default(now())
@@ -196,8 +198,6 @@ model MemberPeriodContribution {
   member    HuiMember @relation("MemberContributions", fields: [memberId], references: [id])
 
   amountContributed Decimal @db.Decimal(10, 2) // Actual amount contributed by this member for this period
-  status            MemberContributionStatus @default(CHUA_DONG) // Status of this specific contribution
-
   notes             String?
   contributionDate  DateTime? // Date of actual contribution
 
@@ -206,7 +206,6 @@ model MemberPeriodContribution {
 
   @@unique([paymentId, memberId]) // A member has one contribution record per period
   @@index([memberId])
-  @@index([status])
 }
 
 enum PaymentType {
@@ -222,15 +221,6 @@ enum PaymentStatus {
   CHO_THANH_TOAN  // Period is active, awaiting contributions/settlement
   DA_THANH_TOAN   // Period is settled, pot has been paid
   HUY             // Period is cancelled
-}
-
-// Status of an individual member's contribution for a period
-enum MemberContributionStatus {
-  CHUA_DONG     // Not Paid
-  DA_DONG       // Paid
-  MIEN_DONG     // Exempted (e.g., if they are the pot taker for this period)
-  TRE_HAN       // Overdue
-  CHO_XAC_NHAN // Pending confirmation
 }
 
 model PaymentHistory {
