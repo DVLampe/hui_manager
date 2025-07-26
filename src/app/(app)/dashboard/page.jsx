@@ -11,10 +11,9 @@ import {
   Legend,
   BarElement,
 } from 'chart.js';
-import Layout from '../../components/shared/Layout';
-import Card from '../../components/ui/Card'; // Corrected import
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
-import { Badge } from '../../components/ui/Badge';
+import Card from '@/components/ui/Card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Badge } from '@/components/ui/Badge';
 
 ChartJS.register(
   CategoryScale,
@@ -103,9 +102,7 @@ const huiData = [
 
 export default function DashboardPage() {
   return (
-    <Layout>
-      <main className="flex-1 p-4 md:p-8 bg-gray-50 min-h-screen">
-        <div className="max-w-7xl mx-auto">
+    <>
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-800">Дашборд</h1>
             <p className="text-gray-500 mt-1">
@@ -171,8 +168,7 @@ export default function DashboardPage() {
               </Table>
             </div>
           </div>
-        </div>
-      </main>
-    </Layout>
+    </>
   );
 }
+

@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse as OriginalNextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
+// Correctly apply the workaround
+const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
 
 // GET /api/hui
 // Lấy danh sách các hụi mà user là manager hoặc member

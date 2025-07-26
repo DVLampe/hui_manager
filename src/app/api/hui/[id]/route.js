@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse as OriginalNextResponse } from 'next/server';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
+// Apply the workaround pattern
+const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
 const prisma = new PrismaClient();
 
 // Helper function to check if the user has access to the group
@@ -59,7 +61,6 @@ export async function GET(request, { params }) {
       },
     });
 
-    // This check is slightly redundant if checkGroupAccess is perfect, but good for safety
     if (!hui) {
       return NextResponse.json({ error: 'Hui not found' }, { status: 404 });
     }
@@ -249,3 +250,4 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }
+

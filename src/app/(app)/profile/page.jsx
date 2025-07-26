@@ -185,8 +185,8 @@ const ProfilePage = () => {
   const { data: session, status, update } = useSession({
     required: true,
     onUnauthenticated() {
-      // The user is not authenticated, redirect to the sign-in page.
-      router.push('/auth/signin');
+      // The user is not authenticated, redirect to the new sign-in page.
+      router.push('/signin');
     },
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -268,3 +268,4 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
+
