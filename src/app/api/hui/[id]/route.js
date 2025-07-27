@@ -1,30 +1,57 @@
 import { NextResponse as OriginalNextResponse } from 'next/server';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route.js';
 
 // Apply the workaround pattern
 const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
 const prisma = new PrismaClient();
 
-// Helper function to check if the user has access to the group
-const checkGroupAccess = async (userId, groupId) => {
+// Helper function to check if the user has management access to the group
+const checkManagementAccess = async (userId, groupId) => {
     const group = await prisma.huiGroup.findUnique({
         where: { id: groupId },
         select: {
-            managerId: true,
+            ownerId: true,
+            permissions: {
+                where: {
+                    userId: userId,
+                    permission: 'MANAGE',
+                },
+                select: { userId: true }
+            }
+        }
+    });
+    if (!group) return null; // Group not found
+    if (group.ownerId === userId || group.permissions.length > 0) {
+        return true; // User has management access
+    }
+    return false; // User does not have management access
+};
+
+// Helper function to check if the user can view the group
+const checkViewAccess = async (userId, groupId) => {
+    const group = await prisma.huiGroup.findUnique({
+        where: { id: groupId },
+        select: {
+            ownerId: true,
             members: {
+                where: { userId: userId },
+                select: { userId: true }
+            },
+            permissions: {
                 where: { userId: userId },
                 select: { userId: true }
             }
         }
     });
     if (!group) return null; // Group not found
-    if (group.managerId === userId || group.members.length > 0) {
-        return true; // User has access
+    if (group.ownerId === userId || group.members.length > 0 || group.permissions.length > 0) {
+        return true; // User has view access
     }
     return false; // User does not have access
 };
+
 
 // GET: Fetch details of a single Hui group
 export async function GET(request, { params }) {
@@ -36,7 +63,7 @@ export async function GET(request, { params }) {
   const userId = session.user.id;
 
   try {
-    const hasAccess = await checkGroupAccess(userId, id);
+    const hasAccess = await checkViewAccess(userId, id);
     if (hasAccess === null) {
       return NextResponse.json({ error: 'Hui not found' }, { status: 404 });
     }
@@ -47,7 +74,8 @@ export async function GET(request, { params }) {
     const hui = await prisma.huiGroup.findUnique({
         where: { id },
       include: {
-        manager: true,
+        manager: true, // This is now the owner
+        permissions: { include: { user: true } },
         members: { include: { user: true } },
         payments: {
           orderBy: { period: 'asc' },
@@ -82,26 +110,26 @@ export async function PUT(request, { params }) {
   const userId = session.user.id;
 
   try {
-    const group = await prisma.huiGroup.findUnique({ where: { id } });
-    if (!group) {
+    const hasAccess = await checkManagementAccess(userId, id);
+    if (hasAccess === null) {
         return NextResponse.json({ error: 'Hui not found' }, { status: 404 });
     }
-    if (group.managerId !== userId) {
-        return NextResponse.json({ error: 'Forbidden: Only the manager can update the group' }, { status: 403 });
+    if (!hasAccess) {
+        return NextResponse.json({ error: 'Forbidden: You do not have permission to update this group' }, { status: 403 });
     }
 
     const body = await request.json();
     const { payments: periodsToUpdate, ...huiDataToUpdate } = body;
 
-    // Remove managerId from update payload to prevent changing the manager
-    delete huiDataToUpdate.managerId;
+    // Prevent changing the owner
+    delete huiDataToUpdate.ownerId;
 
     if (!huiDataToUpdate.name || !huiDataToUpdate.amount) {
       return NextResponse.json({ error: 'Missing required fields for HuiGroup' }, { status: 400 });
     }
 
     const updatedHui = await prisma.$transaction(async (tx) => {
-        await tx.huiGroup.update({
+        const group = await tx.huiGroup.update({
             where: { id },
             data: {
               name: huiDataToUpdate.name,
@@ -110,7 +138,6 @@ export async function PUT(request, { params }) {
               startDate: huiDataToUpdate.startDate ? new Date(huiDataToUpdate.startDate) : undefined,
               endDate: huiDataToUpdate.endDate ? new Date(huiDataToUpdate.endDate) : undefined,
               status: huiDataToUpdate.status,
-              // managerId is not updated
               cycle: huiDataToUpdate.cycle,
               totalMembers: huiDataToUpdate.totalMembers,
               currentCycle: huiDataToUpdate.currentCycle,
@@ -133,7 +160,7 @@ export async function PUT(request, { params }) {
 
             const periodCreations = periodsToUpdate.map(p => {
               if (!p.userId) {
-                p.userId = group.managerId;
+                p.userId = group.ownerId;
               }
               return {
                 huiGroupId: id,
@@ -162,6 +189,7 @@ export async function PUT(request, { params }) {
             where: { id },
             include: {
               manager: true,
+              permissions: { include: { user: true } },
               members: { include: { user: true } },
               payments: {
                 orderBy: { period: 'asc' },
@@ -203,20 +231,19 @@ export async function DELETE(request, { params }) {
   const userId = session.user.id;
 
   try {
-    const group = await prisma.huiGroup.findUnique({
-      where: { id },
-      select: { managerId: true },
-    });
-
-    if (!group) {
+    const hasAccess = await checkManagementAccess(userId, id);
+    if (hasAccess === null) {
         return NextResponse.json({ error: 'Hui group not found' }, { status: 404 });
     }
-
-    if (group.managerId !== userId) {
-        return NextResponse.json({ error: 'Forbidden: Only the manager can delete the group' }, { status: 403 });
+    if (!hasAccess) {
+        return NextResponse.json({ error: 'Forbidden: You do not have permission to delete this group' }, { status: 403 });
     }
 
     await prisma.$transaction(async (tx) => {
+        await tx.huiPermission.deleteMany({
+            where: { groupId: id },
+        });
+
         const paymentsToDelete = await tx.payment.findMany({
             where: { huiGroupId: id },
             select: { id: true },
@@ -250,4 +277,3 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }
-

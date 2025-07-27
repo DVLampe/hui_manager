@@ -31,6 +31,7 @@ model User {
 
   huiGroups     HuiGroup[]    @relation("GroupManager")
   memberships   HuiMember[]
+  permissions   HuiPermission[]
   payments      Payment[]     @relation("UserPayments") // Payments managed by this user
   notifications Notification[]
   auditLogs     AuditLog[]
@@ -46,7 +47,6 @@ model User {
 
 enum Role {
   ADMIN
-  MANAGER
   USER
 }
 
@@ -89,9 +89,10 @@ model HuiGroup {
   startDate   DateTime
   endDate     DateTime?
   status      GroupStatus @default(ACTIVE)
-  managerId   String
-  manager     User        @relation("GroupManager", fields: [managerId], references: [id])
+  ownerId     String
+  manager     User        @relation("GroupManager", fields: [ownerId], references: [id])
   members     HuiMember[]
+  permissions HuiPermission[]
   payments    Payment[] // Represents periods/events in this group
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -102,7 +103,7 @@ model HuiGroup {
   rules       Json?
 
   @@index([status])
-  @@index([managerId])
+  @@index([ownerId])
   @@index([startDate])
   @@index([endDate])
 }
@@ -132,6 +133,26 @@ model HuiMember {
   @@unique([userId, groupId])
 }
 
+model HuiPermission {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  user      User     @relation(fields: [userId], references: [id])
+  group     HuiGroup @relation(fields: [groupId], references: [id])
+  permission PermissionType @default(VIEW)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, groupId])
+  @@index([userId])
+  @@index([groupId])
+}
+
+enum PermissionType {
+  MANAGE
+  VIEW
+}
+
 enum GroupStatus {
   ACTIVE
   COMPLETED
@@ -141,7 +162,7 @@ enum GroupStatus {
 model Payment {
   id        String   @id @default(cuid()) // Represents a specific period (Kỳ) event in a HuiGroup
   huiGroupId   String
-  huiGroup     HuiGroup @relation(fields: [huiGroupId], references: [id])
+  huiGroup     HuiGroup @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
   period    Int         // Номер Kỳ (периода)
 
   // Who takes the pot in this period
@@ -192,7 +213,7 @@ model Payment {
 model MemberPeriodContribution {
   id        String    @id @default(cuid())
   paymentId String    // Link to the Payment (Kỳ)
-  payment   Payment   @relation("ContributionsForPaymentPeriod", fields: [paymentId], references: [id])
+  payment   Payment   @relation("ContributionsForPaymentPeriod", fields: [paymentId], references: [id], onDelete: Cascade)
 
   memberId  String    // Link to the HuiMember
   member    HuiMember @relation("MemberContributions", fields: [memberId], references: [id])

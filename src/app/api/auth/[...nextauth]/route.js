@@ -46,8 +46,7 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
-      // console.log('[NextAuth] Inside Session callback'); // Lowering log noise
-      if (session.user && token) {
+      if (token) {
         session.user.id = token.id;
         session.user.role = token.role;
       }

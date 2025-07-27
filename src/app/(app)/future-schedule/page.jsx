@@ -1,45 +1,62 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import Layout from '@/components/shared/Layout';
-import { fetchFutureSchedules, resetFutureSchedules } from '@/store/futureScheduleSlice';
-import { selectIsAuthenticated } from '@/store/authSlice';
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
+import Button from '@/components/ui/Button';
+import Loading from '@/components/ui/Loading';
 
 export default function FutureSchedulePage() {
-  const dispatch = useDispatch();
-  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === 'authenticated';
 
-  const {
-    schedules,
-    status: scheduleStatus,
-    error: scheduleError,
-  } = useSelector((state) => state.futureSchedule);
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (isAuthenticated && scheduleStatus === 'idle') {
-      dispatch(fetchFutureSchedules());
-    }
-  }, [dispatch, isAuthenticated, scheduleStatus]);
+    const fetchSchedules = async () => {
+      if (!isAuthenticated) {
+        setLoading(false);
+        return;
+      }
 
-  useEffect(() => {
-    if (!isAuthenticated && scheduleStatus !== 'idle') {
-        dispatch(resetFutureSchedules());
-    }
-  }, [isAuthenticated, dispatch, scheduleStatus]);
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('/api/future-schedule');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch future schedules');
+        }
+        const data = await response.json();
+        setSchedules(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSchedules();
+  }, [isAuthenticated]);
 
   let content;
-  if (!isAuthenticated) {
-     content = (
-        <div className="bg-white shadow rounded-lg p-6 text-center mt-8">
-            <p className="text-gray-500">Пожалуйста, войдите в систему, чтобы просмотреть график платежей.</p>
-        </div>
-     );
-  } else if (scheduleStatus === 'loading') {
-    content = <p className="text-center text-gray-500 mt-8">Загрузка графика платежей...</p>;
-  } else if (scheduleStatus === 'failed') {
-    content = <p className="text-center text-red-500 mt-8">Ошибка загрузки графика: {scheduleError || 'Неизвестная ошибка'}</p>;
-  } else if (scheduleStatus === 'succeeded' && schedules.length === 0) {
+
+  if (status === 'loading' || (isAuthenticated && loading)) {
+    content = <Loading message="Загрузка графика платежей..." />;
+  } else if (!isAuthenticated) {
+    content = (
+      <div className="bg-white shadow rounded-lg p-6 text-center mt-8">
+        <p className="text-gray-500">Пожалуйста, войдите в систему, чтобы просмотреть график платежей.</p>
+        <Link href="/auth/signin" className="mt-4 inline-block">
+          <Button>Đăng nhập</Button>
+        </Link>
+      </div>
+    );
+  } else if (error) {
+    content = <p className="text-center text-red-500 mt-8">Ошибка загрузки графика: {error}</p>;
+  } else if (schedules.length === 0) {
     content = (
       <div className="bg-white shadow rounded-lg p-6 text-center mt-8">
         <p className="text-gray-500">
@@ -47,7 +64,7 @@ export default function FutureSchedulePage() {
         </p>
       </div>
     );
-  } else if (scheduleStatus === 'succeeded' && schedules.length > 0) {
+  } else {
     content = (
       <div className="space-y-2 mt-4">
         {schedules.map((payment, index) => (
@@ -67,36 +84,19 @@ export default function FutureSchedulePage() {
         ))}
       </div>
     );
-  } else if (scheduleStatus === 'idle') {
-     content = (
-        <div className="bg-white shadow rounded-lg p-6 text-center mt-8">
-            <p className="text-gray-500">Нажмите кнопку, чтобы загрузить расписание.</p>
-             <button
-                onClick={() => dispatch(fetchFutureSchedules())}
-                disabled={scheduleStatus === 'loading'}
-                className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 transition duration-150 ease-in-out disabled:opacity-50"
-            >
-                Загрузить расписание
-            </button>
-        </div>
-     );
-  } else {
-    content = <p className="text-center text-gray-500 mt-8">Пожалуйста, подождите...</p>;
   }
 
   return (
-    <Layout>
-      <main className="flex-1 p-4 md:p-8 bg-gray-100 min-h-[calc(100vh-theme(spacing.16))]">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-6 text-center md:text-left">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">График будущих платежей</h1>
-            <p className="text-gray-600 mt-1">
-              Здесь отображаются ваши предстоящие платежи по всем hụi, в которых вы участвуете.
-            </p>
-          </div>
-          {content}
+    <main className="flex-1 p-4 md:p-8 bg-gray-100 min-h-[calc(100vh-theme(spacing.16))]">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6 text-center md:text-left">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">График будущих платежей</h1>
+          <p className="text-gray-600 mt-1">
+            Здесь отображаются ваши предстоящие платежи по всем hụi, в которых вы участвуете.
+          </p>
         </div>
-      </main>
-    </Layout>
+        {content}
+      </div>
+    </main>
   );
 }

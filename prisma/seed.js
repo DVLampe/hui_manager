@@ -6,69 +6,63 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Start seeding ...');
 
-  // Create Admin User
-  const adminUser = await prisma.user.create({
-    data: {
+  // Upsert Admin User
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
       email: 'admin@example.com',
-      // In a real application, hash the password before saving
-      password: await bcrypt.hash('password123', 10), // Hashing the password
+      password: await bcrypt.hash('password123', 10),
       name: 'Admin User',
       role: 'ADMIN',
       phone: '1234567890',
       isActive: true,
     },
   });
-  console.log(`Created admin user: ${adminUser.name} with id: ${adminUser.id}`);
+  console.log(`Upserted admin user: ${adminUser.name} with id: ${adminUser.id}`);
 
-  // Create Manager User
-  const managerUser = await prisma.user.create({
-    data: {
-      email: 'manager@example.com',
-      password: await bcrypt.hash('password123', 10), // Hashing the password
-      name: 'Manager User',
-      role: 'MANAGER',
-      phone: '0987654321',
-      isActive: true,
-    },
-  });
-  console.log(`Created manager user: ${managerUser.name} with id: ${managerUser.id}`);
-
-  // Create Regular Users
-  const user1 = await prisma.user.create({
-    data: {
+  // Upsert Regular Users
+  const user1 = await prisma.user.upsert({
+    where: { email: 'user1@example.com' },
+    update: {},
+    create: {
       email: 'user1@example.com',
-      password: await bcrypt.hash('password123', 10), // Hashing the password
+      password: await bcrypt.hash('password123', 10),
       name: 'Test User One',
       role: 'USER',
       phone: '1112223333',
       isActive: true,
     },
   });
-  console.log(`Created user: ${user1.name} with id: ${user1.id}`);
+  console.log(`Upserted user: ${user1.name} with id: ${user1.id}`);
 
-  const user2 = await prisma.user.create({
-    data: {
+  const user2 = await prisma.user.upsert({
+    where: { email: 'user2@example.com' },
+    update: {},
+    create: {
       email: 'user2@example.com',
-      password: await bcrypt.hash('password123', 10), // Hashing the password
+      password: await bcrypt.hash('password123', 10),
       name: 'Test User Two',
       role: 'USER',
       phone: '4445556666',
-      isActive: false, // Example of an inactive user
+      isActive: false,
     },
   });
-  console.log(`Created user: ${user2.name} with id: ${user2.id}`);
+  console.log(`Upserted user: ${user2.name} with id: ${user2.id}`);
   
-  const user3 = await prisma.user.create({
-    data: {
+  const user3 = await prisma.user.upsert({
+    where: { email: 'user3@example.com' },
+    update: {},
+    create: {
       email: 'user3@example.com',
-      password: await bcrypt.hash('password123', 10), // Hashing the password
+      password: await bcrypt.hash('password123', 10),
       name: 'Test User Three',
       role: 'USER',
       phone: '7778889999',
       isActive: true,
     },
   });
-  console.log(`Created user: ${user3.name} with id: ${user3.id}`);
+  console.log(`Upserted user: ${user3.name} with id: ${user3.id}`);
 
   console.log('Seeding finished.');
 }
@@ -81,10 +75,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-// To run this seed script, you would typically add it to your package.json:
-// "prisma": {
-//   "seed": "node prisma/seed.js"
-// }
-// And then run: npx prisma db seed
-// Ensure you have bcrypt installed (npm install bcrypt or yarn add bcrypt).

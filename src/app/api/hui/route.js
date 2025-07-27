@@ -20,7 +20,7 @@ export async function GET(request) {
     const huis = await prisma.huiGroup.findMany({
       where: {
         OR: [
-          { managerId: userId }, // User is the manager
+          { ownerId: userId }, // User is the manager
           {
             members: {
               some: {
@@ -56,7 +56,7 @@ export async function POST(request) {
   if (!session?.user?.id) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  const managerId = session.user.id; // Manager is the authenticated user
+  const ownerId = session.user.id; // Manager is the authenticated user
 
   try {
     const body = await request.json();
@@ -64,7 +64,7 @@ export async function POST(request) {
       name,
       amount,
       startDate,
-      // managerId is now derived from session
+      // ownerId is now derived from session
       cycle,
       totalMembers,
       description,
@@ -133,7 +133,7 @@ export async function POST(request) {
           amount: parsedAmount,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
-          managerId, // Set from session
+          ownerId, // Set from session
           cycle: parsedCycle,
           totalMembers: parsedTotalMembers,
           nextPaymentDate,
@@ -162,7 +162,7 @@ export async function POST(request) {
           dueDate: p.dueDate ? new Date(p.dueDate) : new Date(),
           amount: p.amount ? new Prisma.Decimal(p.amount) : parsedAmount,
           potTakerMemberId: p.potTakerMemberId || null,
-          userId: p.userId || managerId,
+          userId: p.userId || ownerId,
           amountCollected: p.amountCollected ? new Prisma.Decimal(p.amountCollected) : null,
           thamKeu: p.thamKeu ? new Prisma.Decimal(p.thamKeu) : null,
           thao: p.thao ? new Prisma.Decimal(p.thao) : null,

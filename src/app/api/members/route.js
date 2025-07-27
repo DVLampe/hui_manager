@@ -1,20 +1,19 @@
 // src/app/api/members/route.js
-import prisma from '@/lib/prisma'
-import { NextResponse as OriginalNextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
+import prisma from '@/lib/prisma';
+import { NextResponse as OriginalNextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route.js';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
+const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
 
 // GET /api/members - Lấy danh sách thành viên
 export async function GET(request) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const tokenCookie = cookies().get('token')
-    if (!tokenCookie || !tokenCookie.value) {
-      return NextResponse.json({ error: 'Unauthorized: Please login' }, { status: 401 });
-    }
-    await jwtVerify(tokenCookie.value, new TextEncoder().encode(JWT_SECRET));
 
     const { searchParams } = new URL(request.url)
     const huiId = searchParams.get('huiId')
@@ -100,12 +99,12 @@ export async function GET(request) {
 
 // POST /api/members - Tạo thành viên mới
 export async function POST(request) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const tokenCookie = cookies().get('token')
-    if (!tokenCookie || !tokenCookie.value) {
-      return NextResponse.json({ error: 'Unauthorized: Please login' }, { status: 401 });
-    }
-    await jwtVerify(tokenCookie.value, new TextEncoder().encode(JWT_SECRET));
 
     const body = await request.json()
 
@@ -195,12 +194,12 @@ export async function POST(request) {
 // PUT /api/members/:id - Cập nhật thông tin thành viên (HuiMember)
 // This should ideally be in a [id]/route.js file, but following current structure.
 export async function PUT(request, { params }) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const tokenCookie = cookies().get('token');
-    if (!tokenCookie || !tokenCookie.value) {
-      return NextResponse.json({ error: 'Unauthorized: Please login' }, { status: 401 });
-    }
-    await jwtVerify(tokenCookie.value, new TextEncoder().encode(JWT_SECRET));
 
     const memberId = params.id; // Assuming the ID comes from the dynamic route segment
     const body = await request.json();
@@ -271,12 +270,12 @@ export async function PUT(request, { params }) {
 // DELETE /api/members/:id - Xóa thành viên (HuiMember)
 // This should ideally be in a [id]/route.js file.
 export async function DELETE(request, { params }) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const tokenCookie = cookies().get('token');
-    if (!tokenCookie || !tokenCookie.value) {
-      return NextResponse.json({ error: 'Unauthorized: Please login' }, { status: 401 });
-    }
-    await jwtVerify(tokenCookie.value, new TextEncoder().encode(JWT_SECRET));
 
     const memberId = params.id; // Assuming the ID comes from the dynamic route segment
      if (!memberId) {

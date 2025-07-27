@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Button from '@/components/ui/Button';
 import MemberList from '@/components/members/MemberList';
 import PaymentList from '@/components/payments/PaymentList';
@@ -17,6 +18,7 @@ import Alert from '@/components/ui/Alert';
 function HuiDetailClient({ params, vietnamDateString }) {
   const router = useRouter();
   const { showToast } = useToast();
+  const { data: session } = useSession();
 
   const [hui, setHui] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,13 @@ function HuiDetailClient({ params, vietnamDateString }) {
   const [hotHuiMemberId, setHotHuiMemberId] = useState('');
   const [hotHuiThamKeu, setHotHuiThamKeu] = useState('');
   const [hotHuiThao, setHotHuiThao] = useState('');
+
+  const canManage = useMemo(() => {
+    if (!session || !hui) return false;
+    if (session.user.role === 'ADMIN') return true;
+    if (hui.ownerId === session.user.id) return true;
+    return hui.permissions?.some(p => p.userId === session.user.id && p.permission === 'MANAGE');
+  }, [session, hui]);
 
   const memberOptions = useMemo(() => {
     if (!hui?.members) return [];
@@ -136,7 +145,6 @@ function HuiDetailClient({ params, vietnamDateString }) {
       return;
     }
 
-    // This logic transforms the data from the table into the format our API expects.
     const updatedPaymentsPayload = updatedScheduleFromTable.map(item => {
       const parseLocaleNumber = (str) => {
         if (typeof str !== 'string' || !str.trim()) return null;
@@ -151,14 +159,11 @@ function HuiDetailClient({ params, vietnamDateString }) {
         status: item.status,
         thamKeu: parseLocaleNumber(String(item.thamKeu)),
         thao: parseLocaleNumber(String(item.thao)),
-        // We ensure userId is present, defaulting to the manager
-        userId: hui.managerId,
+        userId: hui.ownerId,
       };
     });
 
     const huiDataToUpdate = { ...hui, payments: updatedPaymentsPayload };
-
-    // The handleUpdateHui function already sends the data and shows notifications.
     await handleUpdateHui(huiDataToUpdate);
   };
 
@@ -177,10 +182,9 @@ function HuiDetailClient({ params, vietnamDateString }) {
       }
 
       showToast({ message: "Thành viên đã được xóa thành công!", type: 'success' });
-      await fetchHuiData(); // Refetch the main hui data to update the member list
+      await fetchHuiData();
     } catch (err) {
        showToast({ message: `Lỗi xóa thành viên: ${err.message}`, type: 'error' });
-       // We still refetch data in case the list is out of sync
        await fetchHuiData();
     } finally {
         setLoading(false);
@@ -204,10 +208,56 @@ function HuiDetailClient({ params, vietnamDateString }) {
     resetHotHuiForm();
   };
 
-  const handleHotHuiSubmitInternal = () => {
-    console.log("Submitting Hot Hui:", { hotHuiKy, hotHuiMemberId, hotHuiThamKeu, hotHuiThao });
-    showToast({ message: "Chức năng Hốt Hụi đang được cập nhật.", type: 'info' });
-    handleCloseHotHuiModal();
+  const handleHotHuiSubmitInternal = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+      if (!hotHuiKy || !hotHuiMemberId) {
+        showToast({ message: "Vui lòng chọn kỳ hốt và thành viên.", type: 'error' });
+        setIsSaving(false);
+        return;
+      }
+
+      const selectedPeriod = parseInt(hotHuiKy, 10);
+      const takerMemberId = hotHuiMemberId;
+      const thamKeuValue = parseFloat(hotHuiThamKeu) || 0;
+      const thaoValue = parseFloat(hotHuiThao) || 0;
+
+      const payload = JSON.parse(JSON.stringify(hui));
+      const paymentIndex = payload.payments.findIndex(p => p.period === selectedPeriod);
+      if (paymentIndex === -1) {
+        throw new Error(`Không tìm thấy kỳ thanh toán ${selectedPeriod} để cập nhật.`);
+      }
+
+      const payingMembersCount = payload.totalMembers - 1;
+      const amountPerPayingMember = payload.amount - thamKeuValue;
+      const amountCollected = (amountPerPayingMember * payingMembersCount) - thaoValue;
+
+      const paymentToUpdate = payload.payments[paymentIndex];
+      paymentToUpdate.potTakerMemberId = takerMemberId;
+      paymentToUpdate.thamKeu = thamKeuValue;
+      paymentToUpdate.thao = thaoValue;
+      paymentToUpdate.amountCollected = amountCollected;
+      paymentToUpdate.status = 'DA_THANH_TOAN';
+      paymentToUpdate.transactionStatus = 'DA_THANH_TOAN';
+
+      const nextPeriod = selectedPeriod + 1;
+      const nextPaymentIndex = payload.payments.findIndex(p => p.period === nextPeriod);
+      if (nextPaymentIndex !== -1) {
+        if (!payload.payments[nextPaymentIndex].potTakerMemberId) {
+           payload.payments[nextPaymentIndex].transactionStatus = 'CHO_THANH_TOAN';
+        }
+      }
+
+      await handleUpdateHui(payload);
+      handleCloseHotHuiModal();
+
+    } catch (err) {
+      showToast({ message: `Lỗi khi hốt hụi: ${err.message}`, type: 'error' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (loading && !hui) {
@@ -233,20 +283,20 @@ function HuiDetailClient({ params, vietnamDateString }) {
     { id: 'payments', label: 'Lịch sử giao dịch' }
   ];
 
-  const FIXED_CURRENT_DATE = "2024-06-25";
-
   return (
     <>
       <Toaster />
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">{hui?.name}</h1>
-          <div className="flex space-x-3">
-            <Link href={`/hui/${params.id}/edit`}>
-                  <Button variant="outline">Chỉnh sửa hụi</Button>
+          {canManage && (
+            <div className="flex space-x-3">
+              <Link href={`/hui/${params.id}/edit`}>
+                <Button variant="outline">Chỉnh sửa hụi</Button>
               </Link>
               <Button variant="danger" onClick={() => setIsDeleteModalOpen(true)}>Xóa hụi</Button>
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -268,15 +318,17 @@ function HuiDetailClient({ params, vietnamDateString }) {
           <div className="w-full bg-gray-200 rounded-full h-2.5"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div></div>
         </div>
 
-        <div className="mt-4 flex justify-center">
-          <Button
-            variant="primary"
-            onClick={handleOpenHotHuiModal}
-            disabled={loading || hui?.status !== 'ACTIVE' || availableKyOptions.length === 0}
-          >
-            Hốt Hụi
-          </Button>
-              </div>
+        {canManage && (
+          <div className="mt-4 flex justify-center">
+            <Button
+              variant="primary"
+              onClick={handleOpenHotHuiModal}
+              disabled={loading || hui?.status !== 'ACTIVE' || availableKyOptions.length === 0}
+            >
+              Hốt Hụi
+            </Button>
+          </div>
+        )}
 
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
@@ -310,7 +362,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
                     <dd className="mt-1 text-sm text-gray-900">{new Date(hui?.startDate).toLocaleDateString('vi-VN')}</dd>
                   </div>
                    <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500">Người quản lý</dt>
+                    <dt className="text-sm font-medium text-gray-500">Chủ Hụi</dt>
                     <dd className="mt-1 text-sm text-gray-900">{hui?.manager?.name || 'N/A'}</dd>
                   </div>
                   <div className="sm:col-span-1">
@@ -334,9 +386,11 @@ function HuiDetailClient({ params, vietnamDateString }) {
             <div>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">Danh sách thành viên ({hui?.members?.length || 0})</h2>
-                <Link href={`/members/create?huiId=${hui?.id}`}>
-                    <Button variant="primary" size="sm" disabled={loading}>Thêm thành viên</Button>
-                </Link>
+                {canManage && (
+                  <Link href={`/members/create?huiId=${hui?.id}`}>
+                      <Button variant="primary" size="sm" disabled={loading}>Thêm thành viên</Button>
+                  </Link>
+                )}
               </div>
               <MemberList members={hui?.members || []} huiId={hui?.id} onDeleteMember={handleDeleteMember} disabled={loading} />
             </div>
@@ -345,7 +399,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
           {activeTab === 'schedules' && (
             <div>
               {hui ? (
-                <PaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} onSaveChanges={handleSavePaymentScheduleChanges} disabled={loading} />
+                <PaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} onSaveChanges={handleSavePaymentScheduleChanges} disabled={loading || !canManage} />
               ) : (
                 <p>Chưa có thông tin hụi để hiển thị lịch thanh toán.</p>
               )}
@@ -366,9 +420,11 @@ function HuiDetailClient({ params, vietnamDateString }) {
              <div>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">Lịch sử giao dịch ({hui?.payments?.length || 0})</h2>
-                <Link href={`/payments/create?huiId=${hui?.id}&amount=${hui?.amount}`}>
-                    <Button variant="primary" size="sm" disabled={isLoading}>Thêm giao dịch</Button>
-                </Link>
+                {canManage && (
+                  <Link href={`/payments/create?huiId=${hui?.id}&amount=${hui?.amount}`}>
+                      <Button variant="primary" size="sm" disabled={loading}>Thêm giao dịch</Button>
+                  </Link>
+                )}
               </div>
               <PaymentList payments={hui?.payments || []} members={hui?.members || []} />
             </div>
