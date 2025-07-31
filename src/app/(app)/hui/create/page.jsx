@@ -21,7 +21,6 @@ export default function CreateHuiPage() {
     endDate: '',
     cycle: '1',
     totalMembers: '',
-    rules: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -39,19 +38,6 @@ export default function CreateHuiPage() {
     setError('');
   };
   
-  const tryParseJson = (jsonString) => {
-    if (typeof jsonString !== 'string' || jsonString.trim() === '') {
-      return null; 
-    }
-    try {
-      const parsed = JSON.parse(jsonString);
-      return parsed; 
-    } catch (e) {
-      setError('Quy định (Rules) không phải là JSON hợp lệ.');
-      return 'INVALID_JSON'; 
-    }
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -63,18 +49,8 @@ export default function CreateHuiPage() {
       return;
     }
     
-    let parsedRules = null;
-    if (formData.rules && formData.rules.trim() !== '') {
-      parsedRules = tryParseJson(formData.rules);
-      if (parsedRules === 'INVALID_JSON') {
-        setLoading(false);
-        return;
-      }
-    }
-
     const dataToSubmit = {
       ...formData,
-      rules: parsedRules, 
     };
 
     try {
@@ -205,20 +181,6 @@ export default function CreateHuiPage() {
               placeholder="VD: 10"
               min="1"
             />
-          </div>
-
-          <div>
-            <label htmlFor="rules" className="block text-sm font-medium text-gray-700 mb-1">Quy định (tùy chọn, dạng JSON)</label>
-            <textarea
-              id="rules"
-              name="rules"
-              rows="4"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={formData.rules}
-              onChange={handleChange}
-              placeholder='{"latePaymentPenalty": 50000, "defaultCycleDay": 1}'
-            />
-            <p className="mt-1 text-xs text-gray-500">Nhập dưới dạng chuỗi JSON hợp lệ nếu có. VD: {JSON.stringify({duesDay: "5th", penalty: "5%"})}</p>
           </div>
           
           {error && <Alert type="error" message={error} />}

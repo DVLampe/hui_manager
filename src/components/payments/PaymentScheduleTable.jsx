@@ -18,7 +18,7 @@ const addMonths = (date, months) => {
   return d;
 };
 
-const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) => {
+const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disabled = false }) => {
   if (!huiGroup || !huiGroup.startDate) {
     return <p className="text-gray-600">Chưa có thông tin hụi đầy đủ để hiển thị lịch thanh toán.</p>;
   }
@@ -166,7 +166,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges }) =>
                   <Button onClick={handleEditToggle} variant="outline" size="sm">Hủy</Button>
                 </div>
               ) : (
-                <Button onClick={handleEditToggle} variant="outline" size="sm">Chỉnh sửa</Button>
+                !disabled && <Button onClick={handleEditToggle} variant="outline" size="sm">Chỉnh sửa</Button>
               )}
             </div>
         </div>

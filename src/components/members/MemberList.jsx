@@ -1,6 +1,6 @@
 import Button from '../ui/Button'; // Assuming you have a Button component
 
-export default function MemberList({ members, onDeleteMember }) {
+export default function MemberList({ members, onDeleteMember, canManage }) {
   if (!members || members.length === 0) {
     return <p>Chưa có thành viên nào.</p>;
   }
@@ -27,13 +27,15 @@ export default function MemberList({ members, onDeleteMember }) {
                   </p>
                 </div>
                 <div className="ml-2 flex-shrink-0">
-                  <Button 
-                    variant="danger" 
-                    size="sm"
-                    onClick={() => handleDelete(member.id)}
-                  >
-                    Xóa
-                  </Button>
+                  {canManage && (
+                    <Button 
+                      variant="danger" 
+                      size="sm"
+                      onClick={() => handleDelete(member.id)}
+                    >
+                      Xóa
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

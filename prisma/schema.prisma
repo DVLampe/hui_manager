@@ -200,7 +200,7 @@ model Payment {
   // Fields to review or remove:
   // scheduleStatus String? // Potentially redundant with transactionStatus
 
-  @@index([huiGroupId, period], name: "unique_period_in_group") // Ensure period is unique within a group
+  @@unique([huiGroupId, period], name: "unique_period_in_group")
   @@index([potTakerMemberId])
   @@index([userId])
   @@index([transactionStatus])

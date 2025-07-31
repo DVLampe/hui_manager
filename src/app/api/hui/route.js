@@ -126,6 +126,16 @@ export async function POST(request) {
     const nextPaymentDate = parsedStartDate; // Simplified calculation
 
     const newHuiGroup = await prisma.$transaction(async (tx) => {
+      // Ensure the owner exists before creating the group
+      const owner = await tx.user.findUnique({
+        where: { id: ownerId },
+      });
+
+      if (!owner) {
+        // This case should ideally not be reached if session is managed correctly
+        throw new Error('Owner not found. Please log in again.');
+      }
+      
       const group = await tx.huiGroup.create({
         data: {
           name,
@@ -138,6 +148,15 @@ export async function POST(request) {
           totalMembers: parsedTotalMembers,
           nextPaymentDate,
           rules: rules || Prisma.JsonNull,
+        },
+      });
+
+      // Automatically grant the creator MANAGE permission
+      await tx.huiPermission.create({
+        data: {
+          userId: ownerId,
+          groupId: group.id,
+          permission: 'MANAGE',
         },
       });
 
@@ -154,7 +173,32 @@ export async function POST(request) {
         });
       }
 
-      if (initialPayments && Array.isArray(initialPayments)) {
+      // Automatically generate payment schedule if not provided
+      if (!initialPayments || initialPayments.length === 0) {
+        const payments = [];
+        const addMonths = (date, months) => {
+          const d = new Date(date);
+          d.setMonth(d.getMonth() + months);
+          return d;
+        };
+
+        for (let i = 0; i < parsedTotalMembers; i++) {
+          const dueDate = addMonths(new Date(parsedStartDate), i * parsedCycle);
+          payments.push({
+            huiGroupId: group.id,
+            period: i + 1,
+            cycle: parsedCycle,
+            dueDate: dueDate,
+            amount: parsedAmount,
+            userId: ownerId,
+            transactionStatus: i === 0 ? 'CHO_THANH_TOAN' : 'CHUA_DEN_KY',
+            type: 'PERIOD_SETTLEMENT',
+          });
+        }
+        await tx.payment.createMany({
+          data: payments,
+        });
+      } else if (initialPayments && Array.isArray(initialPayments)) {
         const paymentCreations = initialPayments.map(p => ({
           huiGroupId: group.id,
           period: parseInt(p.period, 10),
@@ -180,6 +224,7 @@ export async function POST(request) {
           manager: { select: { id: true, name: true, email: true } },
           members: { include: { user: { select: { id: true, name: true } } } },
           payments: { include: { potTakerMember: { include: { user: { select: { id: true, name: true } } } } } },
+          permissions: { include: { user: true } },
           _count: { select: { members: true, payments: true } },
         },
       });

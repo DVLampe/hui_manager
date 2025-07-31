@@ -1,11 +1,11 @@
 import { NextResponse as OriginalNextResponse } from 'next/server';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route.js';
+import prisma from '@/lib/prisma';
 
 // Apply the workaround pattern
 const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
-const prisma = new PrismaClient();
 
 // Helper function to check if the user has management access to the group
 const checkManagementAccess = async (userId, groupId) => {
@@ -119,7 +119,7 @@ export async function PUT(request, { params }) {
     }
 
     const body = await request.json();
-    const { payments: periodsToUpdate, ...huiDataToUpdate } = body;
+    const { payments: periodsToUpdate, permissions: newPermissions, ...huiDataToUpdate } = body;
 
     // Prevent changing the owner
     delete huiDataToUpdate.ownerId;
@@ -146,42 +146,55 @@ export async function PUT(request, { params }) {
             },
           });
 
-          if (periodsToUpdate && Array.isArray(periodsToUpdate)) {
-            const existingPeriods = await tx.payment.findMany({ where: { huiGroupId: id } });
-            for (const period of existingPeriods) {
-              await tx.memberPeriodContribution.deleteMany({
-                where: { paymentId: period.id },
-              });
-            }
-
-            await tx.payment.deleteMany({
-              where: { huiGroupId: id },
+          if (newPermissions && Array.isArray(newPermissions)) {
+            // Delete existing MANAGE permissions for this group
+            await tx.huiPermission.deleteMany({
+              where: {
+                groupId: id,
+                permission: 'MANAGE',
+              },
             });
 
-            const periodCreations = periodsToUpdate.map(p => {
-              if (!p.userId) {
-                p.userId = group.ownerId;
-              }
-              return {
+            // Create new MANAGE permissions
+            const permissionCreations = newPermissions.map(p => ({
+              groupId: id,
+              userId: p.userId,
+              permission: 'MANAGE',
+            }));
+
+            if (permissionCreations.length > 0) {
+              await tx.huiPermission.createMany({
+                data: permissionCreations,
+              });
+            }
+          }
+
+          if (periodsToUpdate && Array.isArray(periodsToUpdate)) {
+            for (const p of periodsToUpdate) {
+              const periodData = {
                 huiGroupId: id,
                 period: parseInt(p.period, 10),
                 cycle: p.cycle !== undefined ? parseInt(p.cycle, 10) : parseInt(p.period, 10),
                 dueDate: p.dueDate ? new Date(p.dueDate.split('/').reverse().join('-')) : new Date(),
                 amount: parseFloat(String(p.amount !== undefined ? p.amount : huiDataToUpdate.amount).replace(/[^\d.]/g, '')),
                 potTakerMemberId: p.potTakerMemberId || p.memberId || null,
-                userId: p.userId,
+                userId: p.userId || group.ownerId,
                 amountCollected: p.amountCollected ? parseFloat(String(p.amountCollected).replace(/[^\d.]/g, '')) : null,
                 thamKeu: p.thamKeu ? parseFloat(String(p.thamKeu).replace(/[^\d.]/g, '')) : null,
                 thao: p.thao ? parseFloat(String(p.thao).replace(/[^\d.]/g, '')) : null,
                 transactionStatus: p.status || 'CHO_THANH_TOAN',
                 type: p.type || 'PERIOD_SETTLEMENT',
               };
-            });
 
-            if (periodCreations.length > 0) {
-              await tx.payment.createMany({
-                data: periodCreations,
-                skipDuplicates: true,
+              await tx.payment.upsert({
+                where: {
+                  unique_period_in_group: {
+                    huiGroupId: id,
+                    period: parseInt(p.period, 10),
+                  },
+                },
+                update: periodData,
+                create: periodData,
               });
             }
           }

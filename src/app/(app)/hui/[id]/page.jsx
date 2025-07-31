@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Toaster, useToast } from '@/components/ui/Toaster';
 import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
+import PermissionsModal from '@/components/hui/PermissionsModal';
 
 function HuiDetailClient({ params, vietnamDateString }) {
   const router = useRouter();
@@ -31,6 +32,9 @@ function HuiDetailClient({ params, vietnamDateString }) {
   const [hotHuiMemberId, setHotHuiMemberId] = useState('');
   const [hotHuiThamKeu, setHotHuiThamKeu] = useState('');
   const [hotHuiThao, setHotHuiThao] = useState('');
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [editedHui, setEditedHui] = useState(null);
 
   const canManage = useMemo(() => {
     if (!session || !hui) return false;
@@ -70,6 +74,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
         }
         const data = await response.json();
         setHui(data);
+        setEditedHui(data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -351,11 +356,39 @@ function HuiDetailClient({ params, vietnamDateString }) {
           {activeTab === 'info' && (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Thông tin chi tiết Hụi</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium leading-6 text-gray-900">Thông tin chi tiết Hụi</h3>
+                  {canManage && (
+                    <div className="flex space-x-2">
+                      {isEditingInfo ? (
+                        <>
+                          <Button variant="primary" size="sm" onClick={async () => {
+                            await handleUpdateHui(editedHui);
+                            setIsEditingInfo(false);
+                          }}>Lưu</Button>
+                          <Button variant="secondary" size="sm" onClick={() => {
+                            setIsEditingInfo(false);
+                            setEditedHui(hui);
+                          }}>Hủy</Button>
+                        </>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => setIsEditingInfo(true)}>Chỉnh sửa</Button>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => setIsPermissionsModalOpen(true)}>Quản lý quyền</Button>
+                    </div>
+                  )}
+                </div>
                 <dl className="mt-5 grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
                   <div className="sm:col-span-1">
                     <dt className="text-sm font-medium text-gray-500">Tên Hụi</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{hui?.name}</dd>
+                    {isEditingInfo ? (
+                      <Input
+                        value={editedHui.name}
+                        onChange={(e) => setEditedHui({ ...editedHui, name: e.target.value })}
+                      />
+                    ) : (
+                      <dd className="mt-1 text-sm text-gray-900">{hui?.name}</dd>
+                    )}
                   </div>
                   <div className="sm:col-span-1">
                     <dt className="text-sm font-medium text-gray-500">Ngày bắt đầu</dt>
@@ -366,16 +399,25 @@ function HuiDetailClient({ params, vietnamDateString }) {
                     <dd className="mt-1 text-sm text-gray-900">{hui?.manager?.name || 'N/A'}</dd>
                   </div>
                   <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Người có quyền chỉnh sửa hụi</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {hui?.permissions?.filter(p => p.permission === 'MANAGE').map(p => p.user?.name).join(', ') || 'N/A'}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-1">
                     <dt className="text-sm font-medium text-gray-500">Ngày kết thúc (dự kiến)</dt>
                     <dd className="mt-1 text-sm text-gray-900">{hui?.endDate ? new Date(hui.endDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}</dd>
                   </div>
                   <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-gray-500">Mô tả</dt>
-                    <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{hui?.description || 'Không có mô tả'}</dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Luật chơi</dt>
-                    <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{hui?.rules || 'Không có luật chơi cụ thể'}</dd>
+                    {isEditingInfo ? (
+                      <Input
+                        value={editedHui.description}
+                        onChange={(e) => setEditedHui({ ...editedHui, description: e.target.value })}
+                      />
+                    ) : (
+                      <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{hui?.description || 'Không có mô tả'}</dd>
+                    )}
                   </div>
                 </dl>
               </div>
@@ -392,7 +434,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
                   </Link>
                 )}
               </div>
-              <MemberList members={hui?.members || []} huiId={hui?.id} onDeleteMember={handleDeleteMember} disabled={loading} />
+              <MemberList members={hui?.members || []} huiId={hui?.id} onDeleteMember={handleDeleteMember} disabled={loading} canManage={canManage} />
             </div>
       )}
 
@@ -490,6 +532,20 @@ function HuiDetailClient({ params, vietnamDateString }) {
           </div>
         </div>
       )}
+
+      <PermissionsModal
+        isOpen={isPermissionsModalOpen}
+        onClose={() => setIsPermissionsModalOpen(false)}
+        hui={hui}
+        onSave={async (updatedPermissions) => {
+          const payload = {
+            ...hui,
+            permissions: updatedPermissions,
+          };
+          await handleUpdateHui(payload);
+          setIsPermissionsModalOpen(false);
+        }}
+      />
     </>
   );
 }
