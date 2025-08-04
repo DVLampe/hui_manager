@@ -82,25 +82,25 @@ model AuditLog {
 }
 
 model HuiGroup {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  amount      Decimal     @db.Decimal(10, 2) // Base amount per member per period
-  startDate   DateTime
-  endDate     DateTime?
-  status      GroupStatus @default(ACTIVE)
-  ownerId     String
-  manager     User        @relation("GroupManager", fields: [ownerId], references: [id])
-  members     HuiMember[]
-  permissions HuiPermission[]
-  payments    Payment[] // Represents periods/events in this group
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  cycle       Int         @default(1)
-  totalMembers Int        @default(0) @db.SmallInt
-  currentCycle Int        @default(1) @db.SmallInt
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  amount          Decimal       @db.Decimal(10, 2) // Base amount per member per period
+  startDate       DateTime
+  endDate         DateTime?
+  status          GroupStatus   @default(ACTIVE)
+  ownerId         String
+  manager         User          @relation("GroupManager", fields: [ownerId], references: [id])
+  members         HuiMember[]
+  permissions     HuiPermission[]
+  payments        Payment[] // Represents periods/events in this group
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  totalMembers    Int           @default(0) @db.SmallInt
+  currentCycle    Int           @default(1) @db.SmallInt
   nextPaymentDate DateTime?
-  rules       Json?
+  frequency       HuiFrequency  @default(MONTHLY)
+  numberOfPeriods Int           @default(0)
 
   @@index([status])
   @@index([ownerId])
@@ -110,9 +110,10 @@ model HuiGroup {
 
 model HuiMember {
   id        String   @id @default(cuid())
-  userId    String
+  userId    String?
+  guestName String?
   groupId   String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
   group     HuiGroup @relation(fields: [groupId], references: [id])
   joinedAt  DateTime @default(now())
   leftAt    DateTime?
@@ -146,6 +147,12 @@ model HuiPermission {
   @@unique([userId, groupId])
   @@index([userId])
   @@index([groupId])
+}
+
+enum HuiFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
 }
 
 enum PermissionType {
@@ -190,7 +197,6 @@ model Payment {
   type      PaymentType // e.g., CONTRIBUTION (for member period contributions), WITHDRAWAL (for pot taker) - may need rethink for period
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  cycle     Int     @db.SmallInt // if specific cycle info is needed here
   note      String?
   receipt   String?
   verifiedBy String?

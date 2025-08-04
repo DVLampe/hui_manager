@@ -20,7 +20,7 @@ export default function MemberList({ members, onDeleteMember, canManage }) {
               <div className="flex items-center justify-between">
                 <div className="flex-grow">
                   <p className="text-sm font-medium text-indigo-600 truncate">
-                    {member.user?.name || 'N/A'} ({member.user?.email || 'N/A'})
+                    {member.user?.name || member.guestName || 'N/A'} ({member.user?.email || 'Guest'})
                   </p>
                   <p className="text-sm text-gray-500">
                     Ngày tham gia: {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('vi-VN') : 'N/A'}

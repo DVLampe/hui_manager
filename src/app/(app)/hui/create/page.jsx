@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Alert from '@/components/ui/Alert';
 import Loading from '@/components/ui/Loading';
 import Link from 'next/link';
+import AddMembersPanel from '@/components/hui/AddMembersPanel';
 
 export default function CreateHuiPage() {
   const router = useRouter();
@@ -19,10 +21,10 @@ export default function CreateHuiPage() {
     amount: '',
     startDate: '',
     endDate: '',
-    cycle: '1',
-    totalMembers: '',
+    frequency: 'MONTHLY',
+    numberOfPeriods: '',
   });
-
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -43,7 +45,7 @@ export default function CreateHuiPage() {
     setError('');
     setLoading(true);
 
-    if (!formData.name || !formData.amount || !formData.startDate || !formData.cycle || !formData.totalMembers) {
+    if (!formData.name || !formData.amount || !formData.startDate || !formData.frequency || !formData.numberOfPeriods) {
       setError('Vui lòng điền đầy đủ các trường bắt buộc.');
       setLoading(false);
       return;
@@ -51,6 +53,7 @@ export default function CreateHuiPage() {
     
     const dataToSubmit = {
       ...formData,
+      members,
     };
 
     try {
@@ -130,16 +133,18 @@ export default function CreateHuiPage() {
               />
             </div>
             <div>
-              <label htmlFor="cycle" className="block text-sm font-medium text-gray-700 mb-1">Chu kỳ (tháng) <span className="text-red-500">*</span></label>
-              <Input
-                id="cycle"
-                name="cycle"
-                type="number"
+              <label htmlFor="frequency" className="block text-sm font-medium text-gray-700 mb-1">Loại hụi <span className="text-red-500">*</span></label>
+              <Select
+                id="frequency"
+                name="frequency"
                 required
-                value={formData.cycle}
+                value={formData.frequency}
                 onChange={handleChange}
-                placeholder="VD: 1"
-                min="1"
+                options={[
+                  { value: 'DAILY', label: 'Hụi ngày' },
+                  { value: 'WEEKLY', label: 'Hụi tuần' },
+                  { value: 'MONTHLY', label: 'Hụi tháng' },
+                ]}
               />
             </div>
           </div>
@@ -170,16 +175,24 @@ export default function CreateHuiPage() {
           </div>
 
           <div>
-            <label htmlFor="totalMembers" className="block text-sm font-medium text-gray-700 mb-1">Tổng số thành viên <span className="text-red-500">*</span></label>
+            <label htmlFor="numberOfPeriods" className="block text-sm font-medium text-gray-700 mb-1">Số kỳ <span className="text-red-500">*</span></label>
             <Input
-              id="totalMembers"
-              name="totalMembers"
+              id="numberOfPeriods"
+              name="numberOfPeriods"
               type="number"
               required
-              value={formData.totalMembers}
+              value={formData.numberOfPeriods}
               onChange={handleChange}
               placeholder="VD: 10"
               min="1"
+            />
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-700">Thêm thành viên</h2>
+            <AddMembersPanel
+              onStagedMembersChange={setMembers}
+              totalMembers={formData.numberOfPeriods}
             />
           </div>
           

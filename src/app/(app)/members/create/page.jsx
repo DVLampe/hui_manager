@@ -7,6 +7,8 @@ import Select from '@/components/ui/Select';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/Toaster';
 import Loading from '@/components/ui/Loading';
+import AddMembersPanel from '@/components/hui/AddMembersPanel';
+import { Toaster } from '@/components/ui/Toaster';
 
 export default function CreateMultipleMembersPage() {
   const router = useRouter();
@@ -30,7 +32,7 @@ export default function CreateMultipleMembersPage() {
   const [loadingAllUsers, setLoadingAllUsers] = useState(false);
   const [fetchAllUsersError, setFetchAllUsersError] = useState(null);
   
-  const [stagedForAdditionUserIds, setStagedForAdditionUserIds] = useState(new Set());
+  const [stagedMembers, setStagedMembers] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch all Huis
@@ -54,25 +56,6 @@ export default function CreateMultipleMembersPage() {
   }, [isAuthenticated]);
 
   // Fetch all system users
-  useEffect(() => {
-    const fetchAllSystemUsers = async () => {
-      if (!isAuthenticated) return;
-      setLoadingAllUsers(true);
-      try {
-        const response = await fetch('/api/users');
-        if (!response.ok) throw new Error('Failed to fetch users');
-        const data = await response.json();
-        setAllUsers(data || []);
-        setFetchAllUsersError(null);
-      } catch (err) {
-        setFetchAllUsersError(err.message);
-        setAllUsers([]);
-      } finally {
-        setLoadingAllUsers(false);
-      }
-    };
-    fetchAllSystemUsers();
-  }, [isAuthenticated]);
 
   // Fetch details of the selected Hui
   useEffect(() => {
@@ -91,7 +74,7 @@ export default function CreateMultipleMembersPage() {
         } finally {
           setLoadingCurrentHui(false);
         }
-        setStagedForAdditionUserIds(new Set()); // Clear staged users when hui selection changes
+        setStagedMembers([]); // Clear staged users when hui selection changes
       } else {
         setCurrentHui(null);
       }
@@ -105,43 +88,6 @@ export default function CreateMultipleMembersPage() {
     }
   }, [huiIdFromUrl]);
 
-  const currentHuiMemberUserIds = useMemo(() => {
-    return new Set(currentHui?.members?.map(member => member.userId) || []);
-  }, [currentHui]);
-
-  const leftPanelAvailableUsers = useMemo(() => {
-    if (loadingAllUsers || loadingCurrentHui) return [];
-    return allUsers.filter(user => 
-      !currentHuiMemberUserIds.has(user.id) && 
-      !stagedForAdditionUserIds.has(user.id)
-    );
-  }, [allUsers, currentHuiMemberUserIds, stagedForAdditionUserIds, loadingAllUsers, loadingCurrentHui]);
-
-  const rightPanelStagedUsers = useMemo(() => {
-    if (loadingAllUsers) return [];
-    return allUsers.filter(user => stagedForAdditionUserIds.has(user.id));
-  }, [allUsers, stagedForAdditionUserIds, loadingAllUsers]);
-  
-  const huiCapacity = currentHui?.totalMembers || 0;
-  const currentMemberCount = currentHui?.members?.length || 0;
-  const remainingCapacity = huiCapacity - currentMemberCount;
-  const canStageMoreUsers = stagedForAdditionUserIds.size < remainingCapacity;
-
-  const handleStageUser = (userId) => {
-    if (canStageMoreUsers) {
-      setStagedForAdditionUserIds(prevIds => new Set(prevIds).add(userId));
-    } else {
-      showToast({ message: "Đã đạt số lượng thành viên tối đa cho hụi này.", type: 'warning' });
-    }
-  };
-
-  const handleUnstageUser = (userId) => {
-    setStagedForAdditionUserIds(prevIds => {
-      const newIds = new Set(prevIds);
-      newIds.delete(userId);
-      return newIds;
-    });
-  };
 
   const createMemberAPI = async (userId, groupId) => {
     const response = await fetch('/api/members', {
@@ -158,7 +104,7 @@ export default function CreateMultipleMembersPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (stagedForAdditionUserIds.size === 0 || !selectedHuiId) {
+    if (stagedMembers.length === 0 || !selectedHuiId) {
       showToast({ message: "Vui lòng chọn một hụi và ít nhất một thành viên để thêm.", type: 'error' });
       return;
     }
@@ -167,11 +113,11 @@ export default function CreateMultipleMembersPage() {
     const results = { succeeded: [], failed: [] };
     const memberCreationPromises = [];
 
-    stagedForAdditionUserIds.forEach(userId => {
+    stagedMembers.forEach(member => {
       memberCreationPromises.push(
-        createMemberAPI(userId, selectedHuiId)
-          .then(createdMember => results.succeeded.push(createdMember.user ? createdMember.user.name : userId))
-          .catch(error => results.failed.push({ userId, error: error.message }))
+        createMemberAPI(member.userId, selectedHuiId)
+          .then(createdMember => results.succeeded.push(createdMember.user ? createdMember.user.name : member.userId))
+          .catch(error => results.failed.push({ userId: member.userId, error: error.message }))
       );
     });
 
@@ -196,7 +142,7 @@ export default function CreateMultipleMembersPage() {
     showToast({ message, type: messageType, duration: results.failed.length > 0 ? 7000 : 4000 });
 
     if (results.succeeded.length > 0) {
-        setStagedForAdditionUserIds(new Set());
+        setStagedMembers([]);
         router.push(`/hui/${selectedHuiId}`);
     }
   };
@@ -214,30 +160,9 @@ export default function CreateMultipleMembersPage() {
     );
   }
   
-  const UserListItem = ({ user, onAction, actionLabel, disabled }) => {
-    const isRemoveAction = actionLabel.includes("Xóa") || actionLabel.includes("Remove");
-
-    return (
-      <div className="flex items-center justify-between px-4 py-3 sm:px-6 hover:bg-gray-50">
-        <div>
-          <p className="text-sm font-medium text-gray-800 truncate">{user.name}</p>
-          <p className="text-xs text-gray-500 truncate">{user.email || 'No email'}</p>
-        </div>
-        <Button 
-          type="button" 
-          variant={isRemoveAction ? 'danger' : 'primary'}
-          size="sm" 
-          onClick={() => onAction(user.id)} 
-          disabled={disabled}
-        >
-          {actionLabel}
-        </Button>
-      </div>
-    );
-  };
-
   return (
     <div className="max-w-6xl mx-auto py-6">
+      <Toaster />
       <h1 className="text-2xl font-bold mb-6">Thêm nhiều thành viên vào Hụi</h1>
       
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -267,61 +192,20 @@ export default function CreateMultipleMembersPage() {
         {fetchAllUsersError && <p className="text-red-500 text-center mt-4">Lỗi tải người dùng: {fetchAllUsersError}</p>}
 
         {selectedHuiId && !loadingCurrentHui && currentHui && (
-          <div className="mt-6">
-            <div className="flex flex-col md:flex-row md:space-x-6">
-              {/* Left Panel: Available System Users */}
-              <div className="md:w-1/2 bg-white shadow-lg rounded-lg overflow-hidden">
-                <h3 className="text-lg font-semibold px-6 py-4 text-gray-800 border-b border-gray-200">
-                  Người dùng khả dụng ({leftPanelAvailableUsers.length})
-                </h3>
-                {loadingAllUsers && <p className="px-6 py-4 text-gray-500">Đang tải danh sách người dùng...</p>}
-                {!loadingAllUsers && leftPanelAvailableUsers.length === 0 && !fetchAllUsersError && (
-                  <p className="px-6 py-4 text-gray-500">Không có người dùng nào khả dụng hoặc tất cả đã được chọn.</p>
-                )}
-                <div className="max-h-96 overflow-y-auto divide-y divide-gray-200">
-                  {leftPanelAvailableUsers.map(user => (
-                    <UserListItem 
-                      key={user.id} 
-                      user={user} 
-                      onAction={handleStageUser} 
-                      actionLabel="Thêm vào Hụi ->"
-                      disabled={!canStageMoreUsers && !stagedForAdditionUserIds.has(user.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Right Panel: Users Staged for Addition */}
-              <div className="md:w-1/2 mt-6 md:mt-0 bg-white shadow-lg rounded-lg overflow-hidden">
-                <h3 className="text-lg font-semibold px-6 py-4 text-gray-800 border-b border-gray-200">
-                  Thành viên sẽ thêm ({stagedForAdditionUserIds.size})
-                </h3>
-                {rightPanelStagedUsers.length === 0 && (
-                  <p className="px-6 py-4 text-gray-500">Chưa chọn thành viên nào để thêm.</p>
-                )}
-                <div className="max-h-96 overflow-y-auto divide-y divide-gray-200">
-                  {rightPanelStagedUsers.map(user => (
-                    <UserListItem 
-                      key={user.id} 
-                      user={user} 
-                      onAction={handleUnstageUser} 
-                      actionLabel="<- Xóa" 
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AddMembersPanel
+            onStagedMembersChange={setStagedMembers}
+            totalMembers={currentHui.totalMembers}
+          />
         )}
 
         <div className="flex space-x-4 pt-6">
           <Button 
             type="submit" 
             className="flex-1"
-            disabled={isSubmitting || stagedForAdditionUserIds.size === 0 || !selectedHuiId || loadingCurrentHui}
+            disabled={isSubmitting || stagedMembers.length === 0 || !selectedHuiId || loadingCurrentHui}
             variant="primary"
           >
-            {isSubmitting ? `Đang xử lý...` : `Xác nhận thêm ${stagedForAdditionUserIds.size} thành viên`}
+            {isSubmitting ? `Đang xử lý...` : `Xác nhận thêm ${stagedMembers.length} thành viên`}
           </Button>
           <Button 
             type="button" 

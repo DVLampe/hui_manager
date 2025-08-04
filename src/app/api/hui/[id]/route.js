@@ -138,11 +138,9 @@ export async function PUT(request, { params }) {
               startDate: huiDataToUpdate.startDate ? new Date(huiDataToUpdate.startDate) : undefined,
               endDate: huiDataToUpdate.endDate ? new Date(huiDataToUpdate.endDate) : undefined,
               status: huiDataToUpdate.status,
-              cycle: huiDataToUpdate.cycle,
               totalMembers: huiDataToUpdate.totalMembers,
               currentCycle: huiDataToUpdate.currentCycle,
               nextPaymentDate: huiDataToUpdate.nextPaymentDate ? new Date(huiDataToUpdate.nextPaymentDate) : undefined,
-              rules: huiDataToUpdate.rules,
             },
           });
 
@@ -170,23 +168,28 @@ export async function PUT(request, { params }) {
           }
 
           if (periodsToUpdate && Array.isArray(periodsToUpdate)) {
+            const groupWithMembers = await tx.huiGroup.findUnique({
+              where: { id },
+              include: { members: true },
+            });
+            const allMembers = groupWithMembers.members;
+
             for (const p of periodsToUpdate) {
               const periodData = {
                 huiGroupId: id,
                 period: parseInt(p.period, 10),
-                cycle: p.cycle !== undefined ? parseInt(p.cycle, 10) : parseInt(p.period, 10),
-                dueDate: p.dueDate ? new Date(p.dueDate.split('/').reverse().join('-')) : new Date(),
+                dueDate: p.dueDate ? new Date(p.dueDate) : new Date(),
                 amount: parseFloat(String(p.amount !== undefined ? p.amount : huiDataToUpdate.amount).replace(/[^\d.]/g, '')),
                 potTakerMemberId: p.potTakerMemberId || p.memberId || null,
                 userId: p.userId || group.ownerId,
                 amountCollected: p.amountCollected ? parseFloat(String(p.amountCollected).replace(/[^\d.]/g, '')) : null,
                 thamKeu: p.thamKeu ? parseFloat(String(p.thamKeu).replace(/[^\d.]/g, '')) : null,
                 thao: p.thao ? parseFloat(String(p.thao).replace(/[^\d.]/g, '')) : null,
-                transactionStatus: p.status || 'CHO_THANH_TOAN',
+                transactionStatus: p.transactionStatus || p.status || 'CHO_THANH_TOAN',
                 type: p.type || 'PERIOD_SETTLEMENT',
               };
 
-              await tx.payment.upsert({
+              const upsertedPayment = await tx.payment.upsert({
                 where: {
                   unique_period_in_group: {
                     huiGroupId: id,
@@ -196,6 +199,52 @@ export async function PUT(request, { params }) {
                 update: periodData,
                 create: periodData,
               });
+
+              if (upsertedPayment.transactionStatus === 'DA_THANH_TOAN') {
+                const baseAmountForPeriod = new Prisma.Decimal(upsertedPayment.amount);
+                const thamKeuAmount = new Prisma.Decimal(upsertedPayment.thamKeu || 0);
+
+                const previousPayments = await tx.payment.findMany({
+                  where: {
+                    huiGroupId: id,
+                    period: { lt: upsertedPayment.period },
+                    transactionStatus: 'DA_THANH_TOAN',
+                  },
+                  select: { potTakerMemberId: true },
+                });
+                const membersWhoTookPotBeforeThisPeriod = new Set(
+                  previousPayments.map(p => p.potTakerMemberId)
+                );
+
+                for (const member of allMembers) {
+                  const isPotTakerThisPeriod = member.id === upsertedPayment.potTakerMemberId;
+                  const hasTakenPotPreviously = membersWhoTookPotBeforeThisPeriod.has(member.id);
+
+                  let amountContributed = new Prisma.Decimal(0);
+                  if (isPotTakerThisPeriod) {
+                    amountContributed = new Prisma.Decimal(0);
+                  } else if (hasTakenPotPreviously) {
+                    amountContributed = baseAmountForPeriod;
+                  } else {
+                    amountContributed = baseAmountForPeriod.minus(thamKeuAmount);
+                  }
+
+                  await tx.memberPeriodContribution.upsert({
+                    where: {
+                      paymentId_memberId: {
+                        paymentId: upsertedPayment.id,
+                        memberId: member.id,
+                      }
+                    },
+                    update: { amountContributed },
+                    create: {
+                      paymentId: upsertedPayment.id,
+                      memberId: member.id,
+                      amountContributed,
+                    }
+                  });
+                }
+              }
             }
           }
           return tx.huiGroup.findUnique({

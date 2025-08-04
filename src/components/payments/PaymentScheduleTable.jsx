@@ -26,9 +26,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
   const [isEditing, setIsEditing] = useState(false);
   const [editableSchedule, setEditableSchedule] = useState([]);
 
-  const numberOfPeriods = huiGroup.totalMembers || 12; // Use totalMembers or fallback
-  const { amount, startDate, name: huiName } = huiGroup;
-  const cycleDurationMonths = huiGroup.cycle || 1;
+  const numberOfPeriods = huiGroup.numberOfPeriods || huiGroup.totalMembers || 12;
+  const { amount, startDate, name: huiName, frequency } = huiGroup;
 
   React.useEffect(() => {
     const today = new Date(currentDateString);
@@ -38,7 +37,15 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
 
     const generatedSchedule = [];
     for (let i = 0; i < numberOfPeriods; i++) {
-      const dueDate = addMonths(new Date(initialStartDate), i * cycleDurationMonths);
+      const dueDate = new Date(initialStartDate);
+      if (frequency === 'DAILY') {
+        dueDate.setDate(dueDate.getDate() + i);
+      } else if (frequency === 'WEEKLY') {
+        dueDate.setDate(dueDate.getDate() + i * 7);
+      } else { // MONTHLY
+        dueDate.setMonth(dueDate.getMonth() + i);
+      }
+      
       let initialDisplayStatus = 'CHO_THANH_TOAN';
       if (dueDate > today) {
         initialDisplayStatus = 'CHUA_DEN_KY';
@@ -69,7 +76,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
       });
     }
     setEditableSchedule(generatedSchedule);
-  }, [huiGroup, currentDateString, numberOfPeriods, amount, startDate, cycleDurationMonths]);
+  }, [huiGroup, currentDateString, numberOfPeriods, amount, startDate, frequency]);
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
@@ -81,7 +88,15 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
 
         const resetSchedule = [];
         for (let i = 0; i < numberOfPeriods; i++) {
-          const dueDate = addMonths(new Date(initialStartDate), i * cycleDurationMonths);
+          const dueDate = new Date(initialStartDate);
+          if (frequency === 'DAILY') {
+            dueDate.setDate(dueDate.getDate() + i);
+          } else if (frequency === 'WEEKLY') {
+            dueDate.setDate(dueDate.getDate() + i * 7);
+          } else { // MONTHLY
+            dueDate.setMonth(dueDate.getMonth() + i);
+          }
+
           let initialDisplayStatus = 'CHO_THANH_TOAN';
           if (dueDate > today) {
             initialDisplayStatus = 'CHUA_DEN_KY';
@@ -217,12 +232,13 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                         <option value="">Chọn thành viên</option>
                         {members.map(member => (
                           <option key={member.id || member.userId} value={member.id || member.userId}>
-                            {member.user?.name || member.name || member.userId}
+                            {member.user?.name || member.guestName || member.name || member.userId}
                           </option>
                         ))}
                       </select>
                     ) : (
                       members.find(m => (m.id || m.userId) === item.thanhVienHotHui)?.user?.name ||
+                      members.find(m => (m.id || m.userId) === item.thanhVienHotHui)?.guestName ||
                       members.find(m => (m.id || m.userId) === item.thanhVienHotHui)?.name ||
                       item.thanhVienHotHui || 'N/A'
                     )}

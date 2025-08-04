@@ -54,7 +54,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
         dueDate: formatDate(periodPayment.dueDate),
         rawDueDate: rawDueDate,
         potTakerMemberId: periodPayment.potTakerMemberId,
-        potTakerName: periodPayment.potTakerMember?.user?.name || 'Chưa xác định',
+        potTakerName: periodPayment.potTakerMember?.user?.name || periodPayment.potTakerMember?.guestName || 'Chưa xác định',
         amountCollected: periodPayment.amountCollected,
         status: periodPayment.transactionStatus || 'CHUA_DEN_KY',
         thamKeu: periodPayment.thamKeu,
@@ -79,24 +79,23 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
         const hasTakenPotPreviously = membersWhoTookPotBeforeThisPeriod.has(member.id);
         const contributionRecord = periodDetail.memberContributions.find(c => c.memberId === member.id);
 
-        let individualPaymentAmount = 0;
-        // --- NEW CONTRIBUTION CALCULATION LOGIC ---
-        if (isPotTakerThisPeriod) {
-            // Rule: Pot taker for the current period pays 0.
+        let individualPaymentAmount = null;
+        if (contributionRecord) {
+          individualPaymentAmount = parseFloat(contributionRecord.amountContributed);
+        } else if (periodDetail.status === 'DA_THANH_TOAN' || periodDetail.status === 'CHO_THANH_TOAN') {
+          if (isPotTakerThisPeriod) {
             individualPaymentAmount = 0;
-        } else if (hasTakenPotPreviously) {
-            // Rule: "Hụi chết" (already taken pot) pays the full base amount.
+          } else if (hasTakenPotPreviously) {
             individualPaymentAmount = baseAmountForPeriod;
-        } else {
-            // Rule: "Hụi sống" (not yet taken pot) pays base amount minus the bid amount.
+          } else {
             individualPaymentAmount = baseAmountForPeriod - thamKeuAmount;
+          }
         }
-        // --- END OF NEW LOGIC ---
 
         periodDetail.subRows.push({
           contributionId: contributionRecord?.id || null,
           memberId: member.id,
-          memberName: member.user?.name || `Member ${member.id}`,
+          memberName: member.user?.name || member.guestName || `Member ${member.id}`,
           amountDue: individualPaymentAmount,
         });
       });

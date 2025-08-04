@@ -43,6 +43,11 @@ function HuiDetailClient({ params, vietnamDateString }) {
     return hui.permissions?.some(p => p.userId === session.user.id && p.permission === 'MANAGE');
   }, [session, hui]);
 
+  const isHuiMember = useMemo(() => {
+    if (!session || !hui || !hui.members) return false;
+    return hui.members.some(member => member.userId === session.user.id);
+  }, [session, hui]);
+
   const memberOptions = useMemo(() => {
     if (!hui?.members) return [];
     const paidMemberIds = new Set(
@@ -52,7 +57,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
     );
     return hui.members
       .filter(member => !paidMemberIds.has(member.id))
-      .map(member => ({ value: member.id, label: member.user.name }));
+      .map(member => ({ value: member.id, label: member.user ? member.user.name : member.guestName }));
   }, [hui]);
 
   const availableKyOptions = useMemo(() => {
@@ -323,7 +328,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
           <div className="w-full bg-gray-200 rounded-full h-2.5"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div></div>
         </div>
 
-        {canManage && (
+        {(canManage || isHuiMember) && (
           <div className="mt-4 flex justify-center">
             <Button
               variant="primary"

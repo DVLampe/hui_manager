@@ -64,17 +64,15 @@ export async function POST(request) {
       name,
       amount,
       startDate,
-      // ownerId is now derived from session
-      cycle,
-      totalMembers,
+      frequency,
+      numberOfPeriods,
       description,
       endDate,
-      rules,
       members: initialMembers,
       payments: initialPayments
     } = body;
 
-    if (!name || !amount || !startDate || cycle === undefined || totalMembers === undefined) {
+    if (!name || !amount || !startDate || !frequency || !numberOfPeriods) {
       return NextResponse.json({ message: 'Missing required fields for HuiGroup' }, { status: 400 });
     }
 
@@ -113,14 +111,10 @@ export async function POST(request) {
       }
     }
 
-    const parsedCycle = parseInt(cycle, 10);
-    const parsedTotalMembers = parseInt(totalMembers, 10);
+    const parsedNumberOfPeriods = parseInt(numberOfPeriods, 10);
 
-    if (isNaN(parsedCycle) || parsedCycle <= 0) {
-      return NextResponse.json({ message: 'Cycle must be a positive integer.' }, { status: 400 });
-    }
-    if (isNaN(parsedTotalMembers) || parsedTotalMembers <= 0) {
-      return NextResponse.json({ message: 'Total members must be a positive integer.' }, { status: 400 });
+    if (isNaN(parsedNumberOfPeriods) || parsedNumberOfPeriods <= 0) {
+      return NextResponse.json({ message: 'Number of periods must be a positive integer.' }, { status: 400 });
     }
 
     const nextPaymentDate = parsedStartDate; // Simplified calculation
@@ -144,10 +138,10 @@ export async function POST(request) {
           startDate: parsedStartDate,
           endDate: parsedEndDate,
           ownerId, // Set from session
-          cycle: parsedCycle,
-          totalMembers: parsedTotalMembers,
+          frequency,
+          numberOfPeriods: parsedNumberOfPeriods,
+          totalMembers: parsedNumberOfPeriods, // Total members is the same as number of periods
           nextPaymentDate,
-          rules: rules || Prisma.JsonNull,
         },
       });
 
@@ -161,12 +155,21 @@ export async function POST(request) {
       });
 
       if (initialMembers && Array.isArray(initialMembers)) {
-        const memberCreations = initialMembers.map(m => ({
-          groupId: group.id,
-          userId: m.userId,
-          position: m.position,
-          notes: m.notes,
-        }));
+        const memberCreations = initialMembers.map(m => {
+          const memberData = {
+            groupId: group.id,
+            position: m.position,
+            notes: m.notes,
+            totalPaid: 0,
+            totalDue: 0,
+          };
+          if (m.userId) {
+            memberData.userId = m.userId;
+          } else if (m.guestName) {
+            memberData.guestName = m.guestName;
+          }
+          return memberData;
+        });
         await tx.huiMember.createMany({
           data: memberCreations,
           skipDuplicates: true,
@@ -176,18 +179,28 @@ export async function POST(request) {
       // Automatically generate payment schedule if not provided
       if (!initialPayments || initialPayments.length === 0) {
         const payments = [];
-        const addMonths = (date, months) => {
-          const d = new Date(date);
-          d.setMonth(d.getMonth() + months);
+        const calculateDueDate = (startDate, periodIndex, frequency) => {
+          const d = new Date(startDate);
+          switch (frequency) {
+            case 'DAILY':
+              d.setDate(d.getDate() + periodIndex);
+              break;
+            case 'WEEKLY':
+              d.setDate(d.getDate() + periodIndex * 7);
+              break;
+            case 'MONTHLY':
+            default:
+              d.setMonth(d.getMonth() + periodIndex);
+              break;
+          }
           return d;
         };
 
-        for (let i = 0; i < parsedTotalMembers; i++) {
-          const dueDate = addMonths(new Date(parsedStartDate), i * parsedCycle);
+        for (let i = 0; i < parsedNumberOfPeriods; i++) {
+          const dueDate = calculateDueDate(parsedStartDate, i, frequency);
           payments.push({
             huiGroupId: group.id,
             period: i + 1,
-            cycle: parsedCycle,
             dueDate: dueDate,
             amount: parsedAmount,
             userId: ownerId,
@@ -202,7 +215,6 @@ export async function POST(request) {
         const paymentCreations = initialPayments.map(p => ({
           huiGroupId: group.id,
           period: parseInt(p.period, 10),
-          cycle: p.cycle !== undefined ? parseInt(p.cycle, 10) : parseInt(p.period, 10),
           dueDate: p.dueDate ? new Date(p.dueDate) : new Date(),
           amount: p.amount ? new Prisma.Decimal(p.amount) : parsedAmount,
           potTakerMemberId: p.potTakerMemberId || null,
