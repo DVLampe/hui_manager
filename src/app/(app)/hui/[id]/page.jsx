@@ -9,12 +9,16 @@ import PaymentScheduleTable from '@/components/payments/PaymentScheduleTable';
 import DetailedPaymentScheduleTable from '@/components/payments/DetailedPaymentScheduleTable';
 import Link from 'next/link';
 import Input from '@/components/ui/Input';
+import NumberInput from '@/components/ui/NumberInput';
 import Select from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { Toaster, useToast } from '@/components/ui/Toaster';
 import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
 import PermissionsModal from '@/components/hui/PermissionsModal';
+import HuiInvoice from '@/components/hui/HuiInvoice';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 function HuiDetailClient({ params, vietnamDateString }) {
   const router = useRouter();
@@ -35,6 +39,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editedHui, setEditedHui] = useState(null);
+  const [invoiceData, setInvoiceData] = useState(null);
 
   const canManage = useMemo(() => {
     if (!session || !hui) return false;
@@ -139,11 +144,15 @@ function HuiDetailClient({ params, vietnamDateString }) {
             const errData = await response.json();
             throw new Error(errData.error || 'Failed to update Hui');
         }
-        await fetchHuiData(); // Refetch data to show updates
+        const updatedHui = await response.json();
+        setHui(updatedHui);
+        setEditedHui(updatedHui);
         showToast({ message: "Cập nhật thành công!", type: 'success' });
+        return updatedHui;
     } catch (err) {
         setError(err.message);
         showToast({ message: `Lỗi cập nhật: ${err.message}`, type: 'error' });
+        return null;
     } finally {
         setLoading(false);
     }
@@ -240,9 +249,17 @@ function HuiDetailClient({ params, vietnamDateString }) {
         throw new Error(`Không tìm thấy kỳ thanh toán ${selectedPeriod} để cập nhật.`);
       }
 
-      const payingMembersCount = payload.totalMembers - 1;
-      const amountPerPayingMember = payload.amount - thamKeuValue;
-      const amountCollected = (amountPerPayingMember * payingMembersCount) - thaoValue;
+      const totalPeriods = payload.totalMembers;
+      const currentPeriod = selectedPeriod;
+      const baseAmount = payload.amount;
+
+      const huiSongCount = totalPeriods - currentPeriod;
+      const huiChetCount = currentPeriod - 1;
+
+      const tienHuiSong = huiSongCount * (baseAmount - thamKeuValue);
+      const tienHuiChet = huiChetCount * baseAmount;
+
+      const amountCollected = tienHuiSong + tienHuiChet - thaoValue;
 
       const paymentToUpdate = payload.payments[paymentIndex];
       paymentToUpdate.potTakerMemberId = takerMemberId;
@@ -260,15 +277,85 @@ function HuiDetailClient({ params, vietnamDateString }) {
         }
       }
 
-      await handleUpdateHui(payload);
-      handleCloseHotHuiModal();
-
+      const updatedHui = await handleUpdateHui(payload);
+      if (updatedHui) {
+        handleCloseHotHuiModal();
+        return updatedHui;
+      }
+      return null;
     } catch (err) {
       showToast({ message: `Lỗi khi hốt hụi: ${err.message}`, type: 'error' });
+      return null;
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleHotHuiAndPrint = async () => {
+    const updatedHui = await handleHotHuiSubmitInternal();
+    if (updatedHui) {
+      const selectedPeriod = parseInt(hotHuiKy, 10);
+      const potTaker = updatedHui.members.find(m => m.id === hotHuiMemberId);
+      const period = updatedHui.payments.find(p => p.period === selectedPeriod);
+      
+      const baseAmount = updatedHui.amount;
+      const thamKeuValue = parseFloat(hotHuiThamKeu) || 0;
+      const thaoValue = parseFloat(hotHuiThao) || 0;
+
+      const membersWhoHaveTakenPot = new Set(
+        updatedHui.payments
+          .filter(p => p.period < selectedPeriod && p.potTakerMemberId)
+          .map(p => p.potTakerMemberId)
+      );
+
+      const huiSongMembers = updatedHui.members.filter(m => m.id !== potTaker.id && !membersWhoHaveTakenPot.has(m.id));
+      const huiChetMembers = updatedHui.members.filter(m => m.id !== potTaker.id && membersWhoHaveTakenPot.has(m.id));
+
+      const huiSongCount = updatedHui.totalMembers - selectedPeriod;
+      const huiChetCount = selectedPeriod - 1;
+
+      const tienHuiSong = huiSongCount * (baseAmount - thamKeuValue);
+      const tienHuiChet = huiChetCount * baseAmount;
+      const tienHot = tienHuiSong + tienHuiChet - thaoValue;
+
+      setInvoiceData({
+        hui: updatedHui,
+        period,
+        potTaker,
+        calculationDetails: {
+          huiSongCount,
+          huiChetCount,
+          tienHuiSong,
+          tienHuiChet,
+          thao: thaoValue,
+          tienHot,
+          huiSongMembers,
+          huiChetMembers,
+          thamKeu: thamKeuValue,
+        },
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (invoiceData) {
+      const timer = setTimeout(() => {
+        const invoiceElement = document.getElementById('invoice-content');
+        if (invoiceElement) {
+          html2canvas(invoiceElement).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`hoa-don-hui-${invoiceData.hui.name}-ky-${invoiceData.period.period}.pdf`);
+            setInvoiceData(null);
+          });
+        }
+      }, 100); // Delay to ensure the component has rendered
+      return () => clearTimeout(timer);
+    }
+  }, [invoiceData]);
 
   if (loading && !hui) {
     return <div className="flex justify-center items-center h-64"><Loading message="Đang tải thông tin hụi..." /></div>;
@@ -295,6 +382,11 @@ function HuiDetailClient({ params, vietnamDateString }) {
 
   return (
     <>
+      {invoiceData && (
+        <div style={{ position: 'absolute', left: '-9999px' }}>
+          <HuiInvoice {...invoiceData} />
+        </div>
+      )}
       <Toaster />
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -523,15 +615,16 @@ function HuiDetailClient({ params, vietnamDateString }) {
               </div>
               <div className="mb-4">
                 <label htmlFor="hotHuiThamKeu" className="block text-sm font-medium text-gray-700 mb-1">Thăm kêu</label>
-                <Input type="number" id="hotHuiThamKeu" value={hotHuiThamKeu} onChange={(e) => setHotHuiThamKeu(e.target.value)} className="w-full" />
+                <NumberInput id="hotHuiThamKeu" value={hotHuiThamKeu} onChange={(e) => setHotHuiThamKeu(e.target.value)} className="w-full" />
               </div>
               <div className="mb-4">
                 <label htmlFor="hotHuiThao" className="block text-sm font-medium text-gray-700 mb-1">Thảo</label>
-                <Input type="number" id="hotHuiThao" value={hotHuiThao} onChange={(e) => setHotHuiThao(e.target.value)} className="w-full" />
+                <NumberInput id="hotHuiThao" value={hotHuiThao} onChange={(e) => setHotHuiThao(e.target.value)} className="w-full" />
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <Button type="button" variant="secondary" onClick={handleCloseHotHuiModal} disabled={isSaving}>Hủy</Button>
-                <Button type="submit" variant="primary" disabled={isSaving || !hotHuiKy || !hotHuiMemberId}>Xác nhận Hốt</Button>
+                <Button type="button" variant="outline" onClick={handleHotHuiAndPrint} disabled={isSaving || !hotHuiKy || !hotHuiMemberId}>Hốt in hóa đơn</Button>
+                <Button type="submit" variant="primary" disabled={isSaving || !hotHuiKy || !hotHuiMemberId}>Hốt không hóa đơn</Button>
               </div>
             </form>
           </div>

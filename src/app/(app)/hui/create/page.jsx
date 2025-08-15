@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import NumberInput from '@/components/ui/NumberInput';
 import Select from '@/components/ui/Select';
 import Alert from '@/components/ui/Alert';
 import Loading from '@/components/ui/Loading';
@@ -121,10 +122,9 @@ export default function CreateHuiPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">Số tiền mỗi kỳ (VNĐ) <span className="text-red-500">*</span></label>
-              <Input
+              <NumberInput
                 id="amount"
                 name="amount"
-                type="number"
                 required
                 value={formData.amount}
                 onChange={handleChange}

@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Button from '@/components/ui/Button';
+import NumberInput from '@/components/ui/NumberInput';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (date) => {
@@ -25,6 +29,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
 
   const [isEditing, setIsEditing] = useState(false);
   const [editableSchedule, setEditableSchedule] = useState([]);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const tableRef = useRef(null);
 
   const numberOfPeriods = huiGroup.numberOfPeriods || huiGroup.totalMembers || 12;
   const { amount, startDate, name: huiName, frequency } = huiGroup;
@@ -155,6 +161,63 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
 
   const members = huiGroup?.members || [];
 
+  const handleExportPDF = () => {
+    const input = tableRef.current;
+    html2canvas(input).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.setFontSize(18);
+      pdf.text(`Thông tin Hụi: ${huiName}`, 14, 22);
+      pdf.setFontSize(11);
+      pdf.text(`Chủ Hụi: ${huiGroup.manager?.name || 'N/A'}`, 14, 32);
+      pdf.text(`Ngày bắt đầu: ${formatDate(startDate)}`, 14, 38);
+      pdf.text(`Số kỳ: ${numberOfPeriods}`, 14, 44);
+      pdf.text(`Chu kỳ: ${frequency}`, 14, 50);
+      pdf.text(`Trạng thái hụi: ${huiGroup.status}`, 14, 56);
+      pdf.text(`Số tiền mỗi kỳ: ${parseFloat(amount).toLocaleString('vi-VN')} VNĐ`, 14, 62);
+
+      pdf.addImage(imgData, 'PNG', 0, 70, pdfWidth, pdfHeight);
+      pdf.save(`lich-thanh-toan-${huiName}.pdf`);
+    });
+    setShowExportOptions(false);
+  };
+
+  const handleExportExcel = () => {
+    const huiInfo = [
+      { A: 'Tên Hụi', B: huiName },
+      { A: 'Chủ Hụi', B: huiGroup.manager?.name || 'N/A' },
+      { A: 'Ngày bắt đầu', B: formatDate(startDate) },
+      { A: 'Số kỳ', B: numberOfPeriods },
+      { A: 'Chu kỳ', B: frequency },
+      { A: 'Trạng thái hụi', B: huiGroup.status },
+      { A: 'Số tiền mỗi kỳ', B: `${parseFloat(amount).toLocaleString('vi-VN')} VNĐ` },
+    ];
+
+    const scheduleData = editableSchedule.map(item => ({
+      'Kỳ': item.period,
+      'Ngày đến hạn': item.dueDate,
+      'Thành viên hốt hụi': members.find(m => m.id === item.thanhVienHotHui)?.user?.name || members.find(m => m.id === item.thanhVienHotHui)?.guestName || 'N/A',
+      'Thăm kêu': item.thamKeu,
+      'Thảo': item.thao,
+      'Tiền hốt (VNĐ)': item.tienHot,
+      'Trạng thái': statusDisplayMap[item.status] || item.status,
+    }));
+
+    const huiInfoSheet = XLSX.utils.json_to_sheet(huiInfo, { header: ["A", "B"], skipHeader: true });
+    const scheduleSheet = XLSX.utils.json_to_sheet(scheduleData);
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, huiInfoSheet, 'LichThanhToan');
+    XLSX.utils.sheet_add_json(workbook.Sheets['LichThanhToan'], [{}], { origin: -1, skipHeader: true }); // Add a blank row
+    XLSX.utils.sheet_add_json(workbook.Sheets['LichThanhToan'], scheduleData, { origin: -1, skipHeader: false });
+
+    XLSX.writeFile(workbook, `lich-thanh-toan-${huiName}.xlsx`);
+    setShowExportOptions(false);
+  };
+
   const statusDisplayMap = {
     CHUA_DEN_KY: 'Chưa đến kỳ',
     CHO_THANH_TOAN: 'Chờ thanh toán',
@@ -174,22 +237,31 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                 Tổng số kỳ: {numberOfPeriods}, Số tiền mỗi kỳ: {parseFloat(amount).toLocaleString('vi-VN')} VNĐ
               </p>
             </div>
-            <div>
+            <div className="flex space-x-2">
               {isEditing ? (
-                <div className="flex space-x-2">
+                <>
                   <Button onClick={handleSaveChanges} variant="primary" size="sm">Lưu thay đổi</Button>
                   <Button onClick={handleEditToggle} variant="outline" size="sm">Hủy</Button>
-                </div>
+                </>
               ) : (
                 !disabled && <Button onClick={handleEditToggle} variant="outline" size="sm">Chỉnh sửa</Button>
               )}
+              <div className="relative">
+                <Button onClick={() => setShowExportOptions(!showExportOptions)} variant="outline" size="sm">Export</Button>
+                {showExportOptions && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                    <button onClick={handleExportPDF} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
+                    <button onClick={handleExportExcel} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
+                  </div>
+                )}
+              </div>
             </div>
         </div>
       </div>
 
 
       <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" ref={tableRef}>
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
@@ -245,8 +317,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {isEditing ? (
-                      <input
-                        type="text"
+                      <NumberInput
                         value={item.thamKeu}
                         onChange={(e) => handleInputChange(item.period, 'thamKeu', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md"
@@ -257,8 +328,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {isEditing ? (
-                      <input
-                        type="text"
+                      <NumberInput
                         value={item.thao}
                         onChange={(e) => handleInputChange(item.period, 'thao', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md"
@@ -269,8 +339,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
                     {isEditing ? (
-                      <input
-                        type="text"
+                      <NumberInput
                         value={item.tienHot}
                         onChange={(e) => handleInputChange(item.period, 'tienHot', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md text-right"
