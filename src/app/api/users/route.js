@@ -8,8 +8,21 @@ const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default
 
 // API lấy danh sách users
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const search = searchParams.get('search');
+
   try {
+    const where = search
+      ? {
+          OR: [
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
     const users = await prisma.user.findMany({
+      where,
       select: {
         id: true,
         email: true,

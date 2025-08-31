@@ -20,8 +20,6 @@ const navigationItems = [
 	{ name: 'Dashboard', href: '/dashboard', icon: HomeIcon, adminOnly: false },
 	{ name: 'Hui Groups', href: '/hui', icon: UserGroupIcon, adminOnly: false },
 	{ name: 'Members', href: '/members', icon: UsersIcon, adminOnly: false },
-	{ name: 'Payments', href: '/payments', icon: CreditCardIcon, adminOnly: false },
-    { name: 'Future payments', href: '/future-schedule', icon: CalendarDaysIcon, adminOnly: false },
 	{ name: 'Statistics', href: '/admin/statistics', icon: ChartBarIcon, adminOnly: true },
 	{ name: 'Users', href: '/admin/users', icon: UserCircleIcon, adminOnly: true },
 ]

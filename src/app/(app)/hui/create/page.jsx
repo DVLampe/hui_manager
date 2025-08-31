@@ -26,12 +26,28 @@ export default function CreateHuiPage() {
     numberOfPeriods: '',
   });
   const [members, setMembers] = useState([]);
+  const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin?redirect=/hui/create');
+    }
+    if (status === 'authenticated') {
+      const fetchFriends = async () => {
+        try {
+          const response = await fetch('/api/friends');
+          if (!response.ok) {
+            throw new Error('Failed to fetch friends');
+          }
+          const data = await response.json();
+          setFriends(data.friends);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      fetchFriends();
     }
   }, [status, router]);
 
@@ -193,6 +209,7 @@ export default function CreateHuiPage() {
             <AddMembersPanel
               onStagedMembersChange={setMembers}
               totalMembers={formData.numberOfPeriods}
+              friends={friends}
             />
           </div>
           

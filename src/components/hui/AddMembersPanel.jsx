@@ -26,7 +26,7 @@ const UserListItem = ({ user, onAction, actionLabel, disabled }) => {
   );
 };
 
-export default function AddMembersPanel({ onStagedMembersChange, totalMembers }) {
+export default function AddMembersPanel({ onStagedMembersChange, totalMembers, friends = [] }) {
   const { showToast } = useToast();
   const [allUsers, setAllUsers] = useState([]);
   const [loadingAllUsers, setLoadingAllUsers] = useState(false);
@@ -66,8 +66,11 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers })
 
   const leftPanelAvailableUsers = useMemo(() => {
     if (loadingAllUsers) return [];
-    return allUsers.filter(user => !stagedForAdditionUserIds.has(user.id));
-  }, [allUsers, stagedForAdditionUserIds, loadingAllUsers]);
+    const friendIds = new Set(friends.map(f => f.id));
+    const availableFriends = friends.filter(user => !stagedForAdditionUserIds.has(user.id));
+    const availableOthers = allUsers.filter(user => !stagedForAdditionUserIds.has(user.id) && !friendIds.has(user.id));
+    return [...availableFriends, ...availableOthers];
+  }, [allUsers, friends, stagedForAdditionUserIds, loadingAllUsers]);
 
   const rightPanelStagedUsers = useMemo(() => {
     return Array.from(stagedForAdditionUserIds).map(item => {

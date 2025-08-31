@@ -34,6 +34,20 @@ export function formatCurrency(amount, currency = 'VND') {
   }).format(amount)
 }
 
+export function formatVietnameseCurrency(amount) {
+  if (amount === null || amount === undefined) return '';
+  const num = Number(amount);
+  if (isNaN(num)) return '';
+
+  if (Math.abs(num) >= 1e9) {
+    return `${(num / 1e9).toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} tỷ đ`;
+  }
+  if (Math.abs(num) >= 1e6) {
+    return `${(num / 1e6).toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} triệu đ`;
+  }
+  return `${num.toLocaleString('vi-VN')} đ`;
+}
+
 export function formatDate(date, format = 'dd/MM/yyyy') {
   if (!date) return ''
   return new Intl.DateTimeFormat('vi-VN', {

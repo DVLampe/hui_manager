@@ -83,7 +83,6 @@ export async function GET(request, { params }) {
             user: true,
             potTakerMember: { include: { user: true } },
             memberContributions: { include: { member: { include: { user: true } } } },
-            history: true,
           },
         },
       },
@@ -259,11 +258,12 @@ export async function PUT(request, { params }) {
                   user: true,
                   potTakerMember: { include: { user: true } },
                   memberContributions: { include: { member: { include: { user: true } } } },
-                  history: true,
                 },
               },
             },
           });
+    }, {
+      timeout: 120000, // 120 seconds
     });
 
     return NextResponse.json(updatedHui);

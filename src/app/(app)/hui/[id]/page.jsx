@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Button from '@/components/ui/Button';
 import MemberList from '@/components/members/MemberList';
-import PaymentList from '@/components/payments/PaymentList';
 import PaymentScheduleTable from '@/components/payments/PaymentScheduleTable';
 import DetailedPaymentScheduleTable from '@/components/payments/DetailedPaymentScheduleTable';
 import Link from 'next/link';
@@ -272,8 +271,18 @@ function HuiDetailClient({ params, vietnamDateString }) {
       const nextPeriod = selectedPeriod + 1;
       const nextPaymentIndex = payload.payments.findIndex(p => p.period === nextPeriod);
       if (nextPaymentIndex !== -1) {
-        if (!payload.payments[nextPaymentIndex].potTakerMemberId) {
-           payload.payments[nextPaymentIndex].transactionStatus = 'CHO_THANH_TOAN';
+        const nextPayment = payload.payments[nextPaymentIndex];
+        if (!nextPayment.potTakerMemberId) {
+          const today = new Date(vietnamDateString);
+          today.setHours(0, 0, 0, 0);
+          const nextDueDate = new Date(nextPayment.dueDate);
+          nextDueDate.setHours(0, 0, 0, 0);
+
+          if (nextDueDate <= today) {
+            nextPayment.transactionStatus = 'CHO_THANH_TOAN';
+          } else {
+            nextPayment.transactionStatus = 'CHUA_DEN_KY';
+          }
         }
       }
 
@@ -376,8 +385,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
     { id: 'info', label: 'Thông tin chi tiết' },
     { id: 'members', label: 'Danh sách thành viên' },
     { id: 'schedules', label: 'Lịch thanh toán' },
-    { id: 'detailed_schedules', label: 'Lịch chi tiết' },
-    { id: 'payments', label: 'Lịch sử giao dịch' }
+    { id: 'detailed_schedules', label: 'Lịch chi tiết' }
   ];
 
   return (
@@ -555,19 +563,6 @@ function HuiDetailClient({ params, vietnamDateString }) {
             </div>
           )}
 
-          {activeTab === 'payments' && (
-             <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Lịch sử giao dịch ({hui?.payments?.length || 0})</h2>
-                {canManage && (
-                  <Link href={`/payments/create?huiId=${hui?.id}&amount=${hui?.amount}`}>
-                      <Button variant="primary" size="sm" disabled={loading}>Thêm giao dịch</Button>
-                  </Link>
-                )}
-              </div>
-              <PaymentList payments={hui?.payments || []} members={hui?.members || []} />
-            </div>
-          )}
         </div>
       </div>
 
