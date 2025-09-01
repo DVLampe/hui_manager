@@ -18,6 +18,7 @@ import PermissionsModal from '@/components/hui/PermissionsModal';
 import HuiInvoice from '@/components/hui/HuiInvoice';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import ChatModal from '@/components/chat/ChatModal';
 
 function HuiDetailClient({ params, vietnamDateString }) {
   const router = useRouter();
@@ -639,6 +640,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
           setIsPermissionsModalOpen(false);
         }}
       />
+      <ChatModal huiId={hui?.id} />
     </>
   );
 }
