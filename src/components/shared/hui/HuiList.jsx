@@ -1,79 +1,52 @@
-import Link from 'next/link';
+import { formatVietnameseCurrency } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 // src/components/hui/HuiList.jsx
 export function HuiList({ huis }) {
+    const router = useRouter();
+
+    const handleRowClick = (huiId) => {
+        router.push(`/hui/${huiId}`);
+    };
+
     return (
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {huis.map((hui) => (
-            <li key={hui.id}>
-              <Link href={`/hui/${hui.id}`} className="block hover:bg-gray-50">
-                <div className="px-4 py-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-indigo-600 truncate">
-                      {hui.name}
-                    </p>
-                    <div className="ml-2 flex-shrink-0 flex">
-                      <p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        {hui.status}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 sm:flex sm:justify-between">
-                    <div className="sm:flex">
-                      <p className="flex items-center text-sm text-gray-500">
-                        Số tiền: {hui.amount.toLocaleString()}đ
-                      </p>
-                    </div>
-                    <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                      <p>
-                        Ngày bắt đầu: {new Date(hui.startDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-  
-  // src/components/hui/HuiDetail.jsx
-  export function HuiDetail({ hui }) {
-    return (
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            {hui.name}
-          </h3>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            {hui.description}
-          </p>
+        <div className="bg-white shadow sm:rounded-md">
+            <div className="overflow-y-auto max-h-[600px] relative">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                            <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Tên hụi</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Trạng thái</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Số tiền</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Số kỳ</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Chu kỳ</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Ngày bắt đầu</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Lợi nhuận</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {huis.map((hui) => (
+                            <tr key={hui.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(hui.id)}>
+                                <td className="py-4 pl-4 pr-3 text-sm font-medium text-indigo-600 sm:pl-6">{hui.name}</td>
+                                <td className="px-3 py-4 text-sm">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${hui.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                        {hui.status}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-4 text-sm text-gray-500">{formatVietnameseCurrency(hui.amount)}</td>
+                                <td className="px-3 py-4 text-sm text-gray-500">{hui.ky}</td>
+                                <td className="px-3 py-4 text-sm text-gray-500">{hui.frequency}</td>
+                                <td className="px-3 py-4 text-sm text-gray-500">{new Date(hui.startDate).toLocaleDateString()}</td>
+                                <td className="px-3 py-4 text-sm">
+                                    <span className={hui.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        {formatVietnameseCurrency(hui.profit)}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div className="border-t border-gray-200">
-          <dl>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Số tiền mỗi kỳ</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {hui.amount.toLocaleString()}đ
-              </dd>
-            </div>
-            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Ngày bắt đầu</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {new Date(hui.startDate).toLocaleDateString()}
-              </dd>
-            </div>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Trạng thái</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {hui.status}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
     );
-  }
+}

@@ -105,7 +105,7 @@ const Chat = ({ huiId }) => {
         );
       }
       return (
-        <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:underline">
+        <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-200 hover:underline">
           {msg.fileName} ({Math.round(msg.fileSize / 1024)} KB)
         </a>
       );
@@ -118,7 +118,7 @@ const Chat = ({ huiId }) => {
       <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
         {messages.map((msg) => (
           <div key={msg.id} className={`flex mb-3 ${msg.userId === session?.user?.id ? 'justify-end' : 'justify-start'}`}>
-            <div className={`rounded-lg px-4 py-2 max-w-xs lg:max-w-md ${msg.userId === session?.user?.id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
+            <div className={`rounded-lg px-4 py-2 max-w-xs lg:max-w-md ${msg.userId === session?.user?.id ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
               <p className="font-bold text-sm">{msg.user.name}</p>
               {renderMessageContent(msg)}
               <p className="text-xs text-right opacity-70 mt-1">{new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
@@ -137,21 +137,21 @@ const Chat = ({ huiId }) => {
         )}
         <form onSubmit={sendMessage} className="flex items-center p-2 border-t bg-white">
           <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
-          <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-blue-500" disabled={uploading}>
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-indigo-500" disabled={uploading}>
             <Paperclip size={24} />
           </button>
-          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-500 hover:text-blue-500">
+          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-500 hover:text-indigo-500">
             <Smile size={24} />
           </button>
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 mx-2 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 mx-2 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder="Nhập tin nhắn..."
             disabled={!socket || uploading}
           />
-          <button type="submit" className="p-2 text-white bg-blue-500 rounded-full hover:bg-blue-600 disabled:bg-blue-300" disabled={!socket || (!newMessage.trim() && !uploading)}>
+          <button type="submit" className="p-2 text-white bg-indigo-500 rounded-full hover:bg-indigo-600 disabled:bg-indigo-300" disabled={!socket || (!newMessage.trim() && !uploading)}>
             <Send size={24} />
           </button>
         </form>

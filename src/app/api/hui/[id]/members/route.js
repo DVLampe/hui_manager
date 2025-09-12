@@ -82,7 +82,13 @@ export async function POST(request, { params }) {
             return NextResponse.json({ message: 'Forbidden: Only the manager can add members' }, { status: 403 });
         }
 
-    const body = await request.json();
+        const group = await prisma.huiGroup.findUnique({ where: { id: groupId } });
+        if (!group) {
+            // This case is already handled by checkAccess, but as a safeguard
+            return NextResponse.json({ message: 'Hui group not found' }, { status: 404 });
+        }
+
+        const body = await request.json();
         const { userId, position, notes } = body;
 
         if (!userId) {
@@ -95,21 +101,38 @@ export async function POST(request, { params }) {
             return NextResponse.json({ message: `User with ID ${userId} not found` }, { status: 404 });
         }
         const newMember = await prisma.huiMember.create({
-      data: {
+            data: {
                 groupId: groupId,
                 userId: userId,
                 position: position,
                 notes: notes,
             },
-      include: {
+            include: {
                 user: {
                     select: { id: true, name: true, email: true, avatar: true }
                 },
-      }
-    });
+            }
+        });
+
+        // --- Create Notification ---
+        try {
+            await prisma.notification.create({
+                data: {
+                    userId: userId,
+                    title: 'Lời mời tham gia nhóm',
+                    message: `Bạn đã được mời vào nhóm "${group.name}".`,
+                    type: 'HUI_INVITATION',
+                    link: `/hui/${groupId}`,
+                },
+            });
+        } catch (notificationError) {
+            console.error('Failed to create notification for new member:', notificationError);
+            // We don't want to fail the whole request if notification fails, so we just log it.
+        }
+        // -------------------------
 
         return NextResponse.json(newMember, { status: 201 });
-  } catch (error) {
+    } catch (error) {
         if (error.code === 'P2002') { // Unique constraint failed
              return NextResponse.json({ message: 'This user is already a member of the group' }, { status: 409 });
         }
@@ -117,4 +140,3 @@ export async function POST(request, { params }) {
         return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
 }
-

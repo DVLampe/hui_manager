@@ -174,6 +174,22 @@ export async function POST(request) {
           data: memberCreations,
           skipDuplicates: true,
         });
+
+        // --- Create Notifications for initial members ---
+        const membersToNotify = initialMembers.filter(m => m.userId && m.userId !== ownerId);
+        if (membersToNotify.length > 0) {
+          const notificationData = membersToNotify.map(member => ({
+            userId: member.userId,
+            title: 'Lời mời tham gia nhóm',
+            message: `Bạn đã được thêm vào nhóm mới "${group.name}".`,
+            type: 'HUI_INVITATION',
+            link: `/hui/${group.id}`,
+          }));
+          await tx.notification.createMany({
+            data: notificationData,
+          });
+        }
+        // -----------------------------------------
       }
 
       // Automatically generate payment schedule if not provided

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Button from '@/components/ui/Button';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import {
   UserCircleIcon,
   ArrowLeftOnRectangleIcon,
@@ -20,6 +21,7 @@ export default function Header() {
           <div className="h-8 w-40 bg-gray-200 rounded-md animate-pulse"></div>
         ) : user ? (
           <>
+            <NotificationBell />
             <Link href="/profile" className="flex items-center space-x-2 text-sm text-gray-700 hover:text-indigo-600">
               <UserCircleIcon className="h-5 w-5 text-gray-500" />
               <span>{user.name || user.email}</span>

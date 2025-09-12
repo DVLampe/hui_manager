@@ -58,16 +58,19 @@ model Notification {
   message   String
   type      NotificationType
   isRead    Boolean  @default(false)
+  link      String? // Optional URL for redirection
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 enum NotificationType {
+  HUI_INVITATION
   PAYMENT_DUE
   PAYMENT_RECEIVED
   GROUP_UPDATE
+  NEW_MESSAGE
   SYSTEM
 }
 

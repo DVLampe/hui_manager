@@ -14,6 +14,7 @@ import {
     CogIcon,
     ArrowLeftOnRectangleIcon,
     UserCircleIcon,
+    BellIcon,
 } from '@heroicons/react/24/outline'
 
 const navigationItems = [
@@ -22,6 +23,7 @@ const navigationItems = [
 	{ name: 'Members', href: '/members', icon: UsersIcon, adminOnly: false },
 	{ name: 'Statistics', href: '/admin/statistics', icon: ChartBarIcon, adminOnly: true },
 	{ name: 'Users', href: '/admin/users', icon: UserCircleIcon, adminOnly: true },
+	{ name: 'Notifications', href: '/admin/notifications', icon: BellIcon, adminOnly: true },
 ]
 
 const bottomLinks = [

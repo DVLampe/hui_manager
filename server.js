@@ -63,6 +63,44 @@ io.on("connection", (socket) => {
       });
 
       io.to(huiId).emit("receiveMessage", newMessage);
+
+      // --- Create Notifications for other members ---
+      try {
+        const group = await prisma.huiGroup.findUnique({
+          where: { id: huiId },
+          include: {
+            members: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        });
+
+        if (group && group.members) {
+          const recipients = group.members.filter(
+            (member) => member.userId && member.userId !== userId
+          );
+
+          const notificationData = recipients.map((recipient) => ({
+            userId: recipient.userId,
+            title: `Tin nhắn mới trong "${group.name}"`,
+            message: `${newMessage.user.name}: ${content || "Đã gửi một tệp"}`,
+            type: "NEW_MESSAGE",
+            link: `/hui/${huiId}`,
+          }));
+
+          if (notificationData.length > 0) {
+            await prisma.notification.createMany({
+              data: notificationData,
+            });
+          }
+        }
+      } catch (notificationError) {
+        console.error("Failed to create chat notifications:", notificationError);
+      }
+      // -----------------------------------------
+      
     } catch (error) {
       console.error("Failed to save or broadcast message:", error);
     }

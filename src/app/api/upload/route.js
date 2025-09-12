@@ -14,23 +14,32 @@ const s3Client = new S3Client({
 const generateFileName = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
 
 export async function POST(request) {
+  const { S3_BUCKET_NAME } = process.env;
+
+  if (!S3_BUCKET_NAME) {
+    const errorResponse = JSON.stringify({ error: "S3_BUCKET_NAME is not configured in .env.local" });
+    return new NextResponse(errorResponse, { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+
   try {
     const { fileName, fileType, fileSize } = await request.json();
 
     if (!fileName || !fileType || !fileSize) {
-      return NextResponse.json({ error: "File name, type, and size are required." }, { status: 400 });
+      const errorResponse = JSON.stringify({ error: "File name, type, and size are required." });
+      return new NextResponse(errorResponse, { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     // Check file size (max 10MB)
     if (fileSize > 10 * 1024 * 1024) {
-        return NextResponse.json({ error: "File size cannot exceed 10MB." }, { status: 400 });
+      const errorResponse = JSON.stringify({ error: "File size cannot exceed 10MB." });
+      return new NextResponse(errorResponse, { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const randomFileName = generateFileName();
     const key = `chats/${randomFileName}-${fileName}`;
 
     const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
+      Bucket: S3_BUCKET_NAME,
       Key: key,
       ContentType: fileType,
       ContentLength: fileSize,
@@ -38,12 +47,14 @@ export async function POST(request) {
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 }); // URL expires in 60 seconds
 
-    const fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_REGION}.amazonaws.com/${key}`;
+    const fileUrl = `https://${S3_BUCKET_NAME}.s3.${process.env.S3_REGION}.amazonaws.com/${key}`;
 
-    return NextResponse.json({ uploadUrl, fileUrl });
+    const successResponse = JSON.stringify({ uploadUrl, fileUrl });
+    return new NextResponse(successResponse, { status: 200, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error("Error creating presigned URL:", error);
-    return NextResponse.json({ error: "Failed to create presigned URL." }, { status: 500 });
+    const errorResponse = JSON.stringify({ error: "Failed to create presigned URL.", details: error.message });
+    return new NextResponse(errorResponse, { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }

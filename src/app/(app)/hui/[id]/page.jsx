@@ -19,6 +19,12 @@ import HuiInvoice from '@/components/hui/HuiInvoice';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import ChatModal from '@/components/chat/ChatModal';
+import dynamic from 'next/dynamic';
+
+const LuckyWheelModal = dynamic(() => import('@/components/hui/LuckyWheelModal'), {
+  ssr: false,
+  loading: () => <p>Loading wheel...</p>
+});
 
 function HuiDetailClient({ params, vietnamDateString }) {
   const router = useRouter();
@@ -40,6 +46,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editedHui, setEditedHui] = useState(null);
   const [invoiceData, setInvoiceData] = useState(null);
+  const [isWheelModalOpen, setIsWheelModalOpen] = useState(false);
 
   const canManage = useMemo(() => {
     if (!session || !hui) return false;
@@ -430,13 +437,20 @@ function HuiDetailClient({ params, vietnamDateString }) {
         </div>
 
         {(canManage || isHuiMember) && (
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex justify-center space-x-4">
             <Button
               variant="primary"
               onClick={handleOpenHotHuiModal}
               disabled={loading || hui?.status !== 'ACTIVE' || availableKyOptions.length === 0}
             >
               Hốt Hụi
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsWheelModalOpen(true)}
+              disabled={loading || hui?.status !== 'ACTIVE' || memberOptions.length === 0}
+            >
+              Quay hụi
             </Button>
           </div>
         )}
@@ -639,6 +653,11 @@ function HuiDetailClient({ params, vietnamDateString }) {
           await handleUpdateHui(payload);
           setIsPermissionsModalOpen(false);
         }}
+      />
+      <LuckyWheelModal
+        isOpen={isWheelModalOpen}
+        onClose={() => setIsWheelModalOpen(false)}
+        members={memberOptions}
       />
       <ChatModal huiId={hui?.id} />
     </>

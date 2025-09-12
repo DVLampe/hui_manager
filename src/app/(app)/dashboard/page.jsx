@@ -12,13 +12,15 @@ import {
   Legend,
   BarElement,
 } from 'chart.js';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import zoomPlugin from 'chartjs-plugin-zoom';
 import { Badge } from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
 import { formatVietnameseCurrency } from '@/lib/utils';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
+import { HuiList } from '@/components/shared/hui/HuiList';
+import Select from '@/components/ui/Select';
 
 ChartJS.register(
   CategoryScale,
@@ -28,7 +30,8 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  zoomPlugin
 );
 
 const chartOptions = {
@@ -50,25 +53,43 @@ const chartOptions = {
         position: 'right',
         title: {
           display: true,
-          text: 'Lợi nhuận/Thua lỗ (VND)',
+          text: 'Lợi nhuận',
         },
         grid: {
           drawOnChartArea: false,
         },
       },
     },
+    plugins: {
+      zoom: {
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'x',
+        }
+      }
+    }
   };
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [groupBy, setGroupBy] = useState('month');
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/dashboard');
+        const response = await fetch(`/api/dashboard?groupBy=${groupBy}`);
         if (!response.ok) {
           throw new Error('Failed to fetch dashboard data');
         }
@@ -82,7 +103,7 @@ export default function DashboardPage() {
     };
 
     fetchStats();
-  }, []);
+  }, [groupBy]);
 
   if (loading) {
     return <Loading message="Đang tải dữ liệu..." />;
@@ -95,10 +116,7 @@ export default function DashboardPage() {
   return (
     <>
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Bảng điều khiển</h1>
-            <p className="text-gray-500 mt-1">
-              Thống kê cá nhân của bạn về việc tham gia hụi.
-            </p>
+            <h1 className="text-3xl font-bold text-gray-800">Bảng thống kê</h1>
           </div>
 
           {/* Stats Cards */}
@@ -120,7 +138,7 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold text-gray-800">{formatVietnameseCurrency(stats.totalReceived)}</p>
             </div>
             <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 mb-1">Lợi nhuận/Thua lỗ</p>
+                <p className="text-sm text-gray-500 mb-1">Lợi nhuận</p>
                 <p className={`text-2xl font-bold ${stats.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatVietnameseCurrency(stats.profitLoss)}
                 </p>
@@ -128,52 +146,31 @@ export default function DashboardPage() {
           </div>
 
           {/* Chart */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-8 h-96">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Thống kê hàng tháng</h2>
-            <div className="relative h-full">
-              <Line data={stats.monthlyStats} options={chartOptions} />
+          <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <Select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value)}
+                className="w-32"
+              >
+                <option value="day">Ngày</option>
+                <option value="month">Tháng</option>
+                <option value="year">Năm</option>
+              </Select>
+            </div>
+            <div className="relative h-96">
+              {stats && stats.monthlyStats ? (
+                <Line data={stats.monthlyStats} options={chartOptions} />
+              ) : (
+                <p>Không có dữ liệu để hiển thị.</p>
+              )}
             </div>
           </div>
 
           {/* Hui List */}
-          <div>
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Danh sách hụi</h2>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tên</TableHead>
-                    <TableHead>Số kỳ</TableHead>
-                    <TableHead>Số tiền</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Lợi nhuận/Thua lỗ</TableHead>
-                    <TableHead>Hành động</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.huiList.map((hui) => (
-                    <TableRow key={hui.id}>
-                      <TableCell>{hui.name}</TableCell>
-                      <TableCell>{hui.ky}</TableCell>
-                      <TableCell>{formatVietnameseCurrency(hui.amount)}</TableCell>
-                      <TableCell>
-                        <Badge variant={hui.status === 'active' ? 'default' : 'secondary'}>
-                          {hui.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className={hui.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        {formatVietnameseCurrency(hui.profit)}
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/hui/${hui.id}`}>
-                          <Button variant="primary" size="sm">Xem chi tiết</Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">Thống kê hụi</h2>
+            <HuiList huis={stats.huiList} />
           </div>
     </>
   );

@@ -23,7 +23,8 @@ module.exports = {
       colors: {
         blue: colors.blue,
         gray: colors.gray,
-        primary: colors.blue, // Added primary color alias
+        indigo: colors.indigo,
+        primary: colors.blue, // Reverted primary color to blue
       }
     },
   },

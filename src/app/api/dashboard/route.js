@@ -12,6 +12,8 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
+  const { searchParams } = new URL(request.url);
+  const groupBy = searchParams.get('groupBy') || 'month';
 
   try {
     const userHuiGroups = await prisma.huiGroup.findMany({
@@ -82,31 +84,76 @@ export async function GET(request) {
             amount: Number(hui.amount),
             status: hui.status.toLowerCase(),
             profit: huiReceived - huiPaid,
+            frequency: hui.frequency,
+            startDate: hui.startDate,
         };
     });
 
-    // Placeholder for monthly stats
+    // Stats aggregation
+    const aggregatedData = {};
+
+    userHuiGroups.forEach(hui => {
+      hui.payments.forEach(payment => {
+        const paymentDate = new Date(payment.createdAt);
+        let key;
+
+        if (groupBy === 'day') {
+          key = paymentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        } else if (groupBy === 'month') {
+          key = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
+        } else { // year
+          key = paymentDate.getFullYear().toString();
+        }
+
+        if (!aggregatedData[key]) {
+          aggregatedData[key] = {
+            huiIds: new Set(),
+            profitLoss: 0,
+          };
+        }
+
+        aggregatedData[key].huiIds.add(hui.id);
+
+        let paidInPayment = 0;
+        payment.memberContributions.forEach(contribution => {
+          paidInPayment += Number(contribution.amountContributed);
+        });
+
+        let receivedInPayment = 0;
+        if (payment.potTakerMember?.userId === userId && payment.amountCollected) {
+          receivedInPayment += Number(payment.amountCollected);
+        }
+
+        aggregatedData[key].profitLoss += (receivedInPayment - paidInPayment);
+      });
+    });
+
+    const sortedKeys = Object.keys(aggregatedData).sort();
+    const labels = sortedKeys;
+    const huiData = sortedKeys.map(key => aggregatedData[key].huiIds.size);
+    const profitLossData = sortedKeys.map(key => aggregatedData[key].profitLoss);
+
     const monthlyStats = {
-        labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-        datasets: [
-          {
-            label: 'Số hụi',
-            data: [2, 3, 1, 4, 2, 5, 3],
-            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 1,
-            yAxisID: 'y',
-          },
-          {
-            label: 'Lợi nhuận/Thua lỗ',
-            data: [1000, -500, 2000, 1500, -200, 3000, 2500],
-            backgroundColor: 'rgba(153, 102, 255, 0.6)',
-            borderColor: 'rgba(153, 102, 255, 1)',
-            borderWidth: 1,
-            yAxisID: 'y1',
-          },
-        ],
-      };
+      labels: labels,
+      datasets: [
+        {
+          label: 'Số hụi',
+          data: huiData,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Lợi nhuận/Thua lỗ',
+          data: profitLossData,
+          backgroundColor: 'rgba(153, 102, 255, 0.6)',
+          borderColor: 'rgba(153, 102, 255, 1)',
+          borderWidth: 1,
+          yAxisID: 'y1',
+        },
+      ],
+    };
 
 
     const stats = {
