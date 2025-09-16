@@ -1,5 +1,6 @@
 // src/app/api/user/update/route.js
-import { NextResponse } from 'next/server';
+import { NextResponse as OriginalNextResponse } from 'next/server';
+const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';

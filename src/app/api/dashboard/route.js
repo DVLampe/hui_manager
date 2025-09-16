@@ -16,19 +16,18 @@ export async function GET(request) {
   const groupBy = searchParams.get('groupBy') || 'month';
 
   try {
-    const userHuiGroups = await prisma.huiGroup.findMany({
+    const allUserHuiGroups = await prisma.huiGroup.findMany({
       where: {
-        members: {
-          some: {
-            userId: userId,
-          },
-        },
+        OR: [
+          { ownerId: userId },
+          { members: { some: { userId: userId } } }
+        ]
       },
       include: {
         members: {
-          where: {
-            userId: userId,
-          },
+          include: {
+            user: true,
+          }
         },
         payments: {
           include: {
@@ -45,6 +44,68 @@ export async function GET(request) {
       },
     });
 
+    const calculateTheoreticalEndDate = (startDate, frequency, periods) => {
+      const date = new Date(startDate);
+      const periodCount = periods > 0 ? periods - 1 : 0;
+      if (frequency === 'DAILY') {
+        date.setDate(date.getDate() + periodCount);
+      } else if (frequency === 'WEEKLY') {
+        date.setDate(date.getDate() + periodCount * 7);
+      } else { // MONTHLY
+        date.setMonth(date.getMonth() + periodCount);
+      }
+      return date;
+    };
+
+    const processHui = (hui, currentUserId) => {
+      let huiPaid = 0;
+      let huiReceived = 0;
+      let totalThao = 0;
+
+      const completedPayments = hui.payments
+        .filter(p => p.transactionStatus === 'DA_THANH_TOAN' || p.transactionStatus === 'HUY')
+        .sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate));
+      
+      const actualEndDate = completedPayments.length === hui.numberOfPeriods ? new Date(completedPayments[0].dueDate) : null;
+
+      hui.payments.forEach(payment => {
+        // Calculate profit/loss for the current user
+        payment.memberContributions.forEach(contribution => {
+          huiPaid += Number(contribution.amountContributed);
+        });
+        if (payment.potTakerMember?.userId === currentUserId && payment.amountCollected) {
+          huiReceived += Number(payment.amountCollected);
+        }
+        // Calculate total Thao for the owner
+        if (payment.thao) {
+          totalThao += Number(payment.thao);
+        }
+      });
+
+      return {
+        id: hui.id,
+        name: hui.name,
+        ky: hui.numberOfPeriods,
+        amount: Number(hui.amount),
+        status: hui.status.toLowerCase(),
+        profit: huiReceived - huiPaid,
+        totalThao: totalThao,
+        frequency: hui.frequency,
+        startDate: hui.startDate,
+        endDate: actualEndDate || calculateTheoreticalEndDate(hui.startDate, hui.frequency, hui.numberOfPeriods),
+      };
+    };
+
+    const ownedHuiList = allUserHuiGroups
+      .filter(hui => hui.ownerId === userId)
+      .map(hui => processHui(hui, userId));
+
+    const participatingHuiList = allUserHuiGroups
+      .filter(hui => hui.members.some(m => m.userId === userId))
+      .map(hui => processHui(hui, userId));
+
+    const userHuiGroups = allUserHuiGroups.filter(hui => hui.members.some(m => m.userId === userId));
+
     let totalHui = userHuiGroups.length;
     let participatingHui = userHuiGroups.filter(h => h.status === 'ACTIVE').length;
     let totalPaid = 0;
@@ -52,12 +113,9 @@ export async function GET(request) {
 
     userHuiGroups.forEach(hui => {
       hui.payments.forEach(payment => {
-        // Calculate total paid
         payment.memberContributions.forEach(contribution => {
           totalPaid += Number(contribution.amountContributed);
         });
-
-        // Calculate total received
         if (payment.potTakerMember?.userId === userId && payment.amountCollected) {
           totalReceived += Number(payment.amountCollected);
         }
@@ -65,29 +123,6 @@ export async function GET(request) {
     });
 
     const profitLoss = totalReceived - totalPaid;
-
-    const huiList = userHuiGroups.map(hui => {
-        let huiPaid = 0;
-        let huiReceived = 0;
-        hui.payments.forEach(payment => {
-            payment.memberContributions.forEach(contribution => {
-                huiPaid += Number(contribution.amountContributed);
-            });
-            if (payment.potTakerMember?.userId === userId && payment.amountCollected) {
-                huiReceived += Number(payment.amountCollected);
-            }
-        });
-        return {
-            id: hui.id,
-            name: hui.name,
-            ky: hui.numberOfPeriods,
-            amount: Number(hui.amount),
-            status: hui.status.toLowerCase(),
-            profit: huiReceived - huiPaid,
-            frequency: hui.frequency,
-            startDate: hui.startDate,
-        };
-    });
 
     // Stats aggregation
     const aggregatedData = {};
@@ -163,7 +198,8 @@ export async function GET(request) {
       totalReceived,
       profitLoss,
       monthlyStats,
-      huiList,
+      ownedHuiList,
+      participatingHuiList,
     };
 
     return NextResponse.json(stats);

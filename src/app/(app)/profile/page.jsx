@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { UserCircleIcon, PencilSquareIcon, CameraIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline';
+import AvatarUploadModal from '@/components/profile/AvatarUploadModal';
+
 
 // --- Helper Functions ---
 const calculateAge = (isoDateString) => {
@@ -29,29 +31,71 @@ const formatDate = (isoDateString) => {
 
 // --- Sub-components ---
 
-const ProfileHeader = ({ user }) => (
-    <div className="text-center pt-8 pb-4">
-        <div className="relative inline-block group">
-            {user.avatar ? (
-                <img
-                    className="h-32 w-32 rounded-full ring-4 ring-white"
-                    src={user.avatar}
-                    alt="User Avatar"
+const ProfileHeader = ({ user, onAvatarChange }) => {
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [modalOpen, setModalOpen] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleFileSelect = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const reader = new FileReader();
+            reader.addEventListener('load', () => setSelectedImage(reader.result));
+            reader.readAsDataURL(e.target.files[0]);
+            setModalOpen(true);
+        }
+    };
+
+    const handleAvatarSave = async (blob) => {
+        setModalOpen(false);
+        onAvatarChange(blob);
+    };
+
+    return (
+        <>
+            <div className="text-center pt-8 pb-4">
+                <div className="relative inline-block group">
+                    {user.avatar ? (
+                        <img
+                            className="h-32 w-32 rounded-full ring-4 ring-white object-cover"
+                            src={user.avatar}
+                            alt="User Avatar"
+                        />
+                    ) : (
+                        <UserCircleIcon className="h-32 w-32 text-gray-300" />
+                    )}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        accept="image/png, image/jpeg"
+                    />
+                    <button
+                        onClick={() => fileInputRef.current.click()}
+                        className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <CameraIcon className="h-8 w-8" />
+                    </button>
+                </div>
+                <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900">{user.name}</h1>
+                <p className="text-sm text-gray-500">{user.email}</p>
+                <span className="mt-2 inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                    {user.role}
+                </span>
+            </div>
+            {modalOpen && (
+                <AvatarUploadModal
+                    src={selectedImage}
+                    onSave={handleAvatarSave}
+                    onCancel={() => {
+                        setModalOpen(false);
+                        setSelectedImage(null);
+                    }}
                 />
-            ) : (
-                <UserCircleIcon className="h-32 w-32 text-gray-300" />
             )}
-             <button className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                <CameraIcon className="h-8 w-8" />
-            </button>
-        </div>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900">{user.name}</h1>
-        <p className="text-sm text-gray-500">{user.email}</p>
-        <span className="mt-2 inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-            {user.role}
-        </span>
-    </div>
-);
+        </>
+    );
+};
 
 const ProfileTabs = ({ activeTab, setActiveTab }) => {
     const tabs = [
@@ -170,13 +214,131 @@ const PersonalInfoTab = ({ user, age, isEditing, setIsEditing, formData, setForm
     );
 };
 
-const SecurityTab = () => (
-    <div className="py-6">
-        <h3 className="text-lg font-semibold text-gray-900">Đổi mật khẩu</h3>
-        <p className="mt-2 text-sm text-gray-600">Chức năng này sẽ được triển khai trong thời gian sớm nhất.</p>
-        {/* The form can be kept but disabled for now */}
-    </div>
-);
+const SecurityTab = () => {
+    const [passwords, setPasswords] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handlePasswordChange = (e) => {
+        const { name, value } = e.target;
+        setPasswords(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        if (passwords.newPassword !== passwords.confirmPassword) {
+            setError('Mật khẩu mới không khớp.');
+            return;
+        }
+        if (passwords.newPassword.length < 6) {
+            setError('Mật khẩu mới phải có ít nhất 6 ký tự.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/user/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    currentPassword: passwords.currentPassword,
+                    newPassword: passwords.newPassword,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Có lỗi xảy ra.');
+            }
+
+            setSuccess('Đổi mật khẩu thành công!');
+            setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="py-6">
+            <h3 className="text-lg font-semibold text-gray-900">Đổi mật khẩu</h3>
+            <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
+                <div>
+                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
+                        Mật khẩu hiện tại
+                    </label>
+                    <div className="mt-1">
+                        <input
+                            type="password"
+                            name="currentPassword"
+                            id="currentPassword"
+                            value={passwords.currentPassword}
+                            onChange={handlePasswordChange}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            required
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+                        Mật khẩu mới
+                    </label>
+                    <div className="mt-1">
+                        <input
+                            type="password"
+                            name="newPassword"
+                            id="newPassword"
+                            value={passwords.newPassword}
+                            onChange={handlePasswordChange}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            required
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                        Xác nhận mật khẩu mới
+                    </label>
+                    <div className="mt-1">
+                        <input
+                            type="password"
+                            name="confirmPassword"
+                            id="confirmPassword"
+                            value={passwords.confirmPassword}
+                            onChange={handlePasswordChange}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            required
+                        />
+                    </div>
+                </div>
+
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                {success && <p className="text-sm text-green-600">{success}</p>}
+
+                <div className="pt-2">
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+                    >
+                        {isLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
 
 // --- Main Page Component ---
 
@@ -229,6 +391,33 @@ const ProfilePage = () => {
         }
     };
 
+    const handleAvatarChange = async (avatarBlob) => {
+        try {
+            const formData = new FormData();
+            formData.append('file', avatarBlob, 'avatar.jpg');
+
+            const response = await fetch('/api/user/avatar-upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to upload avatar');
+            }
+
+            const { avatarUrl } = await response.json();
+
+            // Update session to reflect new avatar
+            await update({ ...session, user: { ...session.user, avatar: avatarUrl } });
+            alert('Cập nhật ảnh đại diện thành công!');
+
+        } catch (error) {
+            console.error('Avatar upload error:', error);
+            alert(`Lỗi: ${error.message}`);
+        }
+    };
+
   const isLoading = status === 'loading';
   const user = session?.user;
     const age = calculateAge(formData?.dateOfBirth);
@@ -245,7 +434,10 @@ const ProfilePage = () => {
     <div className="bg-gray-50">
             <main className="py-10">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 bg-white shadow rounded-lg">
-          <ProfileHeader user={isEditing ? { ...user, ...formData } : user} />
+                    <ProfileHeader 
+                        user={isEditing ? { ...user, ...formData } : user} 
+                        onAvatarChange={handleAvatarChange}
+                    />
                     <ProfileTabs activeTab={activeTab} setActiveTab={setActiveTab} />
                     <div className="px-4 py-2">
                        {activeTab === 'personal' && (
@@ -268,4 +460,3 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
-

@@ -2,7 +2,7 @@ import { formatVietnameseCurrency } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 // src/components/hui/HuiList.jsx
-export function HuiList({ huis }) {
+export function HuiList({ huis, type = 'participating' }) {
     const router = useRouter();
 
     const handleRowClick = (huiId) => {
@@ -21,7 +21,10 @@ export function HuiList({ huis }) {
                             <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Số kỳ</th>
                             <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Chu kỳ</th>
                             <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Ngày bắt đầu</th>
-                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Lợi nhuận</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Ngày kết thúc</th>
+                            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                {type === 'owned' ? 'Tổng tiền thảo' : 'Lợi nhuận/Thua lỗ'}
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -37,10 +40,15 @@ export function HuiList({ huis }) {
                                 <td className="px-3 py-4 text-sm text-gray-500">{hui.ky}</td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{hui.frequency}</td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{new Date(hui.startDate).toLocaleDateString()}</td>
+                                <td className="px-3 py-4 text-sm text-gray-500">{new Date(hui.endDate).toLocaleDateString()}</td>
                                 <td className="px-3 py-4 text-sm">
-                                    <span className={hui.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {formatVietnameseCurrency(hui.profit)}
-                                    </span>
+                                    {type === 'owned' ? (
+                                        <span className="text-blue-600">{formatVietnameseCurrency(hui.totalThao)}</span>
+                                    ) : (
+                                        <span className={hui.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                            {formatVietnameseCurrency(hui.profit)}
+                                        </span>
+                                    )}
                                 </td>
                             </tr>
                         ))}

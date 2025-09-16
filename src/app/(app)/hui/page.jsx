@@ -1,17 +1,20 @@
 // src/app/(app)/hui/page.jsx
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { HuiCard } from '@/components/hui/HuiCard';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
+import Select from '@/components/ui/Select';
 
 export default function HuiPage() {
   // 1. Local state management for this component
   const [huis, setHuis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   // 2. Data fetching logic
   useEffect(() => {
@@ -44,7 +47,21 @@ export default function HuiPage() {
     };
 
     fetchHuis();
-  }, []); // The empty dependency array `[]` means this effect runs only once
+  }, []);
+
+  const filteredAndSortedHuis = useMemo(() => {
+    return huis
+      .filter(hui => statusFilter === 'all' || hui.status === statusFilter)
+      .sort((a, b) => {
+        const dateA = a.nextPaymentDate ? new Date(a.nextPaymentDate) : 0;
+        const dateB = b.nextPaymentDate ? new Date(b.nextPaymentDate) : 0;
+        if (sortOrder === 'asc') {
+          return dateA - dateB;
+        } else {
+          return dateB - dateA;
+        }
+      });
+  }, [huis, statusFilter, sortOrder]);
 
   // 3. Conditional UI rendering based on the local state
   if (loading) {
@@ -59,13 +76,33 @@ export default function HuiPage() {
     <div className="container mx-auto px-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Danh sách Hụi</h1>
-        {/* The user is guaranteed to be authenticated here because of middleware */}
           <Link href="/hui/create"><Button variant="primary">Tạo Hụi Mới</Button></Link>
       </div>
 
-      {huis.length > 0 ? (
+      <div className="flex justify-end items-center mb-4 space-x-4">
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-48"
+        >
+          <option value="all">Tất cả trạng thái</option>
+          <option value="ACTIVE">Đang hoạt động</option>
+          <option value="PENDING">Đang chờ</option>
+          <option value="CLOSED">Đã đóng</option>
+        </Select>
+        <Select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+          className="w-48"
+        >
+          <option value="asc">Thanh toán kế tiếp: Gần nhất</option>
+          <option value="desc">Thanh toán kế tiếp: Xa nhất</option>
+        </Select>
+      </div>
+
+      {filteredAndSortedHuis.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {huis.map(hui => (
+          {filteredAndSortedHuis.map(hui => (
             <HuiCard key={hui.id} hui={hui} />
           ))}
         </div>
@@ -78,4 +115,3 @@ export default function HuiPage() {
     </div>
   );
 }
-

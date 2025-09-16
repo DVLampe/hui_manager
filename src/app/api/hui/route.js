@@ -42,7 +42,29 @@ export async function GET(request) {
         createdAt: 'desc',
       }
     });
-    return NextResponse.json(huis);
+
+    const huisWithDetails = await Promise.all(huis.map(async (hui) => {
+      const payments = await prisma.payment.findMany({
+        where: { huiGroupId: hui.id },
+        orderBy: { period: 'asc' },
+      });
+
+      const lastPaidPayment = payments
+        .filter(p => p.transactionStatus === 'DA_THANH_TOAN')
+        .sort((a, b) => b.period - a.period)[0];
+
+      const currentPeriod = lastPaidPayment ? lastPaidPayment.period : 0;
+
+      const nextPayment = payments.find(p => p.period === currentPeriod + 1);
+
+      return {
+        ...hui,
+        currentPeriod: currentPeriod,
+        nextPaymentDate: nextPayment ? nextPayment.dueDate : null,
+      };
+    }));
+
+    return NextResponse.json(huisWithDetails);
   } catch (error) {
     console.error('Error fetching hui groups:', error);
     return NextResponse.json({ message: 'Error fetching hui groups', error: error.message }, { status: 500 });

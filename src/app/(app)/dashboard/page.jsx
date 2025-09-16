@@ -84,6 +84,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [groupBy, setGroupBy] = useState('month');
+  const [activeTab, setActiveTab] = useState('participating');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -169,8 +170,38 @@ export default function DashboardPage() {
 
           {/* Hui List */}
           <div className="mt-8">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Thống kê hụi</h2>
-            <HuiList huis={stats.huiList} />
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab('participating')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'participating'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Hụi tham gia
+                </button>
+                <button
+                  onClick={() => setActiveTab('owned')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'owned'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Hụi làm chủ
+                </button>
+              </nav>
+            </div>
+            <div className="mt-6">
+              {activeTab === 'participating' && stats?.participatingHuiList && (
+                <HuiList huis={stats.participatingHuiList} type="participating" />
+              )}
+              {activeTab === 'owned' && stats?.ownedHuiList && (
+                <HuiList huis={stats.ownedHuiList} type="owned" />
+              )}
+            </div>
           </div>
     </>
   );
