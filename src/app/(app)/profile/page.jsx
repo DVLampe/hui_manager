@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { UserCircleIcon, PencilSquareIcon, CameraIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline';
 import AvatarUploadModal from '@/components/profile/AvatarUploadModal';
+import { useToast, Toaster } from '@/components/ui/Toaster';
+import Button from '@/components/ui/Button';
 
 
 // --- Helper Functions ---
@@ -124,37 +126,45 @@ const ProfileTabs = ({ activeTab, setActiveTab }) => {
     );
 };
 
-const PersonalInfoTab = ({ user, age, isEditing, setIsEditing, formData, setFormData, onSave }) => {
+const PersonalInfoTab = ({ user, age, isEditing, setIsEditing, formData, setFormData, onSave, qrCodeFile, setQrCodeFile, qrCodePreview, setQrCodePreview }) => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleQrFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setQrCodeFile(file);
+            setQrCodePreview(URL.createObjectURL(file));
+        }
+    };
+
     const birthDateForInput = formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString().split('T')[0] : '';
 
     const handleCancel = () => {
-        setFormData(user);
+        // Re-initialize form data from the original session user object
+        setFormData({
+            name: user.name,
+            phone: user.phone,
+            dateOfBirth: user.dateOfBirth,
+            about: user.about,
+            bankName: user.bankName,
+            bankAccountNumber: user.bankAccountNumber,
+            bankAccountName: user.bankAccountName,
+            qrCodeUrl: user.qrCodeUrl,
+        });
         setIsEditing(false);
     };
 
     return (
         <div className="py-6">
+            {/* Personal Info Section */}
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Thông tin cá nhân</h3>
-                {isEditing ? (
-                    <div className="flex items-center gap-2">
-                         <button onClick={onSave} className="text-sm font-medium text-green-600 hover:text-green-500 flex items-center gap-1 p-2 rounded-md bg-green-50">
-                            <CheckIcon className="h-5 w-5"/>
-                            Lưu
-                        </button>
-                        <button onClick={handleCancel} className="text-sm font-medium text-red-600 hover:text-red-500 flex items-center gap-1 p-2 rounded-md bg-red-50">
-                            <XMarkIcon className="h-5 w-5"/>
-                            Hủy
-                        </button>
-                    </div>
-                ) : (
-                    <button onClick={() => setIsEditing(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center gap-1">
+                {!isEditing && (
+                     <button onClick={() => setIsEditing(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center gap-1">
                         <PencilSquareIcon className="h-5 w-5"/>
                         Chỉnh sửa
                     </button>
@@ -210,6 +220,73 @@ const PersonalInfoTab = ({ user, age, isEditing, setIsEditing, formData, setForm
                     <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">{formatDate(user.createdAt)}</dd>
                 </div>
             </dl>
+
+            {/* Payment Info Section */}
+            <div className="mt-10">
+                 <h3 className="text-lg font-semibold text-gray-900">Thông tin thanh toán</h3>
+                 <dl className="mt-4 divide-y divide-gray-100">
+                    <div className="px-1 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt className="text-sm font-medium text-gray-600">Ngân hàng</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                            {isEditing ? (
+                                <input type="text" name="bankName" value={formData.bankName || ''} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                            ) : (
+                                user.bankName || 'Chưa cập nhật'
+                            )}
+                        </dd>
+                    </div>
+                    <div className="px-1 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt className="text-sm font-medium text-gray-600">Tên tài khoản</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                            {isEditing ? (
+                                <input type="text" name="bankAccountName" value={formData.bankAccountName || ''} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                            ) : (
+                                user.bankAccountName || 'Chưa cập nhật'
+                            )}
+                        </dd>
+                    </div>
+                    <div className="px-1 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt className="text-sm font-medium text-gray-600">Số tài khoản</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                            {isEditing ? (
+                                <input type="text" name="bankAccountNumber" value={formData.bankAccountNumber || ''} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                            ) : (
+                                user.bankAccountNumber || 'Chưa cập nhật'
+                            )}
+                        </dd>
+                    </div>
+                     <div className="px-1 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt className="text-sm font-medium text-gray-600">Mã QR</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                            {isEditing ? (
+                                <div>
+                                    <input 
+                                        type="file" 
+                                        name="qrCodeFile" 
+                                        onChange={handleQrFileChange} 
+                                        accept="image/png, image/jpeg, image/jpg"
+                                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                    />
+                                    {qrCodePreview ? (
+                                        <img src={qrCodePreview} alt="QR Code Preview" className="mt-2 h-32 w-32 object-contain border rounded-md" />
+                                    ) : (
+                                        formData.qrCodeUrl && <img src={formData.qrCodeUrl} alt="Current QR Code" className="mt-2 h-32 w-32 object-contain border rounded-md" />
+                                    )}
+                                </div>
+                            ) : (
+                                user.qrCodeUrl ? <img src={user.qrCodeUrl} alt="QR Code" className="h-32 w-32 object-contain" /> : 'Chưa cập nhật'
+                            )}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+
+            {isEditing && (
+                <div className="mt-6 flex justify-end items-center gap-3">
+                    <Button variant="secondary" onClick={handleCancel}>Hủy</Button>
+                    <Button variant="primary" onClick={onSave}>Lưu tất cả thay đổi</Button>
+                </div>
+            )}
         </div>
     );
 };
@@ -353,7 +430,10 @@ const ProfilePage = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(null);
-    const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState('personal');
+  const [qrCodeFile, setQrCodeFile] = useState(null);
+  const [qrCodePreview, setQrCodePreview] = useState('');
+  const { showToast } = useToast();
 
   // When session data is loaded, initialize formData
     useEffect(() => {
@@ -363,16 +443,42 @@ const ProfilePage = () => {
           phone: session.user.phone,
           dateOfBirth: session.user.dateOfBirth,
           about: session.user.about,
+          bankName: session.user.bankName,
+          bankAccountNumber: session.user.bankAccountNumber,
+          bankAccountName: session.user.bankAccountName,
+          qrCodeUrl: session.user.qrCodeUrl,
       });
     }
   }, [session]);
+
   const handleSave = async () => {
-            try {
-          // Note: We are now using a different API route for updating the user
-          const response = await fetch('/api/user/update', {
+        try {
+            let updatedFormData = { ...formData };
+
+            // Step 1: Upload QR code if a new one is selected
+            if (qrCodeFile) {
+                const qrFd = new FormData();
+                qrFd.append('file', qrCodeFile);
+                qrFd.append('folder', 'qrcodes');
+
+                const uploadResponse = await fetch('/api/user/upload-image', {
+                    method: 'POST',
+                    body: qrFd,
+                });
+
+                if (!uploadResponse.ok) {
+                    const errorData = await uploadResponse.json();
+                    throw new Error(errorData.error || 'Failed to upload QR code');
+                }
+                const { imageUrl } = await uploadResponse.json();
+                updatedFormData.qrCodeUrl = imageUrl;
+            }
+
+            // Step 2: Update user profile with all data
+            const response = await fetch('/api/user/update', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(updatedFormData),
             });
 
             if (!response.ok) {
@@ -380,25 +486,29 @@ const ProfilePage = () => {
                 throw new Error(errorData.error || 'Failed to update profile');
             }
 
-          // Manually trigger a session update to reflect the changes immediately
-          await update({ ...session, user: { ...session.user, ...formData } });
+            // Step 3: Manually trigger a session update
+            await update({ ...session, user: { ...session.user, ...updatedFormData } });
+            
             setIsEditing(false);
-            alert('Cập nhật thông tin thành công!');
+            setQrCodeFile(null);
+            setQrCodePreview('');
+            showToast({ message: "Cập nhật thông tin thành công!", type: 'success' });
 
         } catch (error) {
             console.error('Save error:', error);
-            alert(`Lỗi: ${error.message}`);
+            showToast({ message: `Lỗi: ${error.message}`, type: 'error' });
         }
     };
 
     const handleAvatarChange = async (avatarBlob) => {
         try {
-            const formData = new FormData();
-            formData.append('file', avatarBlob, 'avatar.jpg');
+            const fd = new FormData();
+            fd.append('file', avatarBlob, 'avatar.jpg');
+            fd.append('folder', 'avatars');
 
-            const response = await fetch('/api/user/avatar-upload', {
+            const response = await fetch('/api/user/upload-image', {
                 method: 'POST',
-                body: formData,
+                body: fd,
             });
 
             if (!response.ok) {
@@ -406,15 +516,15 @@ const ProfilePage = () => {
                 throw new Error(errorData.error || 'Failed to upload avatar');
             }
 
-            const { avatarUrl } = await response.json();
+            const { imageUrl } = await response.json();
 
             // Update session to reflect new avatar
-            await update({ ...session, user: { ...session.user, avatar: avatarUrl } });
-            alert('Cập nhật ảnh đại diện thành công!');
+            await update({ ...session, user: { ...session.user, avatar: imageUrl } });
+            showToast({ message: "Cập nhật ảnh đại diện thành công!", type: 'success' });
 
         } catch (error) {
             console.error('Avatar upload error:', error);
-            alert(`Lỗi: ${error.message}`);
+            showToast({ message: `Lỗi: ${error.message}`, type: 'error' });
         }
     };
 
@@ -432,6 +542,7 @@ const ProfilePage = () => {
 
         return (
     <div className="bg-gray-50">
+        <Toaster />
             <main className="py-10">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 bg-white shadow rounded-lg">
                     <ProfileHeader 
@@ -449,6 +560,10 @@ const ProfilePage = () => {
                                 formData={formData}
                                 setFormData={setFormData}
                                 onSave={handleSave}
+                                qrCodeFile={qrCodeFile}
+                                setQrCodeFile={setQrCodeFile}
+                                qrCodePreview={qrCodePreview}
+                                setQrCodePreview={setQrCodePreview}
                            />
                         )}
                        {activeTab === 'security' && <SecurityTab />}

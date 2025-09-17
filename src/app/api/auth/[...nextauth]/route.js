@@ -3,6 +3,8 @@ import NextAuthOriginal from "next-auth" // Import with a different name
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import prisma from "@/lib/prisma"
 import CredentialsProvider from "next-auth/providers/credentials"
+import GoogleProvider from "next-auth/providers/google"
+import EmailProvider from "next-auth/providers/email"
 import bcrypt from "bcrypt"
 
 // Apply the workaround pattern to NextAuth itself
@@ -14,6 +16,50 @@ console.log('[NextAuth] Loading route.js...');
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
+    (GoogleProvider.default || GoogleProvider)({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+    (EmailProvider.default || EmailProvider)({
+      server: process.env.EMAIL_SERVER,
+      from: process.env.EMAIL_FROM,
+    }),
+    {
+      id: "zalo",
+      name: "Zalo",
+      type: "oauth",
+      authorization: "https://oauth.zaloapp.com/v4/permission?prompt=consent",
+      token: "https://oauth.zaloapp.com/v4/access_token",
+      userinfo: {
+        url: "https://graph.zalo.me/v2.0/me",
+        params: { fields: "id,name,picture" },
+        async request(context) {
+          const { tokens, provider } = context;
+          const url = new URL(provider.userinfo.url);
+          url.searchParams.set("access_token", tokens.access_token);
+          if (provider.userinfo.params) {
+            Object.entries(provider.userinfo.params).forEach(([key, value]) =>
+              url.searchParams.set(key, value)
+            );
+          }
+          const res = await fetch(url);
+          return await res.json();
+        },
+      },
+      profile(profile) {
+        return {
+          id: profile.id,
+          name: profile.name,
+          // Zalo API does not provide email, NextAuth will ask the user to provide one
+          // if the account is new.
+          email: null, 
+          image: profile.picture?.data?.url,
+        };
+      },
+      clientId: process.env.ZALO_CLIENT_ID,
+      clientSecret: process.env.ZALO_CLIENT_SECRET,
+      checks: ["pkce", "state"],
+    },
     (CredentialsProvider.default || CredentialsProvider)({
       name: 'Credentials',
       credentials: {
@@ -28,27 +74,60 @@ export const authOptions = {
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
         if (!isPasswordValid) return null;
         console.log('[NextAuth] Authorization successful for:', user.email);
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        // Return the full user object to be used in the JWT callback
+        return user;
       }
     })
   ],
-  // ... (rest of the config remains the same)
   session: {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
-      // console.log('[NextAuth] Inside JWT callback'); // Lowering log noise
+    async jwt({ token, user, trigger, session }) {
+      // Initial sign in
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        // Add other user properties you want in the token
+        token.name = user.name;
+        token.email = user.email;
+        token.image = user.image;
       }
+
+      // This trigger is called when the user updates their session using the `update` function
+      if (trigger === "update" && session) {
+        console.log('[NextAuth] JWT update triggered, session:', session);
+        token.name = session.user.name;
+        token.image = session.user.image;
+        // You can add other fields to update here if needed
+      }
+      
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
+      if (token?.id) {
+         const user = await prisma.user.findUnique({
+            where: { id: token.id },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                image: true,
+                phone: true,
+                dateOfBirth: true,
+                about: true,
+                createdAt: true,
+                bankName: true,
+                bankAccountNumber: true,
+                bankAccountName: true,
+                qrCodeUrl: true,
+            }
+        });
+
+        if (user) {
+            session.user = user;
+        }
       }
       return session;
     }

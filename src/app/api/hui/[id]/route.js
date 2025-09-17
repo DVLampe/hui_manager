@@ -74,7 +74,19 @@ export async function GET(request, { params }) {
     const hui = await prisma.huiGroup.findUnique({
         where: { id },
       include: {
-        manager: true, // This is now the owner
+        manager: {
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+                phone: true,
+                bankName: true,
+                bankAccountNumber: true,
+                bankAccountName: true,
+                qrCodeUrl: true,
+            }
+        },
         permissions: { include: { user: true } },
         members: { include: { user: true } },
         payments: {

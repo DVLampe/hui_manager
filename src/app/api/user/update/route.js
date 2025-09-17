@@ -48,7 +48,10 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const { name, phone, dateOfBirth, about } = body;
+    const { 
+        name, phone, dateOfBirth, about,
+        bankName, bankAccountNumber, bankAccountName, qrCodeUrl 
+    } = body;
 
     // Basic validation
     if (!name) {
@@ -62,6 +65,10 @@ export async function PUT(request) {
         phone: phone || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         about: about || null,
+        bankName: bankName || null,
+        bankAccountNumber: bankAccountNumber || null,
+        bankAccountName: bankAccountName || null,
+        qrCodeUrl: qrCodeUrl || null,
       },
     });
 

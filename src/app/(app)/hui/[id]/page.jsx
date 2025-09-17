@@ -19,6 +19,8 @@ import HuiInvoice from '@/components/hui/HuiInvoice';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import ChatModal from '@/components/chat/ChatModal';
+import OwnerBankInfoModal from '@/components/hui/OwnerBankInfo-Modal';
+import { BanknotesIcon } from '@heroicons/react/24/outline';
 import dynamic from 'next/dynamic';
 
 const LuckyWheelModal = dynamic(() => import('@/components/hui/LuckyWheelModal'), {
@@ -47,6 +49,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
   const [editedHui, setEditedHui] = useState(null);
   const [invoiceData, setInvoiceData] = useState(null);
   const [isWheelModalOpen, setIsWheelModalOpen] = useState(false);
+  const [isBankInfoModalOpen, setIsBankInfoModalOpen] = useState(false);
 
   const canManage = useMemo(() => {
     if (!session || !hui) return false;
@@ -452,6 +455,13 @@ function HuiDetailClient({ params, vietnamDateString }) {
             >
               Quay hụi
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBankInfoModalOpen(true)}
+              disabled={loading}
+            >
+              QR chuyển khoản
+            </Button>
           </div>
         )}
 
@@ -514,7 +524,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
                     <dt className="text-sm font-medium text-gray-500">Ngày bắt đầu</dt>
                     <dd className="mt-1 text-sm text-gray-900">{new Date(hui?.startDate).toLocaleDateString('vi-VN')}</dd>
                   </div>
-                   <div className="sm:col-span-1">
+                  <div className="sm:col-span-1">
                     <dt className="text-sm font-medium text-gray-500">Chủ Hụi</dt>
                     <dd className="mt-1 text-sm text-gray-900">{hui?.manager?.name || 'N/A'}</dd>
                   </div>
@@ -658,6 +668,11 @@ function HuiDetailClient({ params, vietnamDateString }) {
         isOpen={isWheelModalOpen}
         onClose={() => setIsWheelModalOpen(false)}
         members={memberOptions}
+      />
+      <OwnerBankInfoModal
+        isOpen={isBankInfoModalOpen}
+        onClose={() => setIsBankInfoModalOpen(false)}
+        owner={hui?.manager}
       />
       <ChatModal huiId={hui?.id} />
     </>
