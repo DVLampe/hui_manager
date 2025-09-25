@@ -47,7 +47,7 @@ export default function Header() {
                <ArrowRightOnRectangleIcon className="h-5 w-5 mr-1" />
               Đăng nhập
             </Button>
-            <Link href="/auth/register">
+            <Link href="/register">
               <Button variant="solid" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 Đăng ký
               </Button>
