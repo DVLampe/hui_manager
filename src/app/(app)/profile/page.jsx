@@ -56,10 +56,10 @@ const ProfileHeader = ({ user, onAvatarChange }) => {
         <>
             <div className="text-center pt-8 pb-4">
                 <div className="relative inline-block group">
-                    {user.avatar ? (
+                    {user.image ? (
                         <img
                             className="h-32 w-32 rounded-full ring-4 ring-white object-cover"
-                            src={user.avatar}
+                            src={user.image}
                             alt="User Avatar"
                         />
                     ) : (
@@ -519,7 +519,7 @@ const ProfilePage = () => {
             const { imageUrl } = await response.json();
 
             // Update session to reflect new avatar
-            await update({ ...session, user: { ...session.user, avatar: imageUrl } });
+            await update({ ...session, user: { ...session.user, image: imageUrl } });
             showToast({ message: "Cập nhật ảnh đại diện thành công!", type: 'success' });
 
         } catch (error) {

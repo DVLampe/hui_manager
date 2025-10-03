@@ -1,5 +1,7 @@
 import { NextResponse as OriginalNextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 const prisma = new PrismaClient();
 
@@ -8,10 +10,15 @@ const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default
 
 // API lấy danh sách users
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const search = searchParams.get('search');
-
   try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+
     const where = search
       ? {
           OR: [

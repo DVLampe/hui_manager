@@ -51,7 +51,7 @@ export async function GET(request, { params }) {
       },
       include: {
         user: {
-            select: { id: true, name: true, email: true, avatar: true }
+            select: { id: true, name: true, email: true, image: true }
         },
       }
     });
@@ -109,7 +109,7 @@ export async function POST(request, { params }) {
             },
             include: {
                 user: {
-                    select: { id: true, name: true, email: true, avatar: true }
+                    select: { id: true, name: true, email: true, image: true }
                 },
             }
         });

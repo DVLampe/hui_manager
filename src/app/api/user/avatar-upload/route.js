@@ -47,14 +47,14 @@ export async function POST(request) {
         }
 
         const fileName = generateFileName();
-        const avatarUrl = await uploadImageToS3(file, fileName);
+        const imageUrl = await uploadImageToS3(file, fileName);
 
         await prisma.user.update({
             where: { id: session.user.id },
-            data: { avatar: avatarUrl },
+            data: { image: imageUrl },
         });
 
-        return new Response(JSON.stringify({ avatarUrl }), { status: 200 });
+        return new Response(JSON.stringify({ imageUrl }), { status: 200 });
 
     } catch (error) {
         console.error('Lỗi tải lên ảnh đại diện:', error);

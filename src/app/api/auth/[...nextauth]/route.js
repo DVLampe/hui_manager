@@ -69,10 +69,22 @@ export const authOptions = {
       async authorize(credentials) {
         console.log('[NextAuth] Authorize function called for email:', credentials?.email);
         if (!credentials?.email || !credentials?.password) return null;
+        
         const user = await prisma.user.findUnique({ where: { email: credentials.email } });
-        if (!user) return null;
+
+        // Also check for user.password to allow social-only accounts
+        if (!user || !user.password) return null;
+
+        // Check if the user account is active
+        if (!user.isActive) {
+          console.log('[NextAuth] Authorization failed: User account is inactive for:', user.email);
+          // Throw an error with a specific message that can be caught on the client
+          throw new Error("Tài khoản của bạn đã bị khóa.");
+        }
+
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
         if (!isPasswordValid) return null;
+
         console.log('[NextAuth] Authorization successful for:', user.email);
         // Return the full user object to be used in the JWT callback
         return user;

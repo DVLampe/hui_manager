@@ -79,7 +79,7 @@ export async function GET(request, { params }) {
                 id: true,
                 name: true,
                 email: true,
-                avatar: true,
+                image: true,
                 phone: true,
                 bankName: true,
                 bankAccountNumber: true,

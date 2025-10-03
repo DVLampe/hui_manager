@@ -15,14 +15,14 @@ import {
     ArrowLeftOnRectangleIcon,
     UserCircleIcon,
     BellIcon,
+    ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 
 const navigationItems = [
 	{ name: 'Dashboard', href: '/dashboard', icon: HomeIcon, adminOnly: false },
 	{ name: 'Hui Groups', href: '/hui', icon: UserGroupIcon, adminOnly: false },
 	{ name: 'Members', href: '/members', icon: UsersIcon, adminOnly: false },
-	{ name: 'Statistics', href: '/admin/statistics', icon: ChartBarIcon, adminOnly: true },
-	{ name: 'Users', href: '/admin/users', icon: UserCircleIcon, adminOnly: true },
+	{ name: 'Admin Panel', href: '/admin', icon: ShieldCheckIcon, adminOnly: true },
 	{ name: 'Notifications', href: '/admin/notifications', icon: BellIcon, adminOnly: true },
 ]
 

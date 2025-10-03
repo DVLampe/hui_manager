@@ -1,14 +1,17 @@
 //Tạo API endpoint cho cập nhật và xóa người dùng
 
 import prisma from '@/lib/prisma'
-import { NextResponse } from 'next/server'
+import { NextResponse as OriginalNextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+
+const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
 
 // GET /api/users/[id] - Fetch a single user
 export async function GET(request, { params }) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     // Authorization: Allow ADMIN to see any user, or a user to see their own profile.
     if (!session || (session.user.role !== 'ADMIN' && session.user.id !== params.id)) {
         // Allowing any authenticated user to get any other user for now as per original implied behavior
@@ -25,7 +28,7 @@ export async function GET(request, { params }) {
             name: true,
             role: true,
             phone: true,
-            avatar: true,
+            image: true,
             isActive: true,
             lastLoginAt: true,
             createdAt: true,
@@ -48,7 +51,8 @@ export async function GET(request, { params }) {
 // PUT /api/users/[id] - Cập nhật người dùng
 export async function PUT(request, { params }) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
+    console.log('SESSION IN PUT /api/users/[id]:', session); // DEBUGGING
     
     if (!session || (session.user.role !== 'ADMIN' && session.user.id !== params.id)) {
       return NextResponse.json(
@@ -71,7 +75,7 @@ export async function PUT(request, { params }) {
     const updateData = {}
     if (body.name !== undefined) updateData.name = body.name;
     if (body.phone !== undefined) updateData.phone = body.phone;
-    if (body.avatar !== undefined) updateData.avatar = body.avatar;
+    if (body.avatar !== undefined) updateData.image = body.avatar;
     
     // Only ADMIN can change role or isActive status of OTHERS
     // Users can't change their own role or deactivate themselves via this PUT.
@@ -107,7 +111,7 @@ export async function PUT(request, { params }) {
         role: true,
         isActive: true,
         phone: true,
-        avatar: true,
+        image: true,
         createdAt: true,
         updatedAt: true
       }
@@ -126,7 +130,8 @@ export async function PUT(request, { params }) {
 // DELETE /api/users/[id] - Logically delete a user (deactivate)
 export async function DELETE(request, { params }) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
+    console.log('SESSION IN DELETE /api/users/[id]:', session); // DEBUGGING
     
     if (session?.user?.role !== 'ADMIN') {
       return NextResponse.json(

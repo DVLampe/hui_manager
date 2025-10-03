@@ -38,7 +38,12 @@ const SignInPage = () => {
       });
 
       if (result.error) {
-        setError('Email hoặc mật khẩu không đúng. Vui lòng thử lại.');
+        // Handle specific error from our authorize callback
+        if (result.error === 'CredentialsSignin') {
+            setError('Email hoặc mật khẩu không đúng. Vui lòng thử lại.');
+        } else {
+            setError(result.error);
+        }
         setIsLoading(false);
       } else if (result.ok) {
         // Redirect to a protected page or homepage on successful login
