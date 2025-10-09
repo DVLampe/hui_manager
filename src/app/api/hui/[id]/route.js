@@ -224,10 +224,12 @@ export async function PUT(request, { params }) {
               // --- Create Notification for "hốt hụi" ---
               if (upsertedPayment.potTakerMemberId && upsertedPayment.potTakerMemberId !== existingPayment?.potTakerMemberId) {
                 const potTaker = allMembers.find(m => m.id === upsertedPayment.potTakerMemberId);
-                const potTakerUser = potTaker ? await tx.user.findUnique({ where: { id: potTaker.userId } }) : null;
                 
-                if (potTakerUser) {
-                  const recipients = allMembers.filter(m => m.userId && m.userId !== potTaker.userId);
+                if (potTaker && potTaker.userId) {
+                  const potTakerUser = await tx.user.findUnique({ where: { id: potTaker.userId } });
+
+                  if (potTakerUser) {
+                    const recipients = allMembers.filter(m => m.userId && m.userId !== potTaker.userId);
                   const notificationData = recipients.map(recipient => ({
                     userId: recipient.userId,
                     title: `Cập nhật trong nhóm "${group.name}"`,
@@ -236,8 +238,9 @@ export async function PUT(request, { params }) {
                     link: `/hui/${id}`,
                   }));
 
-                  if (notificationData.length > 0) {
-                    await tx.notification.createMany({ data: notificationData });
+                    if (notificationData.length > 0) {
+                      await tx.notification.createMany({ data: notificationData });
+                    }
                   }
                 }
               }

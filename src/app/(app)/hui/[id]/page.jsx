@@ -357,25 +357,64 @@ function HuiDetailClient({ params, vietnamDateString }) {
     }
   };
 
-  useEffect(() => {
-    if (invoiceData) {
-      const timer = setTimeout(() => {
-        const invoiceElement = document.getElementById('invoice-content');
-        if (invoiceElement) {
-          html2canvas(invoiceElement).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`hoa-don-hui-${invoiceData.hui.name}-ky-${invoiceData.period.period}.pdf`);
-            setInvoiceData(null);
-          });
-        }
-      }, 100); // Delay to ensure the component has rendered
-      return () => clearTimeout(timer);
+  const generatePdf = async () => {
+    if (!invoiceData) return;
+
+    const invoiceContainer = document.getElementById('invoice-content-for-pdf');
+    if (!invoiceContainer) {
+      showToast({ message: "Không tìm thấy nội dung hóa đơn để xuất.", type: 'error' });
+      return;
     }
-  }, [invoiceData]);
+
+    const pages = invoiceContainer.querySelectorAll('.printable-page');
+    if (pages.length === 0) {
+      showToast({ message: "Không có trang nào để xuất ra PDF.", type: 'error' });
+      return;
+    }
+
+    showToast({ message: "Bắt đầu tạo PDF, vui lòng chờ...", type: 'info' });
+    setIsSaving(true);
+
+    try {
+      const pdf = new jsPDF('l', 'mm', 'a4'); // l for landscape
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const canvas = await html2canvas(page, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          width: page.scrollWidth,
+          height: page.scrollHeight,
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgProps = pdf.getImageProperties(imgData);
+        const ratio = imgProps.height / imgProps.width;
+        let imgHeight = pdfWidth * ratio;
+        
+        if (imgHeight > pdfHeight) {
+          imgHeight = pdfHeight; // Fit to page height if too long
+        }
+
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+      }
+
+      pdf.save(`hoa-don-hui-${invoiceData.hui.name}-ky-${invoiceData.period.period}.pdf`);
+      showToast({ message: "Tải PDF thành công!", type: 'success' });
+    } catch (err) {
+      console.error("Lỗi tạo PDF:", err);
+      showToast({ message: `Lỗi tạo PDF: ${err.message}`, type: 'error' });
+    } finally {
+      setInvoiceData(null);
+      setIsSaving(false);
+    }
+  };
 
   if (loading && !hui) {
     return <div className="flex justify-center items-center h-64"><Loading message="Đang tải thông tin hụi..." /></div>;
@@ -402,9 +441,24 @@ function HuiDetailClient({ params, vietnamDateString }) {
   return (
     <>
       {invoiceData && (
-        <div style={{ position: 'absolute', left: '-9999px' }}>
-          <HuiInvoice {...invoiceData} />
-        </div>
+        <Modal
+          isOpen={true}
+          onClose={() => setInvoiceData(null)}
+          title="Xem trước Hóa đơn"
+          size="4xl"
+          footer={
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={() => setInvoiceData(null)} className="mr-2">Đóng</Button>
+              <Button variant="primary" onClick={generatePdf} disabled={isSaving}>
+                {isSaving ? 'Đang tạo PDF...' : 'Tải xuống PDF'}
+              </Button>
+            </div>
+          }
+        >
+          <div className="max-h-[70vh] overflow-y-auto">
+            <HuiInvoice {...invoiceData} />
+          </div>
+        </Modal>
       )}
       <Toaster />
       <div className="space-y-6">
@@ -643,7 +697,9 @@ function HuiDetailClient({ params, vietnamDateString }) {
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <Button type="button" variant="secondary" onClick={handleCloseHotHuiModal} disabled={isSaving}>Hủy</Button>
-                <Button type="button" variant="outline" onClick={handleHotHuiAndPrint} disabled={isSaving || !hotHuiKy || !hotHuiMemberId}>Hốt in hóa đơn</Button>
+                <Button type="button" variant="outline" onClick={handleHotHuiAndPrint} disabled={isSaving || !hotHuiKy || !hotHuiMemberId}>
+                  {isSaving ? <Loading size="sm" /> : 'Xem trước hóa đơn'}
+                </Button>
                 <Button type="submit" variant="primary" disabled={isSaving || !hotHuiKy || !hotHuiMemberId}>Hốt không hóa đơn</Button>
               </div>
             </form>

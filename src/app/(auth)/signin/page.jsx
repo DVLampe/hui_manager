@@ -18,6 +18,11 @@ const SignInPage = () => {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'AccountLocked') {
+      setError('Tài khoản của bạn đã bị khóa.');
+    }
+
     // Show a success message if the user just registered
     if (searchParams.get('registered') === 'true') {
       setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');

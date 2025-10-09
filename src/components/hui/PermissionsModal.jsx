@@ -16,9 +16,24 @@ export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const response = await fetch('/api/users');
-      const data = await response.json();
-      setAllUsers(data);
+      try {
+        const response = await fetch('/api/users');
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            setAllUsers(data);
+          } else {
+            console.error("API response for users is not an array:", data);
+            setAllUsers([]);
+          }
+        } else {
+          console.error("Failed to fetch users:", response.statusText);
+          setAllUsers([]);
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        setAllUsers([]);
+      }
     };
     fetchUsers();
   }, []);
@@ -26,7 +41,9 @@ export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
   const handleAddPermission = () => {
     if (selectedUser && !permissions.some(p => p.userId === selectedUser)) {
       const user = allUsers.find(u => u.id === selectedUser);
-      setPermissions([...permissions, { userId: selectedUser, user: { name: user.name } }]);
+      if (user) {
+        setPermissions([...permissions, { userId: selectedUser, user: { name: user.name } }]);
+      }
     }
   };
 
@@ -38,7 +55,7 @@ export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
     onSave(permissions);
   };
 
-  const userOptions = allUsers.map(user => ({ value: user.id, label: user.name }));
+  const userOptions = Array.isArray(allUsers) ? allUsers.map(user => ({ value: user.id, label: user.name })) : [];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Quản lý quyền">

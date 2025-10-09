@@ -95,6 +95,20 @@ export const authOptions = {
     strategy: "jwt",
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (user.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { isActive: true },
+        });
+        if (dbUser && !dbUser.isActive) {
+          // Redirect to a specific error page or show a message
+          return '/signin?error=AccountLocked';
+        }
+      }
+      // Allow sign-in
+      return true;
+    },
     async jwt({ token, user, trigger, session }) {
       // Initial sign in
       if (user) {
