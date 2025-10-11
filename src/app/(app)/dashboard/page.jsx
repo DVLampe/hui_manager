@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -85,11 +85,20 @@ export default function DashboardPage() {
   const [error, setError] = useState(null);
   const [groupBy, setGroupBy] = useState('month');
   const [activeTab, setActiveTab] = useState('participating');
+  const [isChartLoading, setIsChartLoading] = useState(false);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     const fetchStats = async () => {
-      try {
+      const isChartUpdate = !isInitialMount.current;
+      
+      if (isChartUpdate) {
+        setIsChartLoading(true);
+      } else {
         setLoading(true);
+      }
+
+      try {
         const response = await fetch(`/api/dashboard?groupBy=${groupBy}`);
         if (!response.ok) {
           throw new Error('Failed to fetch dashboard data');
@@ -99,7 +108,12 @@ export default function DashboardPage() {
       } catch (err) {
         setError(err.message);
       } finally {
-        setLoading(false);
+        if (isChartUpdate) {
+          setIsChartLoading(false);
+        } else {
+          setLoading(false);
+          isInitialMount.current = false;
+        }
       }
     };
 
@@ -121,28 +135,38 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 mb-1">Tổng số hụi</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.totalHui}</p>
+          <div className="space-y-4 mb-8">
+            {/* Row 1 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg shadow p-4">
+                  <p className="text-sm text-gray-500 mb-1">Tổng tiền đã trả</p>
+                  <p className="text-2xl font-bold text-gray-800">{formatVietnameseCurrency(stats.totalPaid)}</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                  <p className="text-sm text-gray-500 mb-1">Tổng tiền đã nhận</p>
+                  <p className="text-2xl font-bold text-gray-800">{formatVietnameseCurrency(stats.totalReceived)}</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                  <p className="text-sm text-gray-500 mb-1">Tổng tiền thảo</p>
+                  <p className="text-2xl font-bold text-blue-600">{formatVietnameseCurrency(stats.totalThao)}</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                  <p className="text-sm text-gray-500 mb-1">Lợi nhuận</p>
+                  <p className={`text-2xl font-bold ${stats.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatVietnameseCurrency(stats.profitLoss)}
+                  </p>
+              </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 mb-1">Số hụi đang tham gia</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.participatingHui}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 mb-1">Tổng tiền đã trả</p>
-                <p className="text-2xl font-bold text-gray-800">{formatVietnameseCurrency(stats.totalPaid)}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 mb-1">Tổng tiền đã nhận</p>
-                <p className="text-2xl font-bold text-gray-800">{formatVietnameseCurrency(stats.totalReceived)}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 mb-1">Lợi nhuận</p>
-                <p className={`text-2xl font-bold ${stats.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatVietnameseCurrency(stats.profitLoss)}
-                </p>
+            {/* Row 2 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:w-1/2 lg:mx-auto">
+              <div className="bg-white rounded-lg shadow p-4">
+                  <p className="text-sm text-gray-500 mb-1">Tổng số hụi</p>
+                  <p className="text-2xl font-bold text-gray-800">{stats.totalHui}</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                  <p className="text-sm text-gray-500 mb-1">Số hụi đang tham gia</p>
+                  <p className="text-2xl font-bold text-gray-800">{stats.participatingHui}</p>
+              </div>
             </div>
           </div>
 
@@ -153,6 +177,7 @@ export default function DashboardPage() {
                 value={groupBy}
                 onChange={(e) => setGroupBy(e.target.value)}
                 className="w-32"
+                variant="minimal"
               >
                 <option value="day">Ngày</option>
                 <option value="month">Tháng</option>
@@ -160,10 +185,15 @@ export default function DashboardPage() {
               </Select>
             </div>
             <div className="relative h-96">
+              {isChartLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10 rounded-lg">
+                  <Loading message="Đang tải biểu đồ..." />
+                </div>
+              )}
               {stats && stats.monthlyStats ? (
                 <Line data={stats.monthlyStats} options={chartOptions} />
               ) : (
-                <p>Không có dữ liệu để hiển thị.</p>
+                !isChartLoading && <p>Không có dữ liệu để hiển thị.</p>
               )}
             </div>
           </div>

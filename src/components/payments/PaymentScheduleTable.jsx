@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import Button from '@/components/ui/Button';
 import NumberInput from '@/components/ui/NumberInput';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -407,15 +408,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                         <option value="HUY">Hủy</option>
                       </select>
                     ) : (
-                      <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${
-                        item.status === 'CHUA_DEN_KY' ? 'bg-gray-50 text-gray-600 ring-gray-500/10' :
-                        item.status === 'CHO_THANH_TOAN' ? 'bg-yellow-50 text-yellow-800 ring-yellow-600/20' :
-                        item.status === 'DA_THANH_TOAN' ? 'bg-green-50 text-green-700 ring-green-600/20' :
-                        item.status === 'HUY' ? 'bg-red-50 text-red-700 ring-red-600/20' :
-                                                      'bg-gray-50 text-gray-600 ring-gray-500/10'
-                      }`}>
-                        {statusDisplayMap[item.status] || item.status}
-                      </span>
+                      <StatusBadge status={item.status} />
                     )}
                   </td>
                 </tr>

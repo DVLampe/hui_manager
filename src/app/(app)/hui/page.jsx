@@ -84,6 +84,7 @@ export default function HuiPage() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="w-48"
+          variant="minimal"
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="ACTIVE">Đang hoạt động</option>
@@ -94,6 +95,7 @@ export default function HuiPage() {
           value={sortOrder}
           onChange={(e) => setSortOrder(e.target.value)}
           className="w-48"
+          variant="minimal"
         >
           <option value="asc">Thanh toán kế tiếp: Gần nhất</option>
           <option value="desc">Thanh toán kế tiếp: Xa nhất</option>

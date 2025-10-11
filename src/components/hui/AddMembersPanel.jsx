@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toaster';
@@ -33,6 +33,24 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
   const [fetchAllUsersError, setFetchAllUsersError] = useState(null);
   const [stagedForAdditionUserIds, setStagedForAdditionUserIds] = useState(new Set());
   const [guestName, setGuestName] = useState('');
+  const [guestSuggestions, setGuestSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const guestInputRef = useRef(null);
+
+  useEffect(() => {
+    const fetchGuestSuggestions = async () => {
+      try {
+        const response = await fetch('/api/guests');
+        if (response.ok) {
+          const data = await response.json();
+          setGuestSuggestions(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch guest suggestions:", error);
+      }
+    };
+    fetchGuestSuggestions();
+  }, []);
 
   useEffect(() => {
     const fetchAllSystemUsers = async () => {
@@ -95,11 +113,17 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
     }
   };
 
-  const handleAddGuest = () => {
-    if (guestName.trim() && canStageMoreUsers) {
-      const guestId = `guest:${guestName.trim()}`;
+  const handleAddGuest = (name) => {
+    const guestNameToAdd = name || guestName.trim();
+    if (guestNameToAdd && canStageMoreUsers) {
+      const guestId = `guest:${guestNameToAdd}`;
+      if (stagedForAdditionUserIds.has(guestId)) {
+        showToast({ message: `Khách '${guestNameToAdd}' đã có trong danh sách.`, type: 'warning' });
+        return;
+      }
       setStagedForAdditionUserIds(prevIds => new Set(prevIds).add(guestId));
       setGuestName('');
+      setShowSuggestions(false);
     } else if (!canStageMoreUsers) {
       showToast({ message: "Đã đạt số lượng thành viên tối đa cho hụi này.", type: 'warning' });
     }
@@ -157,19 +181,41 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
           </div>
         </div>
       </div>
-      <div className="mt-6 flex items-center gap-4">
-        <div className="flex-grow">
+      <div className="mt-6 flex items-start gap-4">
+        <div className="flex-grow relative" ref={guestInputRef}>
           <Input
             type="text"
             placeholder="Nhập tên thành viên khách"
             value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
+            onChange={(e) => {
+              setGuestName(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
           />
+          {showSuggestions && guestName && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+              {guestSuggestions
+                .filter(name => name.toLowerCase().includes(guestName.toLowerCase()))
+                .map((name, index) => (
+                  <div
+                    key={index}
+                    className="px-4 py-2 cursor-pointer hover:bg-gray-100"
+                    onClick={() => {
+                      setGuestName(name);
+                      setShowSuggestions(false);
+                    }}
+                  >
+                    {name}
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
         <Button
           type="button"
           variant="primary"
-          onClick={handleAddGuest}
+          onClick={() => handleAddGuest()}
           disabled={!guestName.trim() || !canStageMoreUsers}
         >
           Thêm khách

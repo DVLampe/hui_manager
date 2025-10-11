@@ -110,14 +110,25 @@ export async function GET(request) {
     let participatingHui = userHuiGroups.filter(h => h.status === 'ACTIVE').length;
     let totalPaid = 0;
     let totalReceived = 0;
+    let totalThao = 0;
 
-    userHuiGroups.forEach(hui => {
+    allUserHuiGroups.forEach(hui => {
+      const isOwner = hui.ownerId === userId;
+
       hui.payments.forEach(payment => {
+        // Calculate total paid by the user in this hui
         payment.memberContributions.forEach(contribution => {
           totalPaid += Number(contribution.amountContributed);
         });
+
+        // If the user is the pot taker in this payment
         if (payment.potTakerMember?.userId === userId && payment.amountCollected) {
           totalReceived += Number(payment.amountCollected);
+        }
+
+        // If the user is the owner of the hui, accumulate thao
+        if (isOwner && payment.thao) {
+          totalThao += Number(payment.thao);
         }
       });
     });
@@ -196,6 +207,7 @@ export async function GET(request) {
       participatingHui,
       totalPaid,
       totalReceived,
+      totalThao,
       profitLoss,
       monthlyStats,
       ownedHuiList,

@@ -8,41 +8,39 @@ const prisma = new PrismaClient();
 // Revert to the original NextResponse handling pattern
 const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
 
-// API lấy danh sách users
+// API to get the list of friends for the current user
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.id;
 
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search');
-
-    const where = search
-      ? {
-          OR: [
-            { email: { contains: search, mode: 'insensitive' } },
-            { phone: { contains: search, mode: 'insensitive' } },
-          ],
-        }
-      : {};
-
-    const users = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        isActive: true,
-        lastLoginAt: true,
-        createdAt: true,
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        OR: [
+          { requesterId: userId },
+          { addresseeId: userId },
+        ],
+        status: 'ACCEPTED',
+      },
+      include: {
+        requester: { select: { id: true, name: true, email: true } },
+        addressee: { select: { id: true, name: true, email: true } },
       },
     });
 
-    return NextResponse.json(users);
+    const friends = friendships.map(f => {
+      const friend = f.requesterId === userId ? f.addressee : f.requester;
+      return {
+        id: friend.id,
+        name: friend.name,
+        email: friend.email,
+      };
+    });
+
+    return NextResponse.json(friends);
   } catch (error) {
     console.error('Lỗi lấy danh sách users:', error);
     return NextResponse.json(

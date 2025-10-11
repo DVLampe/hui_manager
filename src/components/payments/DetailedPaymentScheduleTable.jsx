@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Button from '@/components/ui/Button';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -381,10 +382,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                   <p className={`${selectedPeriodIndex === index ? 'font-semibold' : 'font-normal'}`}>Kỳ {period.period}</p>
                   <p className={`text-xs ${selectedPeriodIndex === index ? 'text-indigo-600' : 'text-gray-500'}`}>{period.dueDate}</p>
                 </div>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset
-                                ${getStatusColor(period.status)}`}>
-                  {statusDisplayMap[period.status] || period.status}
-                </span>
+                <StatusBadge status={period.status} />
               </button>
             ))}
           </nav>
@@ -398,9 +396,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
                   <p><span className="text-gray-500">Ngày đến hạn:</span> <span className="font-medium">{selectedPeriodData.dueDate}</span></p>
                   <p><span className="text-gray-500">Trạng thái kỳ:</span>
-                    <span className={`ml-1 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusColor(selectedPeriodData.status)}`}>
-                        {statusDisplayMap[selectedPeriodData.status] || selectedPeriodData.status}
-                    </span>
+                    <StatusBadge status={selectedPeriodData.status} />
                   </p>
                   <p><span className="text-gray-500">Tiền hốt (VNĐ):</span> <span className="font-medium">{formatNumber(selectedPeriodData.amountCollected) || 'N/A'}</span></p>
                   <p className="col-span-2 md:col-span-1"><span className="text-gray-500">Người hốt hụi:</span> <span className="font-medium">{selectedPeriodData.potTakerName}</span></p>
