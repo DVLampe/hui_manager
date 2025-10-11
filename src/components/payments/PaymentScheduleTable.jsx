@@ -161,28 +161,72 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
 
   const members = huiGroup?.members || [];
 
-  const handleExportPDF = () => {
-    const input = tableRef.current;
-    html2canvas(input).then((canvas) => {
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.setFontSize(18);
-      pdf.text(`Thông tin Hụi: ${huiName}`, 14, 22);
-      pdf.setFontSize(11);
-      pdf.text(`Chủ Hụi: ${huiGroup.manager?.name || 'N/A'}`, 14, 32);
-      pdf.text(`Ngày bắt đầu: ${formatDate(startDate)}`, 14, 38);
-      pdf.text(`Số kỳ: ${numberOfPeriods}`, 14, 44);
-      pdf.text(`Chu kỳ: ${frequency}`, 14, 50);
-      pdf.text(`Trạng thái hụi: ${huiGroup.status}`, 14, 56);
-      pdf.text(`Số tiền mỗi kỳ: ${parseFloat(amount).toLocaleString('vi-VN')} VNĐ`, 14, 62);
-
-      pdf.addImage(imgData, 'PNG', 0, 70, pdfWidth, pdfHeight);
-      pdf.save(`lich-thanh-toan-${huiName}.pdf`);
-    });
+  const handleExportPDF = async () => {
     setShowExportOptions(false);
+    const tableElement = tableRef.current;
+    if (!tableElement) return;
+
+    // Create a container for the export content
+    const exportContainer = document.createElement('div');
+    exportContainer.style.position = 'absolute';
+    exportContainer.style.left = '-9999px';
+    exportContainer.style.top = 'auto';
+    exportContainer.style.width = '1123px'; // A4 landscape width in pixels approx
+    exportContainer.style.padding = '20px';
+    exportContainer.style.backgroundColor = 'white';
+    
+    // Create header
+    const header = document.createElement('div');
+    header.innerHTML = `
+      <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 16px;">Thông tin Hụi: ${huiName}</h1>
+      <div style="font-size: 14px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <p><strong>Chủ Hụi:</strong> ${huiGroup.manager?.name || 'N/A'}</p>
+        <p><strong>Ngày bắt đầu:</strong> ${formatDate(startDate)}</p>
+        <p><strong>Số kỳ:</strong> ${numberOfPeriods}</p>
+        <p><strong>Chu kỳ:</strong> ${frequency}</p>
+        <p><strong>Trạng thái hụi:</strong> ${huiGroup.status}</p>
+        <p><strong>Số tiền mỗi kỳ:</strong> ${parseFloat(amount).toLocaleString('vi-VN')} VNĐ</p>
+      </div>
+    `;
+    
+    // Clone table
+    const tableClone = tableElement.cloneNode(true);
+    
+    // Append to container
+    exportContainer.appendChild(header);
+    exportContainer.appendChild(tableClone);
+    
+    // Append container to body to be rendered
+    document.body.appendChild(exportContainer);
+
+    try {
+      const canvas = await html2canvas(exportContainer, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('l', 'mm', 'a4'); // landscape
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const ratio = imgProps.height / imgProps.width;
+      let imgHeight = pdfWidth * ratio;
+
+      if (imgHeight > pdfHeight) {
+        imgHeight = pdfHeight;
+      }
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+      pdf.save(`lich-thanh-toan-${huiName}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      // Clean up
+      document.body.removeChild(exportContainer);
+    }
   };
 
   const handleExportExcel = () => {

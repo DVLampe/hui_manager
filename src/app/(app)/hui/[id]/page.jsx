@@ -228,6 +228,10 @@ function HuiDetailClient({ params, vietnamDateString }) {
   };
 
   const handleOpenHotHuiModal = () => {
+    if (!canManage) {
+      showToast({ message: "Chỉ chủ hụi và người quản lý có quyền hốt hụi", type: 'warning' });
+      return;
+    }
     resetHotHuiForm();
     setIsHotHuiModalOpen(true);
   };
