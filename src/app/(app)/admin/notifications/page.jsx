@@ -25,10 +25,10 @@ export default function AdminNotificationsPage() {
           const data = await response.json();
           setUsers(data);
         } else {
-          setStatus({ type: 'error', message: 'Не удалось загрузить список пользователей.' });
+          setStatus({ type: 'error', message: 'Không thể tải danh sách người dùng.' });
         }
       } catch (error) {
-        setStatus({ type: 'error', message: `Ошибка при загрузке пользователей: ${error.message}` });
+        setStatus({ type: 'error', message: `Lỗi khi tải người dùng: ${error.message}` });
       }
     };
     fetchUsers();
@@ -40,7 +40,7 @@ export default function AdminNotificationsPage() {
     setStatus({ type: '', message: '' });
 
     if (!selectedUserId || !title || !message) {
-      setStatus({ type: 'error', message: 'Пожалуйста, выберите пользователя и заполните заголовок и сообщение.' });
+      setStatus({ type: 'error', message: 'Vui lòng chọn người dùng và điền tiêu đề cũng như nội dung thông báo.' });
       setIsLoading(false);
       return;
     }
@@ -59,7 +59,7 @@ export default function AdminNotificationsPage() {
       });
 
       if (response.ok) {
-        setStatus({ type: 'success', message: 'Уведомление успешно отправлено!' });
+        setStatus({ type: 'success', message: 'Thông báo đã được gửi thành công!' });
         // Clear form
         setSelectedUserId('');
         setTitle('');
@@ -67,10 +67,10 @@ export default function AdminNotificationsPage() {
         setLink('');
       } else {
         const errorData = await response.json();
-        setStatus({ type: 'error', message: `Не удалось отправить уведомление: ${errorData.message}` });
+        setStatus({ type: 'error', message: `Không thể gửi thông báo: ${errorData.message}` });
       }
     } catch (error) {
-      setStatus({ type: 'error', message: `Произошла ошибка: ${error.message}` });
+      setStatus({ type: 'error', message: `Đã xảy ra lỗi: ${error.message}` });
     } finally {
       setIsLoading(false);
     }
@@ -83,16 +83,16 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      <h1 className="text-2xl font-bold mb-6">Отправить уведомление</h1>
+      <h1 className="text-2xl font-bold mb-6">Gửi thông báo</h1>
       
       <form onSubmit={handleSubmit} className="max-w-lg bg-white p-6 rounded-lg shadow-md">
         <div className="mb-4">
           <label htmlFor="user" className="block text-sm font-medium text-gray-700 mb-1">
-            Пользователь
+            Người dùng
           </label>
           <Select
             id="user"
-            options={[{ value: '', label: 'Выберите пользователя...' }, ...userOptions]}
+            options={[{ value: '', label: 'Chọn người dùng...' }, ...userOptions]}
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
             disabled={users.length === 0}
@@ -108,7 +108,7 @@ export default function AdminNotificationsPage() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Важное обновление"
+            placeholder="Cập nhật quan trọng"
           />
         </div>
 
@@ -122,7 +122,7 @@ export default function AdminNotificationsPage() {
             onChange={(e) => setMessage(e.target.value)}
             rows="4"
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            placeholder="Текст вашего сообщения..."
+            placeholder="Nội dung thông báo..."
           ></textarea>
         </div>
 
@@ -146,7 +146,7 @@ export default function AdminNotificationsPage() {
         )}
 
         <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Отправка...' : 'Отправить уведомление'}
+          {isLoading ? 'Đang gửi...' : 'Gửi thông báo'}
         </Button>
       </form>
     </div>

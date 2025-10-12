@@ -4,11 +4,13 @@ import Sidebar from '@/components/shared/Sidebar';
 
 export default function AppLayout({ children }) {
   return (
-    <div className="flex h-full">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
+    <div className="flex h-screen bg-gray-100">
+      <div className="fixed h-full z-30">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex flex-col ml-64">
         <Header />
-        <main className="flex-grow p-6 bg-gray-100">
+        <main className="flex-grow p-6 overflow-y-auto">
           {children}
         </main>
       </div>

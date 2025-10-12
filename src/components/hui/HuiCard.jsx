@@ -1,6 +1,7 @@
 import Card from '@/components/ui/Card' // Изменено на импорт по умолчанию
 import Button from '@/components/ui/Button'
-import { formatCurrency, formatDate, cn } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 export function HuiCard({ hui }) {
   return (
@@ -8,16 +9,7 @@ export function HuiCard({ hui }) {
       <div className="p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">{hui.name}</h3>
-          <span className={cn(
-            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-            {
-              'bg-green-100 text-green-800': hui.status === 'ACTIVE',
-              'bg-yellow-100 text-yellow-800': hui.status === 'PENDING',
-              'bg-red-100 text-red-800': hui.status === 'CLOSED'
-            }
-          )}>
-            {hui.status}
-          </span>
+          <StatusBadge status={hui.status} />
         </div>
         
         <dl className="mt-4 space-y-2">

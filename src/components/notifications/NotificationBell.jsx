@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 const BellIcon = () => (
@@ -14,6 +14,7 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all' or 'unread'
   const router = useRouter();
+  const panelRef = useRef(null);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -35,6 +36,18 @@ export default function NotificationBell() {
     const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [panelRef]);
 
   const handleNotificationClick = async (notification) => {
     // Mark as read
@@ -78,8 +91,8 @@ export default function NotificationBell() {
 
       {isOpen && (
         <div 
+          ref={panelRef}
           className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl z-20 border border-gray-200"
-          onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
         >
           <div className="p-4 border-b border-gray-200">
             <div className="flex justify-between items-center">

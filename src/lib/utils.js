@@ -34,6 +34,13 @@ export function formatCurrency(amount, currency = 'VND') {
   }).format(amount)
 }
 
+export function formatNumber(num) {
+  if (num === null || num === undefined || isNaN(parseFloat(num))) {
+    return '';
+  }
+  return parseFloat(num).toLocaleString('vi-VN');
+}
+
 export function formatVietnameseCurrency(amount) {
   if (amount === null || amount === undefined) return '';
   const num = Number(amount);

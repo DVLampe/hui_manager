@@ -22,6 +22,8 @@ import ChatModal from '@/components/chat/ChatModal';
 import OwnerBankInfoModal from '@/components/hui/OwnerBankInfo-Modal';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
 import dynamic from 'next/dynamic';
+import { t } from '@/lib/translations';
+import { formatNumber } from '@/lib/utils';
 
 const LuckyWheelModal = dynamic(() => import('@/components/hui/LuckyWheelModal'), {
   ssr: false,
@@ -480,16 +482,16 @@ function HuiDetailClient({ params, vietnamDateString }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-indigo-500">
-                <p className="text-sm text-gray-500 mb-1">Số tiền mỗi kỳ</p><p className="text-xl font-bold text-gray-800">{hui?.amount?.toLocaleString('vi-VN')}đ</p>
+                <p className="text-sm text-gray-500 mb-1">Số tiền mỗi kỳ</p><p className="text-xl font-bold text-gray-800">{formatNumber(hui?.amount)} VNĐ</p>
             </div>
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
                 <p className="text-sm text-gray-500 mb-1">Số thành viên</p><p className="text-xl font-bold text-gray-800">{hui?.members?.length || 0}/{hui?.totalMembers || 0}</p>
             </div>
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-yellow-500">
-                <p className="text-sm text-gray-500 mb-1">Chu kỳ</p><p className="text-xl font-bold text-gray-800">{hui?.cycle || 1} tháng</p>
+                <p className="text-sm text-gray-500 mb-1">Chu kỳ</p><p className="text-xl font-bold text-gray-800">{t(hui?.frequency)}</p>
             </div>
             <div className="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
-                <p className="text-sm text-gray-500 mb-1">Trạng thái hụi</p><p className="text-xl font-bold text-gray-800">{hui?.status}</p>
+                <p className="text-sm text-gray-500 mb-1">Trạng thái hụi</p><p className="text-xl font-bold text-gray-800">{t(hui?.status)}</p>
         </div>
         </div>
         <div className="bg-white rounded-lg shadow p-5">

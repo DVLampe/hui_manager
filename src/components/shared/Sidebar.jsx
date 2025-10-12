@@ -19,15 +19,15 @@ import {
 } from '@heroicons/react/24/outline'
 
 const navigationItems = [
-	{ name: 'Dashboard', href: '/dashboard', icon: HomeIcon, adminOnly: false },
-	{ name: 'Hui Groups', href: '/hui', icon: UserGroupIcon, adminOnly: false },
-	{ name: 'Members', href: '/members', icon: UsersIcon, adminOnly: false },
+	{ name: 'Bảng thống kê', href: '/dashboard', icon: HomeIcon, adminOnly: false },
+	{ name: 'Danh sách Hụi', href: '/hui', icon: UserGroupIcon, adminOnly: false },
+	{ name: 'Thành viên', href: '/members', icon: UsersIcon, adminOnly: false },
 	{ name: 'Admin Panel', href: '/admin', icon: ShieldCheckIcon, adminOnly: true },
-	{ name: 'Notifications', href: '/admin/notifications', icon: BellIcon, adminOnly: true },
+	{ name: 'Thông báo', href: '/admin/notifications', icon: BellIcon, adminOnly: true },
 ]
 
 const bottomLinks = [
-    { name: 'Settings', href: '/settings', icon: CogIcon },
+    { name: 'Cài đặt', href: '/settings', icon: CogIcon },
 ]
 
 export default function Sidebar() {

@@ -44,7 +44,7 @@ const chartOptions = {
         position: 'left',
         title: {
           display: true,
-          text: 'Số hụi',
+          text: 'Số tiền (VNĐ)',
         },
       },
       y1: {
@@ -53,7 +53,7 @@ const chartOptions = {
         position: 'right',
         title: {
           display: true,
-          text: 'Lợi nhuận',
+          text: 'Số hụi',
         },
         grid: {
           drawOnChartArea: false,

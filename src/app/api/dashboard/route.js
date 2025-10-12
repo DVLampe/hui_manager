@@ -138,13 +138,14 @@ export async function GET(request) {
     // Stats aggregation
     const aggregatedData = {};
 
-    userHuiGroups.forEach(hui => {
+    allUserHuiGroups.forEach(hui => {
+      const isOwner = hui.ownerId === userId;
       hui.payments.forEach(payment => {
         const paymentDate = new Date(payment.createdAt);
         let key;
 
         if (groupBy === 'day') {
-          key = paymentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          key = paymentDate.toISOString().split('T')[0];
         } else if (groupBy === 'month') {
           key = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
         } else { // year
@@ -153,50 +154,75 @@ export async function GET(request) {
 
         if (!aggregatedData[key]) {
           aggregatedData[key] = {
+            paid: 0,
+            received: 0,
+            thao: 0,
             huiIds: new Set(),
-            profitLoss: 0,
           };
         }
 
         aggregatedData[key].huiIds.add(hui.id);
 
-        let paidInPayment = 0;
         payment.memberContributions.forEach(contribution => {
-          paidInPayment += Number(contribution.amountContributed);
+          aggregatedData[key].paid += Number(contribution.amountContributed);
         });
 
-        let receivedInPayment = 0;
         if (payment.potTakerMember?.userId === userId && payment.amountCollected) {
-          receivedInPayment += Number(payment.amountCollected);
+          aggregatedData[key].received += Number(payment.amountCollected);
         }
 
-        aggregatedData[key].profitLoss += (receivedInPayment - paidInPayment);
+        if (isOwner && payment.thao) {
+          aggregatedData[key].thao += Number(payment.thao);
+        }
       });
     });
 
     const sortedKeys = Object.keys(aggregatedData).sort();
     const labels = sortedKeys;
-    const huiData = sortedKeys.map(key => aggregatedData[key].huiIds.size);
-    const profitLossData = sortedKeys.map(key => aggregatedData[key].profitLoss);
+    const paidData = sortedKeys.map(key => aggregatedData[key].paid);
+    const receivedData = sortedKeys.map(key => aggregatedData[key].received);
+    const thaoData = sortedKeys.map(key => aggregatedData[key].thao);
+    const huiCountData = sortedKeys.map(key => aggregatedData[key].huiIds.size);
 
     const monthlyStats = {
       labels: labels,
       datasets: [
         {
-          label: 'Số hụi',
-          data: huiData,
-          backgroundColor: 'rgba(75, 192, 192, 0.6)',
-          borderColor: 'rgba(75, 192, 192, 1)',
+          type: 'bar',
+          label: 'Tiền đã trả',
+          data: paidData,
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgba(255, 99, 132, 1)',
           borderWidth: 1,
           yAxisID: 'y',
         },
         {
-          label: 'Lợi nhuận/Thua lỗ',
-          data: profitLossData,
-          backgroundColor: 'rgba(153, 102, 255, 0.6)',
+          type: 'bar',
+          label: 'Tiền đã nhận',
+          data: receivedData,
+          backgroundColor: 'rgba(153, 102, 255, 0.6)', // Purple
           borderColor: 'rgba(153, 102, 255, 1)',
           borderWidth: 1,
+          yAxisID: 'y',
+        },
+        {
+          type: 'bar',
+          label: 'Tiền thảo',
+          data: thaoData,
+          backgroundColor: 'rgba(54, 162, 235, 0.6)', // Blue
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+          yAxisID: 'y',
+        },
+        {
+          type: 'line',
+          label: 'Số hụi',
+          data: huiCountData,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)', // Green
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 2,
           yAxisID: 'y1',
+          tension: 0.1
         },
       ],
     };

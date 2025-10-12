@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { formatVietnameseCurrency } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
+import { t } from '@/lib/translations';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -122,7 +123,7 @@ export function HuiList({ huis, type = 'participating' }) {
                                 </td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{formatVietnameseCurrency(hui.amount)}</td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{hui.ky}</td>
-                                <td className="px-3 py-4 text-sm text-gray-500">{hui.frequency}</td>
+                                <td className="px-3 py-4 text-sm text-gray-500">{t(hui.frequency)}</td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{new Date(hui.startDate).toLocaleDateString()}</td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{new Date(hui.endDate).toLocaleDateString()}</td>
                                 <td className="px-3 py-4 text-sm">

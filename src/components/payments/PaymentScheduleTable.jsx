@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import Button from '@/components/ui/Button';
 import NumberInput from '@/components/ui/NumberInput';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { formatNumber } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -368,7 +369,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                         className="w-full px-2 py-1 border border-gray-300 rounded-md"
                       />
                     ) : (
-                      item.thamKeu
+                      formatNumber(item.thamKeu)
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
@@ -379,7 +380,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                         className="w-full px-2 py-1 border border-gray-300 rounded-md"
                       />
                     ) : (
-                      item.thao
+                      formatNumber(item.thao)
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
@@ -390,7 +391,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                         className="w-full px-2 py-1 border border-gray-300 rounded-md text-right"
                       />
                     ) : (
-                      item.tienHot
+                      formatNumber(item.tienHot)
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">

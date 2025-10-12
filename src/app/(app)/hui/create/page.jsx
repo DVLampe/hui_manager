@@ -144,7 +144,7 @@ export default function CreateHuiPage() {
                 required
                 value={formData.amount}
                 onChange={handleChange}
-                placeholder="VD: 1000000"
+                placeholder="VD: 1.000.000"
                 min="0"
               />
             </div>
