@@ -57,11 +57,23 @@ const ProfileHeader = ({ user, onAvatarChange }) => {
             <div className="text-center pt-8 pb-4">
                 <div className="relative inline-block group">
                     {user.image ? (
-                        <img
-                            className="h-32 w-32 rounded-full ring-4 ring-white object-cover"
-                            src={user.image}
-                            alt="User Avatar"
-                        />
+                        (() => {
+                            let imageUrl = user.image;
+                            // Check if the image URL is from our S3 bucket
+                            if (imageUrl.includes(process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME)) {
+                                const urlParts = new URL(imageUrl).pathname.split('/');
+                                const key = urlParts.slice(1).join('/'); // Remove the leading slash
+                                imageUrl = `/api/files/${key}`;
+                            }
+                            return (
+                                <img
+                                    className="h-32 w-32 rounded-full ring-4 ring-white object-contain"
+                                    src={imageUrl}
+                                    alt="User Avatar"
+                                    key={imageUrl} // Add key to force re-render on change
+                                />
+                            );
+                        })()
                     ) : (
                         <UserCircleIcon className="h-32 w-32 text-gray-300" />
                     )}
@@ -274,7 +286,33 @@ const PersonalInfoTab = ({ user, age, isEditing, setIsEditing, formData, setForm
                                     )}
                                 </div>
                             ) : (
-                                user.qrCodeUrl ? <img src={user.qrCodeUrl} alt="QR Code" className="h-32 w-32 object-contain" /> : 'Chưa cập nhật'
+                                user.qrCodeUrl ? (
+                                    (() => {
+                                        const urlParts = user.qrCodeUrl.split('/');
+                                        const key = urlParts.slice(3).join('/');
+                                        const secureUrl = `/api/files/${key}`;
+                                        return (
+                                            <a href={secureUrl} target="_blank" rel="noopener noreferrer" title="Xem ảnh đầy đủ">
+                                                <img 
+                                                    src={secureUrl} 
+                                                    alt="QR Code" 
+                                                    className="h-24 w-24 object-contain border rounded-md hover:shadow-lg transition-shadow" 
+                                                />
+                                            </a>
+                                        );
+                                    })()
+                                ) : (
+                                    <div className="flex items-center gap-4">
+                                        <span>Chưa cập nhật</span>
+                                        <button 
+                                            onClick={() => setIsEditing(true)} 
+                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center gap-1"
+                                        >
+                                            <PencilSquareIcon className="h-5 w-5"/>
+                                            Thêm QR
+                                        </button>
+                                    </div>
+                                )
                             )}
                         </dd>
                     </div>
@@ -502,24 +540,41 @@ const ProfilePage = () => {
 
     const handleAvatarChange = async (avatarBlob) => {
         try {
+            // Step 1: Upload the image
             const fd = new FormData();
             fd.append('file', avatarBlob, 'avatar.jpg');
             fd.append('folder', 'avatars');
 
-            const response = await fetch('/api/user/upload-image', {
+            const uploadResponse = await fetch('/api/user/upload-image', {
                 method: 'POST',
                 body: fd,
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
+            if (!uploadResponse.ok) {
+                const errorData = await uploadResponse.json();
                 throw new Error(errorData.error || 'Failed to upload avatar');
             }
 
-            const { imageUrl } = await response.json();
+            const { imageUrl } = await uploadResponse.json();
 
-            // Update session to reflect new avatar
+            // Step 2: Save the new URL to the database
+            const updateResponse = await fetch('/api/user/update-avatar', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl }),
+            });
+
+            if (!updateResponse.ok) {
+                const errorData = await updateResponse.json();
+                throw new Error(errorData.error || 'Failed to update avatar in database');
+            }
+
+            // Step 3: Update local state for immediate UI feedback
+            setFormData(prev => ({ ...prev, image: imageUrl }));
+
+            // Step 4: Update session to reflect new avatar
             await update({ ...session, user: { ...session.user, image: imageUrl } });
+            
             showToast({ message: "Cập nhật ảnh đại diện thành công!", type: 'success' });
 
         } catch (error) {
@@ -546,7 +601,7 @@ const ProfilePage = () => {
             <main className="py-10">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 bg-white shadow rounded-lg">
                     <ProfileHeader 
-                        user={isEditing ? { ...user, ...formData } : user} 
+                        user={{ ...user, ...formData }} 
                         onAvatarChange={handleAvatarChange}
                     />
                     <ProfileTabs activeTab={activeTab} setActiveTab={setActiveTab} />

@@ -11,10 +11,13 @@ const s3Client = new S3Client({
     },
 });
 
-const generateFileName = (bytes = 32) => crypto.randomBytes(bytes).toString('hex');
+const generateFileName = (bytes = 16) => crypto.randomBytes(bytes).toString('hex');
 
-async function uploadImageToS3(file, fileName, folder) {
+async function uploadImageToS3(file, folder, userId) {
     const buffer = Buffer.from(await file.arrayBuffer());
+    const date = new Date().toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+    const randomName = generateFileName();
+    const fileName = `${date}_${userId}_${randomName}`;
 
     const command = new PutObjectCommand({
         Bucket: process.env.AWS_S3_BUCKET_NAME,
@@ -45,8 +48,7 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Không có tệp nào được tải lên.' }), { status: 400 });
         }
 
-        const fileName = generateFileName();
-        const imageUrl = await uploadImageToS3(file, fileName, folder);
+        const imageUrl = await uploadImageToS3(file, folder, session.user.id);
 
         return new Response(JSON.stringify({ imageUrl }), { status: 200 });
 

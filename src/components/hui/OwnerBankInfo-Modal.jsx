@@ -55,11 +55,20 @@ export default function OwnerBankInfoModal({ isOpen, onClose, owner }) {
                     <div>
                         <dt className="text-sm font-medium text-gray-500">Mã QR Thanh toán</dt>
                         <dd className="mt-1">
-                            <img 
-                                src={owner.qrCodeUrl} 
-                                alt="QR Code" 
-                                className="w-48 h-48 object-contain border rounded-md"
-                            />
+                            {(() => {
+                                const urlParts = owner.qrCodeUrl.split('/');
+                                const key = urlParts.slice(3).join('/');
+                                const secureUrl = `/api/files/${key}`;
+                                return (
+                                    <a href={secureUrl} target="_blank" rel="noopener noreferrer" title="Xem ảnh đầy đủ">
+                                        <img 
+                                            src={secureUrl} 
+                                            alt="QR Code" 
+                                            className="w-48 h-48 object-contain border rounded-md hover:shadow-lg transition-shadow"
+                                        />
+                                    </a>
+                                );
+                            })()}
                         </dd>
                     </div>
                 )}

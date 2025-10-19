@@ -55,7 +55,12 @@ const Chat = ({ huiId }) => {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, fileType: file.type, fileSize: file.size }),
+        body: JSON.stringify({ 
+            fileName: file.name, 
+            fileType: file.type, 
+            fileSize: file.size,
+            huiId: huiId 
+        }),
       });
 
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to get presigned URL');
@@ -96,16 +101,22 @@ const Chat = ({ huiId }) => {
 
   const renderMessageContent = (msg) => {
     if (msg.fileUrl) {
+      // Extract the key from the full S3 URL
+      const urlParts = msg.fileUrl.split('/');
+      const key = urlParts.slice(3).join('/');
+      const secureUrl = `/api/files/${key}`;
+
       if (msg.fileType?.startsWith('image/')) {
         return (
-          <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
-            <img src={msg.fileUrl} alt={msg.fileName} className="rounded-lg max-w-full h-auto mt-1" />
+          <a href={secureUrl} target="_blank" rel="noopener noreferrer">
+            {/* We use the secure URL for the link, but can use it for the image src too */}
+            <img src={secureUrl} alt={msg.fileName} className="rounded-lg max-w-full h-auto mt-1" />
             <p className="text-sm mt-1">{msg.fileName}</p>
           </a>
         );
       }
       return (
-        <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-200 hover:underline">
+        <a href={secureUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-200 hover:underline">
           {msg.fileName} ({Math.round(msg.fileSize / 1024)} KB)
         </a>
       );
