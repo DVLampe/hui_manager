@@ -2,11 +2,13 @@ import { NextResponse as OriginalNextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route.js';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // Apply the workaround pattern
 const NextResponse = OriginalNextResponse.default || OriginalNextResponse;
 
 export async function GET(request) {
+  logger.info("Dashboard data request received");
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -242,6 +244,7 @@ export async function GET(request) {
 
     return NextResponse.json(stats);
   } catch (error) {
+    logger.error({ message: "Error fetching dashboard stats", error: error.message, stack: error.stack });
     console.error('Error fetching dashboard stats:', error);
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }

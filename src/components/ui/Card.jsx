@@ -10,7 +10,7 @@ export default function Card({
     return (
       <div
         className={cn(
-          'bg-card rounded-md shadow-card p-5',
+          'bg-card rounded-md shadow-card',
           className
         )}
         {...props}
@@ -22,7 +22,7 @@ export default function Card({
             </h3>
           </div>
         )}
-        <div className="px-4 py-5 sm:p-6">
+        <div>
           {children}
         </div>
       </div>

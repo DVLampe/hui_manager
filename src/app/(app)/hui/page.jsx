@@ -30,7 +30,7 @@ export default function HuiPage() {
         // Handle non-successful responses
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || 'Не удалось загрузить данные');
+          throw new Error(errorData.message || 'Không tải được dữ liệu.');
         }
 
         // On success, parse the JSON and update the state
@@ -73,7 +73,7 @@ export default function HuiPage() {
   }
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-1">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Danh sách Hụi</h1>
           <Link href="/hui/create"><Button variant="primary">Tạo Hụi Mới</Button></Link>

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import logger from '@/lib/logger';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -89,6 +90,7 @@ export default function DashboardPage() {
   const isInitialMount = useRef(true);
 
   useEffect(() => {
+    logger.info("Dashboard page loaded");
     const fetchStats = async () => {
       const isChartUpdate = !isInitialMount.current;
       

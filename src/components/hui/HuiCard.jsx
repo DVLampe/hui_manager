@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 export function HuiCard({ hui }) {
   return (
     <Card className="overflow-hidden bg-white rounded-lg shadow">
-      <div className="p-4">
+      <div className="p-8">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">{hui.name}</h3>
           <StatusBadge status={hui.status} />
