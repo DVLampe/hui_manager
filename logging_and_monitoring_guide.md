@@ -32,3 +32,60 @@ Here are some of the best ready-made and inexpensive solutions for logging and m
 -   If your primary goal is to track and debug errors, **Sentry** is the industry standard and provides powerful tools for error analysis.
 
 Please review these options and let me know which tool you'd like to integrate into your application. Once you've decided, I can guide you through the implementation steps.
+
+## How to Get Your Logtail Source Token
+
+To connect your application to Logtail, you need a "Source Token." Here’s how to get one:
+
+1.  **Register for a Logtail Account:**
+    *   Go to the [Logtail website](https://logtail.com/) and sign up for a free account. You can usually sign up with your Google, GitHub, or email account.
+
+2.  **Navigate to the Logs Section and Create a Source:**
+    *   After logging in, you might land on the "Uptime" dashboard. Look for a navigation menu on the left side of the screen.
+    *   Click on **"Logs"** in the menu to switch to the logging product.
+    *   Once you are in the "Logs" section, look for a button that says **"Add source"** or **"Create source."**
+    *   Give your source a name (e.g., "Hui Manager App").
+    *   Select **"JavaScript"** as the platform.
+
+3.  **Copy the Source Token and Ingesting Host:**
+    *   Once the source is created, Logtail will display a **Source Token** and an **Ingesting host** (e.g., `in.logtail.com`).
+    *   Copy both of these values.
+
+4.  **Add the Token to Your `.env` File:**
+    *   Open the `.env` file in your project.
+    *   Paste the token you copied into the `LOGTAIL_SOURCE_TOKEN` and `NEXT_PUBLIC_LOGTAIL_SOURCE_TOKEN` variables, like this:
+
+    ```env
+    # From the Better Stack "Source" page
+    LOGTAIL_SOURCE_TOKEN="your-copied-source-token-here"
+    NEXT_PUBLIC_LOGTAIL_SOURCE_TOKEN="your-copied-source-token-here"
+    LOGTAIL_INGEST_HOST="your-copied-ingesting-host-here" # e.g., in.logtail.com
+    ```
+
+5.  **Restart Your Application:**
+    *   Stop your Next.js development server if it's running.
+    *   Start it again (`npm run dev`). This is important so that your application loads the new token from the `.env` file.
+
+That's it! Your application will now be able to send logs to your Logtail dashboard.
+
+## How to Set Up Uptime Monitoring
+
+Better Stack also provides a ready-made uptime monitoring service to alert you if your application goes down. Here’s how to set it up:
+
+1.  **Navigate to the Uptime Section:**
+    *   In your Better Stack dashboard, look for a navigation menu on the left side of the screen.
+    *   Click on **"Uptime"** to switch to the monitoring product.
+
+2.  **Create a Monitor (for your Deployed Website):**
+    *   **Important:** Uptime monitoring only works for publicly accessible URLs, not for `localhost`. You can set this up once your website is live on the internet.
+    *   Click the **"Create monitor"** button.
+    *   In the **"URL to monitor"** field, enter the full public URL for your health check endpoint. For example: `https://your-website-domain.com/api/health`.
+    *   Give the monitor a name (e.g., "Hui Manager App").
+
+3.  **Configure Alerts (Optional):**
+    *   You can configure how and when you want to receive alerts (e.g., by email if the site is down for more than 1 minute).
+
+4.  **Save the Monitor:**
+    *   Click **"Save changes."**
+
+Better Stack will now check your application every few minutes. You can see the status, response time, and any downtime incidents in the Uptime dashboard.

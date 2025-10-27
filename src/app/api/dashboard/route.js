@@ -2,7 +2,7 @@ import { NextResponse as OriginalNextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route.js';
 import prisma from '@/lib/prisma';
-import logger from '@/lib/logger';
+import logger from '@/lib/logger.server';
 
 // Apply the workaround pattern
 const NextResponse = OriginalNextResponse.default || OriginalNextResponse;

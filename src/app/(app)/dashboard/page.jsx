@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import logger from '@/lib/logger';
+import logger from '@/lib/logger.client';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,

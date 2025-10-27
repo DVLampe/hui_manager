@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
+import Button from '@/components/ui/Button'
 import {
     HomeIcon,
     UsersIcon,
@@ -99,13 +100,14 @@ export default function Sidebar() {
                         {item.name}
                     </Link>
                 ))}
-                <button
+                <Button
+                    variant="ghost"
                     onClick={() => signOut({ callbackUrl: '/' })}
-                    className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors w-full text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    className="w-full justify-start !text-gray-700 relative z-50"
                 >
-                    <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+                    <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-3" />
                     Đăng xuất
-                </button>
+                </Button>
 			</div>
 		</aside>
 	)
