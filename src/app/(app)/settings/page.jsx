@@ -2,10 +2,10 @@
 'use client'
 import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { updateUser } from '@/store/authSlice'
-import { Layout } from '@/components/shared/Layout'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+// import { updateUser } from '@/store/authSlice'
+import Layout from '@/components/shared/Layout'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
 
 export default function SettingsPage() {
   const dispatch = useDispatch()
@@ -25,7 +25,8 @@ export default function SettingsPage() {
       alert('Mật khẩu mới không khớp')
       return
     }
-    dispatch(updateUser(formData))
+    // dispatch(updateUser(formData))
+    console.log('User update temporarily disabled.');
   }
 
   return (

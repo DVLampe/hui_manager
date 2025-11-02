@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import axios from 'axios'
-import { Layout } from '@/components/shared/Layout'
+import Layout from '@/components/shared/Layout'
 
 export default function MemberPage() {
   const { id } = useParams()

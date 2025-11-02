@@ -3,8 +3,8 @@
 import { useEffect } from 'react'
 // import { useDispatch, useSelector } from 'react-redux'
 // import { fetchUsers } from '@/store/userSlice'
-import { Layout } from '@/components/shared/Layout'
-import { Button } from '@/components/ui/Button'
+import Layout from '@/components/shared/Layout'
+import Button from '@/components/ui/Button'
 
 export default function AdminUsersPage() {
   // const dispatch = useDispatch()

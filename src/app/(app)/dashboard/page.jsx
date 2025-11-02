@@ -2,18 +2,6 @@
 import { useState, useEffect, useRef } from 'react';
 import logger from '@/lib/logger.client';
 import dynamic from 'next/dynamic';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-} from 'chart.js';
-import zoomPlugin from 'chartjs-plugin-zoom';
 import { Badge } from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
@@ -23,67 +11,10 @@ import Button from '@/components/ui/Button';
 import { HuiList } from '@/components/shared/hui/HuiList';
 import Select from '@/components/ui/Select';
 
-const DynamicLineChart = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), {
+const DashboardChart = dynamic(() => import('@/components/dashboard/DashboardChart'), {
   ssr: false,
   loading: () => <div className="h-full flex items-center justify-center"><p>Loading chart...</p></div>
 });
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  zoomPlugin
-);
-
-const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        type: 'linear',
-        display: true,
-        position: 'left',
-        title: {
-          display: true,
-          text: 'Số tiền (VNĐ)',
-        },
-      },
-      y1: {
-        type: 'linear',
-        display: true,
-        position: 'right',
-        title: {
-          display: true,
-          text: 'Số hụi',
-        },
-        grid: {
-          drawOnChartArea: false,
-        },
-      },
-    },
-    plugins: {
-      zoom: {
-        pan: {
-          enabled: true,
-          mode: 'x',
-        },
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true
-          },
-          mode: 'x',
-        }
-      }
-    }
-  };
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
@@ -192,16 +123,7 @@ export default function DashboardPage() {
               </Select>
             </div>
             <div className="relative h-96">
-              {isChartLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10 rounded-lg">
-                  <Loading message="Đang tải biểu đồ..." />
-                </div>
-              )}
-              {stats && stats.monthlyStats ? (
-                <DynamicLineChart data={stats.monthlyStats} options={chartOptions} />
-              ) : (
-                !isChartLoading && <p>Không có dữ liệu để hiển thị.</p>
-              )}
+              <DashboardChart chartData={stats?.monthlyStats} isLoading={isChartLoading} />
             </div>
           </div>
 

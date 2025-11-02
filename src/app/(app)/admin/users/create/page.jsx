@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { useDispatch } from 'react-redux'
 // import { createUser } from '@/store/userSlice'
-import { Layout } from '@/components/shared/Layout'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
+import Layout from '@/components/shared/Layout'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
 
 export default function CreateUserPage() {
   const dispatch = useDispatch()
