@@ -4,9 +4,6 @@ import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { t } from '@/lib/translations';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import * as XLSX from 'xlsx';
 
 export function HuiList({ huis, type = 'participating' }) {
     const router = useRouter();
@@ -19,7 +16,8 @@ export function HuiList({ huis, type = 'participating' }) {
 
     const title = type === 'owned' ? 'Hụi làm chủ' : 'Hụi tham gia';
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
+        const XLSX = await import('xlsx');
         const dataToExport = huis.map(hui => ({
             'Tên hụi': hui.name,
             'Trạng thái': hui.status,
@@ -39,6 +37,8 @@ export function HuiList({ huis, type = 'participating' }) {
     };
 
     const handleExportPDF = async () => {
+        const { default: jsPDF } = await import('jspdf');
+        const { default: html2canvas } = await import('html2canvas');
         setShowExportOptions(false);
         const table = tableRef.current;
         if (!table) return;

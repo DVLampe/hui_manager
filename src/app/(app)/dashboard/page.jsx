@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import logger from '@/lib/logger.client';
-import { Line } from 'react-chartjs-2';
+import dynamic from 'next/dynamic';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,6 +22,11 @@ import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import { HuiList } from '@/components/shared/hui/HuiList';
 import Select from '@/components/ui/Select';
+
+const DynamicLineChart = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), {
+  ssr: false,
+  loading: () => <div className="h-full flex items-center justify-center"><p>Loading chart...</p></div>
+});
 
 ChartJS.register(
   CategoryScale,
@@ -193,7 +198,7 @@ export default function DashboardPage() {
                 </div>
               )}
               {stats && stats.monthlyStats ? (
-                <Line data={stats.monthlyStats} options={chartOptions} />
+                <DynamicLineChart data={stats.monthlyStats} options={chartOptions} />
               ) : (
                 !isChartLoading && <p>Không có dữ liệu để hiển thị.</p>
               )}

@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import axios from 'axios'
 import { Layout } from '@/components/shared/Layout'
-import { PaymentList } from '@/components/payments/PaymentList'
 
 export default function MemberPage() {
   const { id } = useParams()
@@ -71,10 +70,6 @@ export default function MemberPage() {
           </div>
         </div>
 
-        <div>
-          <h2 className="text-xl font-bold mb-4">Lịch sử thanh toán</h2>
-          <PaymentList payments={member?.payments || []} />
-        </div>
       </div>
     </Layout>
   )

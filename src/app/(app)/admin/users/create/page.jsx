@@ -2,7 +2,7 @@
 'use client'
 import { useState } from 'react'
 import { useDispatch } from 'react-redux'
-import { createUser } from '@/store/userSlice'
+// import { createUser } from '@/store/userSlice'
 import { Layout } from '@/components/shared/Layout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -20,7 +20,8 @@ export default function CreateUserPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    dispatch(createUser(formData))
+    // dispatch(createUser(formData))
+    console.log('Form submission is temporarily disabled.');
   }
 
   return (

@@ -16,8 +16,6 @@ import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
 import PermissionsModal from '@/components/hui/PermissionsModal';
 import HuiInvoice from '@/components/hui/HuiInvoice';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import ChatModal from '@/components/chat/ChatModal';
 import OwnerBankInfoModal from '@/components/hui/OwnerBankInfo-Modal';
 import { BanknotesIcon } from '@heroicons/react/24/outline';
@@ -364,6 +362,8 @@ function HuiDetailClient({ params, vietnamDateString }) {
   };
 
   const generatePdf = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: html2canvas } = await import('html2canvas');
     if (!invoiceData) return;
 
     const invoiceContainer = document.getElementById('invoice-content-for-pdf');

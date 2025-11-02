@@ -3,9 +3,6 @@ import Button from '@/components/ui/Button';
 import NumberInput from '@/components/ui/NumberInput';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatNumber } from '@/lib/utils';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import * as XLSX from 'xlsx';
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (date) => {
@@ -164,6 +161,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
   const members = huiGroup?.members || [];
 
   const handleExportPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: html2canvas } = await import('html2canvas');
     setShowExportOptions(false);
     const tableElement = tableRef.current;
     if (!tableElement) return;
@@ -231,7 +230,8 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const huiInfo = [
       { A: 'Tên Hụi', B: huiName },
       { A: 'Chủ Hụi', B: huiGroup.manager?.name || 'N/A' },

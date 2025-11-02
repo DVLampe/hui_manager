@@ -1,9 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import Chat from './Chat';
+import dynamic from 'next/dynamic';
 import { MessageSquare } from 'lucide-react';
 import Draggable from 'react-draggable';
+
+const DynamicChat = dynamic(() => import('./Chat'), {
+  loading: () => <p className="p-4">Loading chat...</p>,
+  ssr: false
+});
 
 const ChatModal = ({ huiId }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,7 +36,7 @@ const ChatModal = ({ huiId }) => {
                  <button onClick={() => setIsOpen(false)} className="text-white hover:text-gray-200 cursor-pointer text-2xl font-bold">&times;</button>
                </div>
                <div className="flex-grow min-h-0">
-                <Chat huiId={huiId} />
+                <DynamicChat huiId={huiId} />
                </div>
              </div>
           </div>

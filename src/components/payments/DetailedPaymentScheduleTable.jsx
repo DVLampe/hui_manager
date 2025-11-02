@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Button from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import * as XLSX from 'xlsx';
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (dateString) => {
@@ -189,7 +186,8 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
 
   const selectedPeriodData = scheduleDetails[selectedPeriodIndex];
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const huiInfo = [
       ['Tên Hụi', huiName],
       ['Chủ Hụi', huiGroup.manager?.name || 'N/A'],
@@ -234,6 +232,8 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
   };
 
   const handleExportPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: html2canvas } = await import('html2canvas');
     setShowExportOptions(false);
 
     // 1. Create a new, off-screen container for the export content
