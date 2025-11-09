@@ -18,10 +18,17 @@ import PermissionsModal from '@/components/hui/PermissionsModal';
 import HuiInvoice from '@/components/hui/HuiInvoice';
 import ChatModal from '@/components/chat/ChatModal';
 import OwnerBankInfoModal from '@/components/hui/OwnerBankInfo-Modal';
-import { BanknotesIcon } from '@heroicons/react/24/outline';
 import dynamic from 'next/dynamic';
 import { t } from '@/lib/translations';
 import { formatNumber } from '@/lib/utils';
+import StatCard from '@/components/ui/StatCard';
+import ActionButton from '@/components/ui/ActionButton';
+import { 
+  Users, Calendar, DollarSign, Edit, Trash2, Download, 
+  ChevronDown, X, QrCode, Dice5, MessageCircle, Shield,
+  Clock, CheckCircle, AlertCircle, TrendingUp, FileText,
+  UserPlus, Eye
+} from 'lucide-react';
 
 const LuckyWheelModal = dynamic(() => import('@/components/hui/LuckyWheelModal'), {
   ssr: false,
@@ -36,7 +43,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
   const [hui, setHui] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState('details');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isHotHuiModalOpen, setIsHotHuiModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -438,9 +445,9 @@ function HuiDetailClient({ params, vietnamDateString }) {
   const totalRounds = hui?.totalMembers || 0;
   const progressPercentage = totalRounds > 0 ? (completedPayments / totalRounds) * 100 : 0;
   const tabItems = [
-    { id: 'info', label: 'Thông tin chi tiết' },
+    { id: 'details', label: 'Thông tin chi tiết' },
     { id: 'members', label: 'Danh sách thành viên' },
-    { id: 'schedules', label: 'Lịch thanh toán' },
+    { id: 'schedule', label: 'Lịch thanh toán' },
     { id: 'detailed_schedules', label: 'Lịch chi tiết' }
   ];
 
@@ -469,185 +476,205 @@ function HuiDetailClient({ params, vietnamDateString }) {
       <Toaster />
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-800">{hui?.name}</h1>
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.back()} className="text-gray-600 hover:text-gray-800">
+              ← Quay lại
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">{hui?.name}</h1>
+              <p className="text-sm text-gray-500">Quản lý chi tiết hụi</p>
+            </div>
+          </div>
           {canManage && (
-            <div className="flex space-x-3">
+            <div className="flex items-center gap-3">
               <Link href={`/hui/${params.id}/edit`}>
-                <Button variant="outline">Chỉnh sửa hụi</Button>
+                <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <Edit className="w-4 h-4" />
+                  <span className="text-sm font-medium">Chỉnh sửa hụi</span>
+                </button>
               </Link>
-              <Button variant="danger" onClick={() => setIsDeleteModalOpen(true)}>Xóa hụi</Button>
+              <button 
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Xóa hụi</span>
+              </button>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg shadow p-5 border-l-4 border-indigo-500">
-                <p className="text-sm text-gray-500 mb-1">Số tiền mỗi kỳ</p><p className="text-xl font-bold text-gray-800">{formatNumber(hui?.amount)} VNĐ</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
-                <p className="text-sm text-gray-500 mb-1">Số thành viên</p><p className="text-xl font-bold text-gray-800">{hui?.members?.length || 0}/{hui?.totalMembers || 0}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-5 border-l-4 border-yellow-500">
-                <p className="text-sm text-gray-500 mb-1">Chu kỳ</p><p className="text-xl font-bold text-gray-800">{t(hui?.frequency)}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
-                <p className="text-sm text-gray-500 mb-1">Trạng thái hụi</p><p className="text-xl font-bold text-gray-800">{t(hui?.status)}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Số tiền mỗi kỳ" value={formatNumber(hui?.amount)} icon={DollarSign} color="red" />
+          <StatCard label="Số thành viên" value={`${hui?.members?.length || 0}/${hui?.totalMembers || 0}`} icon={Users} color="blue" />
+          <StatCard label="Chu kỳ" value={t(hui?.frequency)} icon={Calendar} color="purple" />
+          <StatCard label="Trạng thái hụi" value={t(hui?.status)} icon={CheckCircle} color="green" />
         </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-5">
-          <div className="flex justify-between mb-2"><p>Tiến độ</p><p>{completedPayments}/{totalRounds} kỳ</p></div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div></div>
+        <div className="bg-white rounded-xl p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-600">Tiến độ</span>
+            <span className="text-sm font-bold text-gray-800">
+              Kỳ {completedPayments}/{totalRounds}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div 
+              className="bg-gradient-to-r from-red-600 to-red-500 h-3 rounded-full transition-all"
+              style={{ width: `${progressPercentage}%` }}
+            ></div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {Math.round(progressPercentage)}% hoàn thành
+          </p>
         </div>
 
         {(canManage || isHuiMember) && (
-          <div className="mt-4 flex justify-center space-x-4">
-            <Button
-              variant="primary"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ActionButton
               onClick={handleOpenHotHuiModal}
               disabled={loading || hui?.status !== 'ACTIVE' || availableKyOptions.length === 0}
-            >
-              Hốt Hụi
-            </Button>
-            <Button
-              variant="secondary"
+              icon={TrendingUp}
+              text="Hốt Hụi"
+              color="red"
+            />
+            <ActionButton
               onClick={() => setIsWheelModalOpen(true)}
               disabled={loading || hui?.status !== 'ACTIVE' || memberOptions.length === 0}
-            >
-              Quay hụi
-            </Button>
-            <Button
-              variant="secondary"
+              icon={Dice5}
+              text="Quay hụi"
+              color="yellow"
+            />
+            <ActionButton
               onClick={() => setIsBankInfoModalOpen(true)}
               disabled={loading}
-            >
-              QR chuyển khoản
-            </Button>
+              icon={QrCode}
+              text="QR chuyển khoản"
+              color="green"
+            />
           </div>
         )}
 
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
-            {tabItems.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-              </div>
-        <div className="mt-6">
-          {activeTab === 'info' && (
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">Thông tin chi tiết Hụi</h3>
-                  {canManage && (
-                    <div className="flex space-x-2">
-                      {isEditingInfo ? (
-                        <>
-                          <Button variant="primary" size="sm" onClick={async () => {
-                            await handleUpdateHui(editedHui);
-                            setIsEditingInfo(false);
-                          }}>Lưu</Button>
-                          <Button variant="secondary" size="sm" onClick={() => {
-                            setIsEditingInfo(false);
-                            setEditedHui(hui);
-                          }}>Hủy</Button>
-                        </>
-                      ) : (
-                        <Button variant="outline" size="sm" onClick={() => setIsEditingInfo(true)}>Chỉnh sửa</Button>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => setIsPermissionsModalOpen(true)}>Quản lý quyền</Button>
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="border-b border-gray-200">
+            <div className="flex gap-1 p-2">
+              {tabItems.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-red-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-6">
+            {activeTab === 'info' && (
+              <div>
+                <div className="flex items-start justify-between mb-6 gap-8">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Chi tiết Hụi</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Tên Hụi</label>
+                        {isEditingInfo ? (
+                          <Input value={editedHui.name} onChange={(e) => setEditedHui({ ...editedHui, name: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                        ) : (
+                          <p className="mt-1 text-gray-800 font-medium">{hui?.name}</p>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Mô tả</label>
+                        {isEditingInfo ? (
+                          <textarea value={editedHui.description} onChange={(e) => setEditedHui({ ...editedHui, description: e.target.value })} rows={3} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                        ) : (
+                          <p className="mt-1 text-gray-800">{hui?.description || 'Không có mô tả'}</p>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Chủ Hụi</label>
+                        <p className="mt-1 text-gray-800 font-medium">{hui?.manager?.name || 'N/A'}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Ngày bắt đầu</label>
+                        <p className="mt-1 text-gray-800 font-medium">{new Date(hui?.startDate).toLocaleDateString('vi-VN')}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Ngày kết thúc (dự kiến)</label>
+                        <p className="mt-1 text-gray-800 font-medium">{hui?.endDate ? new Date(hui.endDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}</p>
+                      </div>
                     </div>
+
+                    {isEditingInfo && (
+                      <div className="flex justify-start pt-4 mt-4 border-t border-gray-200">
+                        <button onClick={async () => { await handleUpdateHui(editedHui); setIsEditingInfo(false); }} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                          Lưu thay đổi
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-shrink-0 flex flex-col gap-3">
+                    <button 
+                      onClick={() => setIsEditingInfo(!isEditingInfo)}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span className="text-sm font-medium">{isEditingInfo ? 'Hủy' : 'Chỉnh sửa'}</span>
+                    </button>
+                    <button onClick={() => setIsPermissionsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
+                      <Shield className="w-4 h-4" />
+                      <span className="text-sm font-medium">Quản lý quyền</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'members' && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold text-gray-800">Danh sách thành viên ({hui?.members?.length || 0})</h2>
+                  {canManage && (
+                    <Link href={`/members/create?huiId=${hui?.id}`}>
+                        <Button variant="primary" size="sm" disabled={loading}>Thêm thành viên</Button>
+                    </Link>
                   )}
                 </div>
-                <dl className="mt-5 grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
-                  <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500">Tên Hụi</dt>
-                    {isEditingInfo ? (
-                      <Input
-                        value={editedHui.name}
-                        onChange={(e) => setEditedHui({ ...editedHui, name: e.target.value })}
-                      />
-                    ) : (
-                      <dd className="mt-1 text-sm text-gray-900">{hui?.name}</dd>
-                    )}
-                  </div>
-                  <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500">Ngày bắt đầu</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{new Date(hui?.startDate).toLocaleDateString('vi-VN')}</dd>
-                  </div>
-                  <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500">Chủ Hụi</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{hui?.manager?.name || 'N/A'}</dd>
-                  </div>
-                  <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500">Người có quyền chỉnh sửa hụi</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {hui?.permissions?.filter(p => p.permission === 'MANAGE').map(p => p.user?.name).join(', ') || 'N/A'}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500">Ngày kết thúc (dự kiến)</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{hui?.endDate ? new Date(hui.endDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}</dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Mô tả</dt>
-                    {isEditingInfo ? (
-                      <Input
-                        value={editedHui.description}
-                        onChange={(e) => setEditedHui({ ...editedHui, description: e.target.value })}
-                      />
-                    ) : (
-                      <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{hui?.description || 'Không có mô tả'}</dd>
-                    )}
-                  </div>
-                </dl>
+                <MemberList members={hui?.members || []} huiId={hui?.id} onDeleteMember={handleDeleteMember} disabled={loading} canManage={canManage} />
               </div>
-        </div>
-          )}
+            )}
 
-          {activeTab === 'members' && (
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Danh sách thành viên ({hui?.members?.length || 0})</h2>
-                {canManage && (
-                  <Link href={`/members/create?huiId=${hui?.id}`}>
-                      <Button variant="primary" size="sm" disabled={loading}>Thêm thành viên</Button>
-                  </Link>
+            {activeTab === 'schedules' && (
+              <div>
+                {hui ? (
+                  <PaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} onSaveChanges={handleSavePaymentScheduleChanges} disabled={loading || !canManage} />
+                ) : (
+                  <p>Chưa có thông tin hụi để hiển thị lịch thanh toán.</p>
                 )}
               </div>
-              <MemberList members={hui?.members || []} huiId={hui?.id} onDeleteMember={handleDeleteMember} disabled={loading} canManage={canManage} />
-            </div>
-      )}
+            )}
 
-          {activeTab === 'schedules' && (
-            <div>
-              {hui ? (
-                <PaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} onSaveChanges={handleSavePaymentScheduleChanges} disabled={loading || !canManage} />
-              ) : (
-                <p>Chưa có thông tin hụi để hiển thị lịch thanh toán.</p>
-              )}
-            </div>
-          )}
+            {activeTab === 'detailed_schedules' && (
+              <div>
+                {hui ? (
+                  <DetailedPaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} />
+                ) : (
+                  <p>Chưa có thông tin hụi để hiển thị lịch thanh toán chi tiết.</p>
+                )}
+              </div>
+            )}
 
-          {activeTab === 'detailed_schedules' && (
-            <div>
-              {hui ? (
-                <DetailedPaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} />
-              ) : (
-                <p>Chưa có thông tin hụi để hiển thị lịch thanh toán chi tiết.</p>
-              )}
-            </div>
-          )}
-
+          </div>
         </div>
       </div>
 
@@ -662,7 +689,7 @@ function HuiDetailClient({ params, vietnamDateString }) {
               {loading ? 'Đang xóa...' : 'Xóa'}
             </Button>
           </div>
-}
+        }
       >
         <p>Bạn có chắc chắn muốn xóa hụi "{hui?.name}" không? Hành động này không thể hoàn tác.</p>
       </Modal>

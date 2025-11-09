@@ -1,7 +1,7 @@
 import Card from '@/components/ui/Card' // Изменено на импорт по умолчанию
 import Button from '@/components/ui/Button'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { StatusBadge } from '@/components/ui/StatusBadge'
+import { t } from '@/lib/translations'
 
 export function HuiCard({ hui }) {
   return (
@@ -9,7 +9,7 @@ export function HuiCard({ hui }) {
       <div className="p-8">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">{hui.name}</h3>
-          <StatusBadge status={hui.status} />
+          <span className="text-sm text-gray-500">{t(hui.status)}</span>
         </div>
         
         <dl className="mt-4 space-y-2">

@@ -3,7 +3,6 @@ import { formatVietnameseCurrency } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { t } from '@/lib/translations';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export function HuiList({ huis, type = 'participating' }) {
     const router = useRouter();
@@ -119,7 +118,7 @@ export function HuiList({ huis, type = 'participating' }) {
                             <tr key={hui.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(hui.id)}>
                                 <td className="py-4 pl-4 pr-3 text-sm font-medium text-indigo-600 sm:pl-6">{hui.name}</td>
                                 <td className="px-3 py-4 text-sm">
-                                    <StatusBadge status={hui.status} />
+                                    {t(hui.status)}
                                 </td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{formatVietnameseCurrency(hui.amount)}</td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{hui.ky}</td>

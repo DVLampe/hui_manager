@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Button from '@/components/ui/Button';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { t } from '@/lib/translations';
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (dateString) => {
@@ -382,7 +382,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                   <p className={`${selectedPeriodIndex === index ? 'font-semibold' : 'font-normal'}`}>Kỳ {period.period}</p>
                   <p className={`text-xs ${selectedPeriodIndex === index ? 'text-indigo-600' : 'text-gray-500'}`}>{period.dueDate}</p>
                 </div>
-                <StatusBadge status={period.status} />
+                {t(period.status)}
               </button>
             ))}
           </nav>
@@ -396,7 +396,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
                   <p><span className="text-gray-500">Ngày đến hạn:</span> <span className="font-medium">{selectedPeriodData.dueDate}</span></p>
                   <p><span className="text-gray-500">Trạng thái kỳ:</span>
-                    <StatusBadge status={selectedPeriodData.status} />
+                    {t(selectedPeriodData.status)}
                   </p>
                   <p><span className="text-gray-500">Tiền hốt (VNĐ):</span> <span className="font-medium">{formatNumber(selectedPeriodData.amountCollected) || 'N/A'}</span></p>
                   <p className="col-span-2 md:col-span-1"><span className="text-gray-500">Người hốt hụi:</span> <span className="font-medium">{selectedPeriodData.potTakerName}</span></p>

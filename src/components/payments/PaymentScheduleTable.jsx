@@ -409,7 +409,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                         <option value="HUY">Hủy</option>
                       </select>
                     ) : (
-                      <StatusBadge status={item.status} />
+                      statusDisplayMap[item.status] || item.status
                     )}
                   </td>
                 </tr>
