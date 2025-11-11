@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Button from '@/components/ui/Button';
 import { t } from '@/lib/translations';
+import { CheckCircle, Download, ChevronDown } from 'lucide-react';
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (dateString) => {
@@ -355,37 +356,45 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
             </p>
           </div>
           <div className="relative">
-            <Button onClick={() => setShowExportOptions(!showExportOptions)} variant="outline" size="sm">Export</Button>
+            <button onClick={() => setShowExportOptions(!showExportOptions)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <Download className="w-4 h-4" />
+              <span className="text-sm font-medium">Export</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
             {showExportOptions && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                <button onClick={handleExportPDF} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
-                <button onClick={handleExportExcel} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
-              </div>
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
+                    <button onClick={handleExportPDF} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
+                    <button onClick={handleExportExcel} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
+                </div>
             )}
           </div>
         </div>
       </div>
 
       <div className="flex min-h-[600px]">
-        <div className="w-1/4 border-r border-gray-200 overflow-y-auto">
-          <nav className="p-2 space-y-1">
-            {scheduleDetails.map((period, index) => (
+        <div className="w-48 flex-shrink-0">
+          <h3 className="text-sm font-bold text-gray-800 mb-3">Chọn kỳ</h3>
+          <div className="space-y-2">
+            {scheduleDetails.map((p, index) => (
               <button
-                key={`period-nav-${period.id || period.period}`}
+                key={p.period}
                 onClick={() => setSelectedPeriodIndex(index)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium flex justify-between items-center
-                            ${selectedPeriodIndex === index
-                              ? 'bg-indigo-50 text-indigo-700'
-                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  selectedPeriodIndex === index
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
               >
-                <div>
-                  <p className={`${selectedPeriodIndex === index ? 'font-semibold' : 'font-normal'}`}>Kỳ {period.period}</p>
-                  <p className={`text-xs ${selectedPeriodIndex === index ? 'text-indigo-600' : 'text-gray-500'}`}>{period.dueDate}</p>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Kỳ {p.period}</span>
+                  {p.status === 'DA_THANH_TOAN' && (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  )}
                 </div>
-                {t(period.status)}
+                <span className="text-xs opacity-75">{p.dueDate}</span>
               </button>
             ))}
-          </nav>
+          </div>
         </div>
 
         <div className="w-3/4 p-6 overflow-y-auto">

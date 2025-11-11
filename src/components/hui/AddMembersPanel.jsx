@@ -8,20 +8,24 @@ const UserListItem = ({ user, onAction, actionLabel, disabled }) => {
   const isRemoveAction = actionLabel.includes("Xóa") || actionLabel.includes("Remove");
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 sm:px-6 hover:bg-gray-50">
-      <div>
-        <p className="text-sm font-medium text-gray-800 truncate">{user.name}</p>
-        <p className="text-xs text-gray-500 truncate">{user.email || 'No email'}</p>
+    <div className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 border-gray-200 hover:bg-gray-100">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center text-white font-bold">
+          {user.name.charAt(0)}
+        </div>
+        <div>
+          <p className="font-medium text-gray-800 text-sm">{user.name}</p>
+          <p className="text-xs text-gray-500">{user.email || 'Guest'}</p>
+        </div>
       </div>
-      <Button 
+      <button 
         type="button" 
-        variant={isRemoveAction ? 'danger' : 'primary'}
-        size="sm" 
+        className={`px-3 py-1 text-sm font-medium rounded-md ${isRemoveAction ? 'text-red-600 hover:bg-red-50' : 'text-yellow-600 hover:bg-yellow-50'}`}
         onClick={() => onAction(user.id)} 
         disabled={disabled}
       >
         {actionLabel}
-      </Button>
+      </button>
     </div>
   );
 };
@@ -212,14 +216,14 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
             </div>
           )}
         </div>
-        <Button
+        <button
           type="button"
-          variant="primary"
+          className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium"
           onClick={() => handleAddGuest()}
           disabled={!guestName.trim() || !canStageMoreUsers}
         >
           Thêm khách
-        </Button>
+        </button>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Users, Mail, CheckCircle } from 'lucide-react';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
@@ -45,64 +46,60 @@ const ForgotPasswordPage = () => {
 
   return (
     <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-                Quên mật khẩu
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-                Nhập email của bạn và chúng tôi sẽ gửi cho bạn một liên kết để đặt lại mật khẩu.
-            </p>
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-red-700 rounded-2xl mb-4 shadow-lg">
+          <Users className="w-10 h-10 text-white" />
         </div>
-        <div className="bg-white py-8 px-8 shadow-lg rounded-lg">
-            <form className="space-y-6" onSubmit={handleSubmit}>
-                {success && (
-                    <div className="rounded-md bg-green-50 p-4">
-                        <p className="text-sm text-green-700">{success}</p>
-                    </div>
-                )}
-                 {error && (
-                    <div className="rounded-md bg-red-50 p-4">
-                        <p className="text-sm text-red-700">{error}</p>
-                    </div>
-                )}
-
-                <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                        Địa chỉ email
-                    </label>
-                    <div className="mt-1">
-                    <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                    />
-                    </div>
+        <h1 className="text-3xl font-bold text-gray-800">Hụi Online</h1>
+        <p className="text-gray-500 mt-2">Quản lý hụi thông minh và hiện đại</p>
+      </div>
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+        <div>
+          <div className="p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Quên mật khẩu</h2>
+            <p className="text-gray-500 mb-6">Nhập email của bạn và chúng tôi sẽ gửi liên kết đặt lại mật khẩu</p>
+            {success ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
-
+                <h3 className="text-lg font-bold text-gray-800 mb-2">Email đã được gửi!</h3>
+                <p className="text-gray-600 mb-6">{success}</p>
+                <Link href="/signin">
+                  <button className="text-red-600 hover:text-red-700 font-semibold">Quay lại đăng nhập</button>
+                </Link>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {error && <p className="text-sm text-red-600">{error}</p>}
                 <div>
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-                    >
-                        {isLoading ? 'Đang xử lý...' : 'Gửi liên kết đặt lại'}
-                    </button>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" />
+                  </div>
                 </div>
-            </form>
-             <div className="mt-6 text-center text-sm">
-                <p className="text-gray-600">
-                    Nhớ mật khẩu?{' '}
-                    <Link href="/signin" className="font-medium text-indigo-600 hover:text-indigo-500">
-                        Đăng nhập
-                    </Link>
-                </p>
+                <button type="submit" disabled={isLoading} className="w-full py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isLoading ? 'Đang gửi...' : 'Gửi liên kết đặt lại'}
+                </button>
+              </form>
+            )}
+          </div>
+          {!success && (
+            <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 text-center">
+              <p className="text-sm text-gray-600">
+                Nhớ mật khẩu?{' '}
+                <Link href="/signin">
+                  <button className="text-red-600 hover:text-red-700 font-semibold">Đăng nhập</button>
+                </Link>
+              </p>
             </div>
+          )}
         </div>
+      </div>
+      <div className="text-center mt-8 text-sm text-gray-500">
+        <p>© 2025 Hụi Online. Tất cả quyền được bảo lưu.</p>
+      </div>
     </div>
   );
 };

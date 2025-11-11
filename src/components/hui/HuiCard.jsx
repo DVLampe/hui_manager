@@ -2,6 +2,7 @@ import Card from '@/components/ui/Card' // Изменено на импорт п
 import Button from '@/components/ui/Button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { t } from '@/lib/translations'
+import Link from 'next/link'
 
 export function HuiCard({ hui }) {
   return (
@@ -33,14 +34,12 @@ export function HuiCard({ hui }) {
           </div>
         </dl>
 
-        <div className="mt-6">
-          <Button
-            href={`/hui/${hui.id}`}
-            variant="primary"
-            className="w-full"
-          >
-            Xem chi tiết
-          </Button>
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+          <Link href={`/hui/${hui.id}`}>
+            <button className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm">
+              Xem chi tiết
+            </button>
+          </Link>
         </div>
       </div>
     </Card>

@@ -48,48 +48,46 @@ const LuckyWheelModal = ({ isOpen, onClose, members }) => {
   }, [isOpen]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="VÒNG QUAY MAY MẮN" size="lg">
-      <div className="flex flex-col items-center justify-center p-4">
+    <Modal isOpen={isOpen} onClose={onClose} title="Vòng Quay May Mắn">
+      <div className="p-6 text-center">
         {winner && (
-          <div className="my-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg text-center">
+          <div className="my-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-center">
             <h3 className="text-xl font-bold">Thành viên may mắn!</h3>
             <p className="text-lg">{winner.label}</p>
           </div>
         )}
 
-        <div className="relative w-full max-w-[450px] aspect-square flex items-center justify-center my-4" ref={wheelContainerRef}>
-          {/* Render Wheel only when its container has a measured size */}
+        <div className="relative w-full max-w-[450px] aspect-square flex items-center justify-center my-4 mx-auto" ref={wheelContainerRef}>
           {wheelSize > 0 && wheelData.length > 0 ? (
             <Wheel
-              key={wheelSize} // Force re-mount with correct size
+              key={wheelSize}
               mustStartSpinning={mustSpin}
               prizeNumber={prizeNumber}
               data={wheelData}
               onStopSpinning={handleStopSpinning}
-              backgroundColors={['#f1c40f', '#e67e22', '#e74c3c', '#9b59b6', '#3498db', '#2ecc71']}
+              backgroundColors={['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef']}
               textColors={['#ffffff']}
-              outerBorderColor={'#D2B48C'}
+              outerBorderColor={'#e5e7eb'}
               outerBorderWidth={10}
-              radiusLineColor={'#D2B48C'}
-              radiusLineWidth={2}
+              radiusLineColor={'#e5e7eb'}
+              radiusLineWidth={1}
               fontSize={14}
-              spinningTime={40} // Corresponds to ~8-10 spins
+              spinningTime={40}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <p>{members.length === 0 ? 'Không có thành viên nào để quay.' : 'Loading...'}</p>
+            <div className="w-full h-full flex items-center justify-center text-gray-500">
+              <p>{members.length === 0 ? 'Không có thành viên nào để quay.' : 'Đang tải...'}</p>
             </div>
           )}
         </div>
 
-        <Button
+        <button
           onClick={handleSpinClick}
           disabled={mustSpin || wheelData.length === 0 || wheelSize === 0}
-          className="mt-6"
-          variant="primary"
+          className="w-full mt-6 px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 font-semibold"
         >
           {mustSpin ? 'Đang quay...' : 'Quay'}
-        </Button>
+        </button>
       </div>
     </Modal>
   );

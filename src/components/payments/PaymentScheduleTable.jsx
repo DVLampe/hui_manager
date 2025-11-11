@@ -3,6 +3,7 @@ import Button from '@/components/ui/Button';
 import NumberInput from '@/components/ui/NumberInput';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatNumber } from '@/lib/utils';
+import { Download, ChevronDown } from 'lucide-react';
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (date) => {
@@ -286,19 +287,23 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
             <div className="flex space-x-2">
               {isEditing ? (
                 <>
-                  <Button onClick={handleSaveChanges} variant="primary" size="sm">Lưu thay đổi</Button>
-                  <Button onClick={handleEditToggle} variant="outline" size="sm">Hủy</Button>
+                  <button onClick={handleSaveChanges} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm">Lưu thay đổi</button>
+                  <button onClick={handleEditToggle} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm">Hủy</button>
                 </>
               ) : (
-                !disabled && <Button onClick={handleEditToggle} variant="outline" size="sm">Chỉnh sửa</Button>
+                !disabled && <button onClick={handleEditToggle} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">Chỉnh sửa</button>
               )}
               <div className="relative">
-                <Button onClick={() => setShowExportOptions(!showExportOptions)} variant="outline" size="sm">Export</Button>
+                <button onClick={() => setShowExportOptions(!showExportOptions)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <Download className="w-4 h-4" />
+                  <span className="text-sm font-medium">Export</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
                 {showExportOptions && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                    <button onClick={handleExportPDF} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
-                    <button onClick={handleExportExcel} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
-                  </div>
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
+                        <button onClick={handleExportPDF} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
+                        <button onClick={handleExportExcel} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
+                    </div>
                 )}
               </div>
             </div>

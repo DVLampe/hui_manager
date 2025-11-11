@@ -59,34 +59,34 @@ export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Quản lý quyền">
-      <div className="space-y-4">
+      <div className="space-y-6 p-2">
         <div>
-          <h4 className="font-medium">Thêm người quản lý</h4>
-          <div className="flex items-center space-x-2 mt-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Thêm người quản lý</label>
+          <div className="flex items-center gap-3">
             <Select
               options={userOptions}
               value={selectedUser}
               onChange={(e) => setSelectedUser(e.target.value)}
-              className="w-full"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-            <Button onClick={handleAddPermission}>Thêm</Button>
+            <button onClick={handleAddPermission} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">Thêm</button>
           </div>
         </div>
         <div>
-          <h4 className="font-medium">Người có quyền quản lý</h4>
-          <ul className="mt-2 space-y-2">
+          <h4 className="font-medium text-gray-800">Người có quyền quản lý</h4>
+          <ul className="mt-3 space-y-3">
             {permissions.map(p => (
-              <li key={p.userId} className="flex items-center justify-between p-2 bg-gray-100 rounded">
-                <span>{p.user?.name}</span>
-                <Button variant="danger" size="sm" onClick={() => handleRemovePermission(p.userId)}>Xóa</Button>
+              <li key={p.userId} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <span className="font-medium text-gray-800">{p.user?.name}</span>
+                <button className="text-red-600 hover:text-red-800 text-sm font-medium" onClick={() => handleRemovePermission(p.userId)}>Xóa</button>
               </li>
             ))}
           </ul>
         </div>
       </div>
-      <div className="flex justify-end space-x-3 mt-6">
-        <Button variant="secondary" onClick={onClose}>Hủy</Button>
-        <Button variant="primary" onClick={handleSave}>Lưu</Button>
+      <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
+        <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium" onClick={onClose}>Hủy</button>
+        <button className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium" onClick={handleSave}>Lưu</button>
       </div>
     </Modal>
   );

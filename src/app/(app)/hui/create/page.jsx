@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useIsMobile } from '@/lib/hooks';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import NumberInput from '@/components/ui/NumberInput';
@@ -10,11 +11,13 @@ import Alert from '@/components/ui/Alert';
 import Loading from '@/components/ui/Loading';
 import Link from 'next/link';
 import AddMembersPanel from '@/components/hui/AddMembersPanel';
+import { Search, CheckCircle } from 'lucide-react';
 
 export default function CreateHuiPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const isAuthenticated = status === 'authenticated';
+  const isMobile = useIsMobile();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -104,129 +107,78 @@ export default function CreateHuiPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="bg-white p-6 md:p-8 rounded-lg shadow-xl">
-        <h1 className="text-3xl font-bold mb-8 text-center text-gray-700">Tạo Hụi Mới</h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Tên hụi <span className="text-red-500">*</span></label>
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              required
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="VD: Hụi Tết 2025"
-            />
-          </div>
+    <div>
+      {!isMobile && (
+        <div className="mb-8">
+          <Link href="/hui">
+            <button className="text-gray-600 hover:text-gray-800 mb-4">
+              ← Quay lại
+            </button>
+          </Link>
+          <h1 className="text-3xl font-bold text-gray-800">Tạo Hụi Mới</h1>
+          <p className="text-gray-500 mt-1">Điền thông tin để tạo hụi mới</p>
+        </div>
+      )}
 
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Mô tả (tùy chọn)</label>
-            <textarea
-              id="description"
-              name="description"
-              rows="3"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Mô tả ngắn về mục đích hoặc quy định của hụi..."
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">Số tiền mỗi kỳ (VNĐ) <span className="text-red-500">*</span></label>
-              <NumberInput
-                id="amount"
-                name="amount"
-                required
-                value={formData.amount}
-                onChange={handleChange}
-                placeholder="VD: 1.000.000"
-                min="0"
-              />
-            </div>
-            <div>
-              <label htmlFor="frequency" className="block text-sm font-medium text-gray-700 mb-1">Loại hụi <span className="text-red-500">*</span></label>
-              <Select
-                id="frequency"
-                name="frequency"
-                required
-                value={formData.frequency}
-                onChange={handleChange}
-                options={[
-                  { value: 'DAILY', label: 'Hụi ngày' },
-                  { value: 'WEEKLY', label: 'Hụi tuần' },
-                  { value: 'MONTHLY', label: 'Hụi tháng' },
-                ]}
-              />
+      <form onSubmit={handleSubmit}>
+        <div className={`grid grid-cols-1 ${!isMobile ? 'lg:grid-cols-2 gap-8' : 'gap-4'}`}>
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-6">Thông tin cơ bản</h2>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tên hụi <span className="text-red-600">*</span></label>
+                <Input id="name" name="name" type="text" required value={formData.name} onChange={handleChange} placeholder="VD: Hụi Tết 2025" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                <textarea id="description" name="description" rows="4" value={formData.description} onChange={handleChange} placeholder="Mô tả về hụi này..." className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div className={`grid grid-cols-1 ${!isMobile ? 'md:grid-cols-2' : ''} gap-4`}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Số tiền mỗi kỳ <span className="text-red-600">*</span></label>
+                  <NumberInput id="amount" name="amount" required value={formData.amount} onChange={handleChange} placeholder="0" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Loại hụi <span className="text-red-600">*</span></label>
+                  <Select id="frequency" name="frequency" required value={formData.frequency} onChange={handleChange} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white" options={[{ value: 'DAILY', label: 'Ngày' }, { value: 'WEEKLY', label: 'Tuần' }, { value: 'MONTHLY', label: 'Tháng' }]} />
+                </div>
+              </div>
+              <div className={`grid grid-cols-1 ${!isMobile ? 'md:grid-cols-2' : ''} gap-4`}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ngày bắt đầu <span className="text-red-600">*</span></label>
+                  <Input id="startDate" name="startDate" type="date" required value={formData.startDate} onChange={handleChange} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ngày kết thúc</label>
+                  <Input id="endDate" name="endDate" type="date" value={formData.endDate} onChange={handleChange} min={formData.startDate} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Số kỳ <span className="text-red-600">*</span></label>
+                <Input id="numberOfPeriods" name="numberOfPeriods" type="number" required value={formData.numberOfPeriods} onChange={handleChange} placeholder="12" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu <span className="text-red-500">*</span></label>
-              <Input
-                id="startDate"
-                name="startDate"
-                type="date"
-                required
-                value={formData.startDate}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Ngày kết thúc (tùy chọn)</label>
-              <Input
-                id="endDate"
-                name="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={handleChange}
-                min={formData.startDate} 
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="numberOfPeriods" className="block text-sm font-medium text-gray-700 mb-1">Số kỳ <span className="text-red-500">*</span></label>
-            <Input
-              id="numberOfPeriods"
-              name="numberOfPeriods"
-              type="number"
-              required
-              value={formData.numberOfPeriods}
-              onChange={handleChange}
-              placeholder="VD: 10"
-              min="1"
-            />
-          </div>
-
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-700">Thêm thành viên</h2>
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
             <AddMembersPanel
               onStagedMembersChange={setMembers}
               totalMembers={formData.numberOfPeriods}
               friends={friends}
             />
           </div>
-          
-          {error && <Alert type="error" message={error} />}
-
-          <div className="flex items-center justify-end space-x-4 pt-4">
-            <Link href="/hui">
-                <Button type="button" variant="secondary" disabled={loading}>
-                    Hủy
-                </Button>
-            </Link>
-            <Button type="submit" variant="primary" disabled={loading}>
-              {loading ? <Loading size="sm" /> : 'Tạo Hụi'}
-            </Button>
-          </div>
-        </form>
-      </div>
+        </div>
+        {error && <div className="mt-4"><Alert type="error" message={error} /></div>}
+        <div className={`mt-8 flex items-center justify-end gap-4 ${isMobile ? 'p-4' : 'bg-white rounded-xl border border-gray-200 p-6'}`}>
+          <Link href="/hui">
+            <button type="button" className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+              Hủy
+            </button>
+          </Link>
+          <button type="submit" disabled={loading} className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-lg hover:shadow-xl">
+            {loading ? 'Đang tạo...' : 'Tạo Hụi'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

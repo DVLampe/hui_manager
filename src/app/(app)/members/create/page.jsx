@@ -161,17 +161,24 @@ export default function CreateMultipleMembersPage() {
   }
   
   return (
-    <div className="max-w-6xl mx-auto py-6">
+    <div className="max-w-6xl mx-auto">
       <Toaster />
-      <h1 className="text-2xl font-bold mb-6">Thêm nhiều thành viên vào Hụi</h1>
+      <div className="mb-8">
+        <button onClick={() => router.back()} className="text-gray-600 hover:text-gray-800 mb-4">
+          ← Quay lại
+        </button>
+        <h1 className="text-3xl font-bold text-gray-800">Thêm thành viên vào Hụi</h1>
+        <p className="text-gray-500 mt-1">Chọn hụi và thêm thành viên từ danh sách</p>
+      </div>
       
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Chọn Hụi</label>
+      <form onSubmit={handleSubmit}>
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Chọn Hụi</label>
           <Select
             value={selectedHuiId}
             onChange={(e) => setSelectedHuiId(e.target.value)}
             disabled={isSubmitting || loadingHuis || loadingCurrentHui}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
           >
             <option value="">-- Chọn Hụi --</option>
             {huis.map(hui => (
@@ -182,14 +189,10 @@ export default function CreateMultipleMembersPage() {
           </Select>
         </div>
 
-        {!selectedHuiId && (
-          <p className="text-gray-600 mt-4 text-center">Vui lòng chọn một hụi để quản lý thành viên.</p>
-        )}
-
-        {fetchHuisError && <p className="text-red-500 text-center mt-4">Lỗi tải danh sách hụi: {fetchHuisError}</p>}
-        {loadingCurrentHui && selectedHuiId && <p className="text-center mt-4">Đang tải chi tiết hụi...</p>}
-        {fetchCurrentHuiError && <p className="text-red-500 text-center mt-4">Lỗi tải chi tiết hụi: {fetchCurrentHuiError}</p>}
-        {fetchAllUsersError && <p className="text-red-500 text-center mt-4">Lỗi tải người dùng: {fetchAllUsersError}</p>}
+        {fetchHuisError && <Alert type="error" message={`Lỗi tải danh sách hụi: ${fetchHuisError}`} />}
+        {loadingCurrentHui && selectedHuiId && <Loading message="Đang tải chi tiết hụi..." />}
+        {fetchCurrentHuiError && <Alert type="error" message={`Lỗi tải chi tiết hụi: ${fetchCurrentHuiError}`} />}
+        {fetchAllUsersError && <Alert type="error" message={`Lỗi tải người dùng: ${fetchAllUsersError}`} />}
 
         {selectedHuiId && !loadingCurrentHui && currentHui && (
           <AddMembersPanel
@@ -198,24 +201,17 @@ export default function CreateMultipleMembersPage() {
           />
         )}
 
-        <div className="flex space-x-4 pt-6">
-          <Button 
+        <div className="mt-8 flex items-center justify-end gap-4 bg-white rounded-xl border border-gray-200 p-6">
+          <button type="button" onClick={() => router.back()} disabled={isSubmitting} className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+            Hủy bỏ
+          </button>
+          <button 
             type="submit" 
-            className="flex-1"
             disabled={isSubmitting || stagedMembers.length === 0 || !selectedHuiId || loadingCurrentHui}
-            variant="primary"
+            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-lg hover:shadow-xl disabled:opacity-50"
           >
             {isSubmitting ? `Đang xử lý...` : `Xác nhận thêm ${stagedMembers.length} thành viên`}
-          </Button>
-          <Button 
-            type="button" 
-            variant="secondary"
-            className="flex-1"
-            onClick={() => router.back()}
-            disabled={isSubmitting}
-          >
-            Hủy bỏ
-          </Button>
+          </button>
         </div>
       </form>
     </div>

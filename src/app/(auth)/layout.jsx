@@ -4,7 +4,7 @@
 
 export default function AuthLayout({ children }) {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-yellow-50 flex items-center justify-center p-4">
       {children}
     </div>
   );

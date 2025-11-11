@@ -6,7 +6,7 @@ import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
 import Input from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toaster';
-import { UserPlusIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { UserPlus, UserGroupIcon, Users, Search, ArrowUpDown, Check, X, ChevronRight } from 'lucide-react';
 
 // Main component for the Friends/Members page
 export default function FriendsPage() {
@@ -21,7 +21,7 @@ export default function FriendsPage() {
   // State for UI
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('friendsList'); // 'friendsList' or 'requests'
+  const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'requests'
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
   // Data fetching
@@ -79,36 +79,49 @@ export default function FriendsPage() {
         onClose={() => setIsAddFriendModalOpen(false)}
         onFriendRequestSent={fetchFriendsData}
       />
-      <div className="flex h-full bg-gray-50">
-        {/* Left Sidebar for Tabs */}
-        <aside className="w-1/4 bg-white p-4 border-r">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Bạn bè</h2>
-            <Button variant="primary" size="sm" onClick={() => setIsAddFriendModalOpen(true)}>
+      <div className="flex gap-6">
+        <aside className="w-64 flex-shrink-0">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sticky top-24">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Bạn bè</h2>
+            <button 
+              onClick={() => setIsAddFriendModalOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors mb-4 font-medium"
+            >
+              <UserPlus className="w-4 h-4" />
               Thêm bạn
-            </Button>
+            </button>
+            <nav className="space-y-1">
+              <button
+                onClick={() => setActiveTab('friends')}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                  activeTab === 'friends'
+                    ? 'bg-red-50 text-red-600 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span>Danh sách bạn bè</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                  activeTab === 'requests'
+                    ? 'bg-red-50 text-red-600 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span>Lời mời kết bạn</span>
+                {(pendingRequests.length + sentRequests.length) > 0 && (
+                  <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
+                    {pendingRequests.length + sentRequests.length}
+                  </span>
+                )}
+              </button>
+            </nav>
           </div>
-          <nav className="space-y-2">
-            <button
-              onClick={() => setActiveTab('friendsList')}
-              className={`w-full text-left flex items-center p-2 rounded-md ${activeTab === 'friendsList' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'}`}
-            >
-              <UserGroupIcon className="h-5 w-5 mr-3" />
-              Danh sách bạn bè
-            </button>
-            <button
-              onClick={() => setActiveTab('requests')}
-              className={`w-full text-left flex items-center p-2 rounded-md ${activeTab === 'requests' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'}`}
-            >
-              <UserPlusIcon className="h-5 w-5 mr-3" />
-              Lời mời kết bạn
-            </button>
-          </nav>
         </aside>
-
-        {/* Main Content */}
-        <main className="w-3/4 p-6">
-          {activeTab === 'friendsList' && <FriendsList friends={friends} />}
+        <main className="flex-1">
+          {activeTab === 'friends' && <FriendsList friends={friends} />}
           {activeTab === 'requests' && (
             <FriendRequests
               pendingRequests={pendingRequests}
@@ -125,59 +138,61 @@ export default function FriendsPage() {
 // Component for the Friends List Tab
 const FriendsList = ({ friends }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
+  const [sortAZ, setSortAZ] = useState(true);
 
   const sortedAndFilteredFriends = useMemo(() => {
     return friends
       .filter(friend => friend.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => {
-        if (sortOrder === 'asc') {
-          return a.name.localeCompare(b.name);
-        } else {
-          return b.name.localeCompare(a.name);
-        }
-      });
-  }, [friends, searchTerm, sortOrder]);
+      .sort((a, b) => sortAZ ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+  }, [friends, searchTerm, sortAZ]);
 
   const groupedFriends = useMemo(() => {
     return sortedAndFilteredFriends.reduce((acc, friend) => {
       const firstLetter = friend.name[0].toUpperCase();
-      if (!acc[firstLetter]) {
-        acc[firstLetter] = [];
-      }
+      if (!acc[firstLetter]) acc[firstLetter] = [];
       acc[firstLetter].push(friend);
       return acc;
     }, {});
   }, [sortedAndFilteredFriends]);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Danh sách bạn bè ({friends.length})</h1>
-      <div className="flex items-center gap-4 mb-4 p-4 bg-white rounded-md shadow-sm">
-        <Input
-          type="text"
-          placeholder="Tìm bạn..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-grow"
-        />
-        <Button variant="outline" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-          Tên {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-        </Button>
-      </div>
-      {Object.keys(groupedFriends).map(letter => (
-        <div key={letter}>
-          <h2 className="text-lg font-semibold my-2">{letter}</h2>
-          <ul className="space-y-2">
-            {groupedFriends[letter].map(friend => (
-              <li key={friend.id} className="p-3 bg-white rounded shadow-sm flex items-center">
-                <div className="w-10 h-10 bg-gray-300 rounded-full mr-4"></div> {/* Placeholder for avatar */}
-                {friend.name}
-              </li>
-            ))}
-          </ul>
+    <div className="bg-white rounded-xl border border-gray-200">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800">Danh sách bạn bè ({friends.length})</h2>
+          <button onClick={() => setSortAZ(!sortAZ)} className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <ArrowUpDown className="w-4 h-4" />
+            <span className="text-sm font-medium">{sortAZ ? 'A → Z' : 'Z → A'}</span>
+          </button>
         </div>
-      ))}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input type="text" placeholder="Tìm kiếm bạn bè..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+        </div>
+      </div>
+      <div className="p-6">
+        {Object.keys(groupedFriends).sort().map(letter => (
+          <div key={letter} className="mb-6">
+            <h3 className="text-sm font-bold text-gray-500 mb-3 px-2">{letter}</h3>
+            <div className="space-y-2">
+              {groupedFriends[letter].map(friend => (
+                <div key={friend.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {friend.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">{friend.name}</p>
+                      <p className="text-sm text-gray-500">{friend.email}</p>
+                    </div>
+                  </div>
+                  <button className="text-red-600 hover:text-red-700 text-sm font-medium">Xem hồ sơ</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -185,47 +200,59 @@ const FriendsList = ({ friends }) => {
 // Component for the Friend Requests Tab
 const FriendRequests = ({ pendingRequests, sentRequests, onAction }) => {
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Lời mời kết bạn</h1>
-      <div className="bg-white p-6 rounded-md shadow-sm mb-6">
-        <h2 className="text-xl font-semibold mb-4">Lời mời đã nhận ({pendingRequests.length})</h2>
-        {pendingRequests.length > 0 ? (
-          <ul className="space-y-3">
-            {pendingRequests.map(req => (
-              <li key={req.id} className="flex justify-between items-center">
-                <span className="text-sm font-medium">{req.requester.name}</span>
-                <div>
-                  <Button onClick={() => onAction(req.id, 'ACCEPTED')} variant="primary" size="sm" className="mr-2">Chấp nhận</Button>
-                  <Button onClick={() => onAction(req.id, 'DECLINED')} variant="danger" size="sm">Từ chối</Button>
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-800">Lời mời đã nhận ({pendingRequests.length})</h2>
+        </div>
+        <div className="p-6 space-y-3">
+          {pendingRequests.map(req => (
+            <div key={req.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                  {req.requester.name.charAt(0)}
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-center py-8">
-            <div className="w-24 h-24 mx-auto bg-gray-200 rounded-full flex items-center justify-center">
-               {/* Placeholder for mailbox icon */}
+                <div>
+                  <p className="font-medium text-gray-800">{req.requester.name}</p>
+                  <p className="text-sm text-gray-500">{req.requester.email}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => onAction(req.id, 'ACCEPTED')} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                  <Check className="w-4 h-4" />
+                  Chấp nhận
+                </button>
+                <button onClick={() => onAction(req.id, 'DECLINED')} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                  <X className="w-4 h-4" />
+                  Từ chối
+                </button>
+              </div>
             </div>
-            <p className="mt-4 text-gray-500">Bạn không có lời mời nào</p>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
-      <div className="bg-white p-6 rounded-md shadow-sm">
-        <h2 className="text-xl font-semibold mb-4">Lời mời đã gửi ({sentRequests.length})</h2>
-        {sentRequests.length > 0 ? (
-          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sentRequests.map(req => (
-              <li key={req.id} className="p-3 border rounded-md flex flex-col items-center text-center bg-gray-50">
-                 <div className="w-12 h-12 bg-gray-300 rounded-full mb-2"></div> {/* Placeholder for avatar */}
-                <p className="font-medium text-sm">{req.addressee.name}</p>
-                <p className="text-xs text-gray-500 mb-2">Đã gửi lời mời</p>
-                <Button onClick={() => onAction(req.id, 'CANCELLED')} variant="secondary" size="sm">Thu hồi lời mời</Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-           <p className="text-gray-500">Không có lời mời nào đã gửi.</p>
-        )}
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-800">Lời mời đã gửi ({sentRequests.length})</h2>
+        </div>
+        <div className="p-6 space-y-3">
+          {sentRequests.map(req => (
+            <div key={req.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center text-white font-bold">
+                  {req.addressee.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">{req.addressee.name}</p>
+                  <p className="text-sm text-gray-500">{req.addressee.email}</p>
+                </div>
+              </div>
+              <button onClick={() => onAction(req.id, 'CANCELLED')} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                Thu hồi lời mời
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -268,8 +295,8 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
       }
 
       showToast({ message: 'Friend request sent!', type: 'success' });
-      onFriendRequestSent(); // Callback to refresh the main page
-      onClose(); // Close the modal
+      onFriendRequestSent();
+      onClose();
     } catch (err) {
       showToast({ message: err.message, type: 'error' });
     }
@@ -278,36 +305,50 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-4">Thêm bạn</h2>
-        <form onSubmit={handleSearch}>
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              placeholder="Tìm theo email hoặc số điện thoại..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-grow"
-            />
-            <Button type="submit" disabled={isSearching}>
-              {isSearching ? 'Đang tìm...' : 'Tìm kiếm'}
-            </Button>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-800">Thêm bạn</h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        </form>
-        <div className="mt-4 max-h-60 overflow-y-auto">
-          {searchResults.map(user => (
-            <div key={user.id} className="flex justify-between items-center p-2 hover:bg-gray-100 rounded">
-              <div>
-                <p className="font-semibold">{user.name}</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
-              </div>
-              <Button size="sm" onClick={() => handleSendRequest(user.id)}>Gửi lời mời</Button>
-            </div>
-          ))}
         </div>
-        <div className="mt-4 text-right">
-          <Button variant="secondary" onClick={onClose}>Đóng</Button>
+        <div className="p-6">
+          <form onSubmit={handleSearch} className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email hoặc số điện thoại</label>
+            <input type="text" placeholder="Nhập email hoặc số điện thoại" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+            <button type="submit" disabled={isSearching} className="w-full mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+              {isSearching ? 'Đang tìm...' : 'Tìm kiếm'}
+            </button>
+          </form>
+          <div className="border-t border-gray-200 pt-4">
+            <p className="text-sm text-gray-500 mb-3">Kết quả tìm kiếm</p>
+            <div className="space-y-2">
+              {searchResults.map(user => (
+                <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {user.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleSendRequest(user.id)} className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">
+                    Gửi lời mời
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="p-6 border-t border-gray-200">
+          <button onClick={onClose} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+            Đóng
+          </button>
         </div>
       </div>
     </div>
