@@ -11,6 +11,7 @@ import Alert from '@/components/ui/Alert';
 import Select from '@/components/ui/Select';
 import { Plus, Filter, ArrowUpDown, Users, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { FileDown } from 'lucide-react';
 
 export default function HuiPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function HuiPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('nearest');
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('tham_gia'); // 'tham_gia' or 'lam_chu'
   const isMobile = useIsMobile();
 
   // 2. Data fetching logic
@@ -56,11 +58,15 @@ export default function HuiPage() {
   }, []);
 
   const filteredAndSortedHuis = useMemo(() => {
+    // Mock user ID, replace with actual session user ID
+    const userId = 'user_1';
+
     return huis
       .filter(hui => {
+        const viewMatch = viewMode === 'lam_chu' ? hui.ownerId === userId : hui.ownerId !== userId;
         const statusMatch = statusFilter === 'all' || hui.status === statusFilter;
         const searchMatch = hui.name.toLowerCase().includes(searchTerm.toLowerCase());
-        return statusMatch && searchMatch;
+        return viewMatch && statusMatch && searchMatch;
       })
       .sort((a, b) => {
         const dateA = a.nextPaymentDate ? new Date(a.nextPaymentDate) : 0;
@@ -71,7 +77,7 @@ export default function HuiPage() {
           return dateB - dateA;
         }
       });
-  }, [huis, statusFilter, sortOrder, searchTerm]);
+  }, [huis, statusFilter, sortOrder, searchTerm, viewMode]);
 
   // 3. Conditional UI rendering based on the local state
   if (loading) {
@@ -83,12 +89,39 @@ export default function HuiPage() {
   }
 
   if (isMobile) {
+    const handleExport = async (format) => {
+      // This is a placeholder. In a real app, this would trigger a download.
+      alert(`Đang xuất file ${format.toUpperCase()}...`);
+      // Example API call:
+      // const response = await fetch(`/api/hui/export?format=${format}&filter=${statusFilter}`);
+      // const blob = await response.blob();
+      // const url = window.URL.createObjectURL(blob);
+      // const a = document.createElement('a');
+      // a.href = url;
+      // a.download = `danh_sach_hui.${format}`;
+      // document.body.appendChild(a);
+      // a.click();
+      // a.remove();
+    };
+
     return (
       <div className="pb-24">
-        <div className="flex items-center gap-3 mb-6">
-          <button className="p-2 bg-gray-50 rounded-lg border border-gray-200">
-            <Filter className="w-5 h-5 text-gray-600" />
+        <div className="flex mb-4 bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setViewMode('tham_gia')}
+            className={`w-1/2 py-2 rounded-md text-sm font-semibold transition-all ${viewMode === 'tham_gia' ? 'bg-white text-red-600 shadow' : 'text-gray-600'}`}
+          >
+            Hụi tham gia
           </button>
+          <button
+            onClick={() => setViewMode('lam_chu')}
+            className={`w-1/2 py-2 rounded-md text-sm font-semibold transition-all ${viewMode === 'lam_chu' ? 'bg-white text-red-600 shadow' : 'text-gray-600'}`}
+          >
+            Hụi làm chủ
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 mb-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input 
@@ -99,11 +132,19 @@ export default function HuiPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
+          <div className="flex gap-2">
+            <button onClick={() => handleExport('excel')} className="flex items-center justify-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200 text-gray-600">
+              <FileDown className="w-5 h-5" />
+            </button>
+            <button onClick={() => handleExport('pdf')} className="flex items-center justify-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200 text-gray-600">
+              <FileDown className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-3">
           {filteredAndSortedHuis.map(hui => (
-            <MobileHuiCard key={hui.id} hui={hui} />
+            <MobileHuiCard key={hui.id} hui={hui} viewMode={viewMode} />
           ))}
         </div>
 

@@ -194,38 +194,69 @@ export default function DashboardPage() {
         </div>
 
         {/* Hui List */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-800">Hụi của bạn</h2>
-            <Link href="/hui" className="text-sm text-red-600 font-medium">
-              Xem tất cả →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {stats?.participatingHuiList?.slice(0, 3).map(hui => (
-              <Link href={`/hui/${hui.id}`} key={hui.id} className="block bg-white rounded-xl p-4 border border-gray-200 shadow-sm active:scale-98 transition-transform">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-bold text-gray-800">{hui.name}</h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${hui.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {hui.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đang chờ'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div>
-                    <p className="text-gray-500 text-xs">Số tiền</p>
-                    <p className="font-bold text-gray-800">{formatVietnameseCurrency(hui.amount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 text-xs">Kỳ hiện tại</p>
-                    <p className="font-medium text-gray-800">{hui.ky}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 text-xs">Kỳ tiếp</p>
-                    <p className="font-medium text-gray-800">{new Date(hui.endDate).toLocaleDateString()}</p>
-                  </div>
-                </div>
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Hụi của bạn</h2>
+              <Link href="/hui" className="text-sm font-medium text-red-600 hover:underline">
+                Xem thêm hụi
               </Link>
-            ))}
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setActiveTab('participating')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm flex-1 ${
+                  activeTab === 'participating' 
+                    ? 'bg-red-600 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Hụi tham gia
+              </button>
+              <button 
+                onClick={() => setActiveTab('owned')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm flex-1 ${
+                  activeTab === 'owned' 
+                    ? 'bg-red-600 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Hụi làm chủ
+              </button>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <div className="space-y-3">
+              {(activeTab === 'participating' ? stats.participatingHuiList : stats.ownedHuiList)?.slice(0, 5).map(hui => (
+                <Link href={`/hui/${hui.id}`} key={hui.id} className="block bg-white rounded-xl p-4 border border-gray-200 shadow-sm active:scale-98 transition-transform">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-bold text-gray-800">{hui.name}</h3>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      hui.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 
+                      hui.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' : 
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {hui.status === 'ACTIVE' ? 'Đang hoạt động' : hui.status === 'PENDING' ? 'Đang chờ' : 'Đã đóng'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-gray-500 text-xs">Số tiền</p>
+                      <p className="font-bold text-gray-800">{formatVietnameseCurrency(hui.amount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Kỳ</p>
+                      <p className="font-medium text-gray-800">{hui.ky}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">{activeTab === 'owned' ? 'Tổng tiền thảo' : 'Lợi nhuận'}</p>
+                      <p className="font-medium text-gray-800">{formatVietnameseCurrency(activeTab === 'owned' ? hui.totalThao : hui.profit)}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -3,7 +3,15 @@ import React from 'react';
 import Link from 'next/link';
 import { formatVietnameseCurrency } from '@/lib/utils';
 
-export default function MobileHuiCard({ hui }) {
+export default function MobileHuiCard({ hui, viewMode }) {
+  // Mock data for demonstration until API is ready
+  const displayData = {
+    label: viewMode === 'lam_chu' ? 'Tổng tiền thảo' : 'Lợi nhuận/Thua lỗ',
+    value: viewMode === 'lam_chu' ? (hui.totalBidAmount || 12000000) : (hui.profitOrLoss || -500000),
+    isProfit: viewMode !== 'lam_chu' && (hui.profitOrLoss || -500000) >= 0,
+    isLoss: viewMode !== 'lam_chu' && (hui.profitOrLoss || -500000) < 0,
+  };
+
   return (
     <Link href={`/hui/${hui.id}`} className="block bg-white rounded-xl p-4 border border-gray-200 shadow-sm active:scale-98 transition-transform">
       <div className="flex items-start justify-between mb-3">
@@ -28,9 +36,13 @@ export default function MobileHuiCard({ hui }) {
           <p className="font-medium text-gray-800">{hui.members?.length || 0}</p>
         </div>
       </div>
-      <button className="w-full py-2 bg-red-600 text-white rounded-lg text-sm font-medium">
-        Xem chi tiết
-      </button>
+      <div className="border-t border-gray-100 my-3"></div>
+      <div className="flex justify-between items-center text-sm">
+        <p className="text-gray-500">{displayData.label}</p>
+        <p className={`font-bold ${displayData.isProfit ? 'text-green-600' : ''} ${displayData.isLoss ? 'text-red-600' : ''}`}>
+          {formatVietnameseCurrency(displayData.value)}
+        </p>
+      </div>
     </Link>
   );
 }

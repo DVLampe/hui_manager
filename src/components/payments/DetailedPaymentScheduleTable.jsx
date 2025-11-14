@@ -2,25 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Button from '@/components/ui/Button';
 import { t } from '@/lib/translations';
 import { CheckCircle, Download, ChevronDown } from 'lucide-react';
-
-// Helper function to format date as DD/MM/YYYY
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Invalid Date'; // Handle invalid date strings
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-};
-
-// Helper function to format numbers with dot as thousands separator
-const formatNumber = (num) => {
-  if (num === null || num === undefined || isNaN(parseFloat(num))) {
-    return ''; // Or return '0' or 'N/A' based on preference
-  }
-  return parseFloat(num).toLocaleString('vi-VN');
-};
+import { exportDetailedScheduleToExcel, exportDetailedScheduleToPDF } from '@/lib/export';
 
 const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
   const [scheduleDetails, setScheduleDetails] = useState([]);
@@ -187,162 +169,6 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
 
   const selectedPeriodData = scheduleDetails[selectedPeriodIndex];
 
-  const handleExportExcel = async () => {
-    const XLSX = await import('xlsx');
-    const huiInfo = [
-      ['Tên Hụi', huiName],
-      ['Chủ Hụi', huiGroup.manager?.name || 'N/A'],
-      ['Ngày bắt đầu', formatDate(huiGroup.startDate)],
-      ['Chu kỳ', huiGroup.frequency],
-      ['Trạng thái hụi', huiGroup.status],
-      ['Số tiền mỗi kỳ', `${formatNumber(groupBaseAmount)} VNĐ`],
-      ['Số kỳ', scheduleDetails.length],
-      [] // Blank row
-    ];
-
-    let allPeriodsData = [];
-
-    scheduleDetails.forEach(period => {
-      allPeriodsData.push([`Kỳ ${period.period}`]); // Main header for the period
-      allPeriodsData.push(['Ngày đến hạn', period.dueDate]);
-      allPeriodsData.push(['Trạng thái kỳ', statusDisplayMap[period.status] || period.status]);
-      allPeriodsData.push(['Người hốt hụi', period.potTakerName]);
-      allPeriodsData.push(['Tiền hốt (VNĐ)', formatNumber(period.amountCollected)]);
-      allPeriodsData.push(['Thăm kêu (VNĐ)', formatNumber(period.thamKeu)]);
-      allPeriodsData.push(['Thảo (VNĐ)', formatNumber(period.thao)]);
-      allPeriodsData.push([]); // Spacer
-      allPeriodsData.push(['Thành viên', 'Số tiền đóng (VNĐ)', 'Trạng thái thành viên']); // Sub-header
-
-      period.subRows.forEach(subRow => {
-        allPeriodsData.push([
-          subRow.memberName,
-          formatNumber(subRow.amountDue),
-          getMemberOverallStatus(subRow.memberId, period, scheduleDetails)
-        ]);
-      });
-      allPeriodsData.push([]); // Spacer row after each period's data
-    });
-
-    const finalData = huiInfo.concat(allPeriodsData);
-    const ws = XLSX.utils.aoa_to_sheet(finalData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Chi tiết thanh toán');
-    
-    XLSX.writeFile(wb, `chi-tiet-thanh-toan-${huiName}.xlsx`);
-    setShowExportOptions(false);
-  };
-
-  const handleExportPDF = async () => {
-    const { default: jsPDF } = await import('jspdf');
-    const { default: html2canvas } = await import('html2canvas');
-    setShowExportOptions(false);
-
-    // 1. Create a new, off-screen container for the export content
-    const exportContainer = document.createElement('div');
-    exportContainer.className = 'tailwind-styles-for-pdf'; // Use a class to scope styles if needed
-    exportContainer.style.position = 'absolute';
-    exportContainer.style.left = '-9999px';
-    exportContainer.style.top = 'auto';
-    exportContainer.style.width = '1123px'; // A4 landscape-like width
-    exportContainer.style.padding = '20px';
-    exportContainer.style.backgroundColor = 'white';
-    
-    // 2. Build the HTML content for all periods
-    let headerHtml = `
-      <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #ccc; page-break-inside: avoid;">
-        <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Thông tin Hụi: ${huiName}</h2>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; font-size: 14px;">
-          <p><strong>Chủ Hụi:</strong> ${huiGroup.manager?.name || 'N/A'}</p>
-          <p><strong>Ngày bắt đầu:</strong> ${formatDate(huiGroup.startDate)}</p>
-          <p><strong>Chu kỳ:</strong> ${huiGroup.frequency}</p>
-          <p><strong>Trạng thái hụi:</strong> ${huiGroup.status}</p>
-          <p><strong>Số tiền mỗi kỳ:</strong> ${formatNumber(groupBaseAmount)} VNĐ</p>
-          <p><strong>Số kỳ:</strong> ${scheduleDetails.length}</p>
-        </div>
-      </div>
-    `;
-
-    let periodsHtml = '';
-    scheduleDetails.forEach(periodData => {
-      let subRowsHtml = '';
-      periodData.subRows.forEach(subRow => {
-        subRowsHtml += `
-          <tr style="border-top: 1px solid #e5e7eb;">
-            <td style="padding: 8px 16px; font-size: 14px;">${subRow.memberName}</td>
-            <td style="padding: 8px 16px; font-size: 14px; text-align: right;">${formatNumber(subRow.amountDue)}</td>
-            <td style="padding: 8px 16px; font-size: 14px;">${getMemberOverallStatus(subRow.memberId, periodData, scheduleDetails)}</td>
-          </tr>
-        `;
-      });
-
-      periodsHtml += `
-        <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #ccc; page-break-inside: avoid;">
-          <h4 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 4px;">Chi tiết Kỳ ${periodData.period}</h4>
-          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; font-size: 14px; margin-bottom: 16px;">
-            <p><strong>Ngày đến hạn:</strong> ${periodData.dueDate}</p>
-            <p><strong>Trạng thái kỳ:</strong> ${statusDisplayMap[periodData.status] || periodData.status}</p>
-            <p><strong>Người hốt hụi:</strong> ${periodData.potTakerName}</p>
-            <p><strong>Tiền hốt (VNĐ):</strong> ${formatNumber(periodData.amountCollected) || 'N/A'}</p>
-            <p><strong>Thăm kêu (VNĐ):</strong> ${formatNumber(periodData.thamKeu)}</p>
-            <p><strong>Thảo (VNĐ):</strong> ${formatNumber(periodData.thao)}</p>
-          </div>
-          <h5 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">Danh sách đóng tiền của thành viên</h5>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead style="background-color: #f9fafb;">
-              <tr>
-                <th style="padding: 8px 16px; text-align: left; font-size: 12px; font-weight: 500; color: #374151; text-transform: uppercase;">Thành viên</th>
-                <th style="padding: 8px 16px; text-align: right; font-size: 12px; font-weight: 500; color: #374151; text-transform: uppercase;">Số tiền đóng (VNĐ)</th>
-                <th style="padding: 8px 16px; text-align: left; font-size: 12px; font-weight: 500; color: #374151; text-transform: uppercase;">Trạng thái thành viên</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${subRowsHtml}
-            </tbody>
-          </table>
-        </div>
-      `;
-    });
-    exportContainer.innerHTML = headerHtml + periodsHtml;
-    
-    // 3. Append to body, render, then remove
-    document.body.appendChild(exportContainer);
-
-    try {
-      const canvas = await html2canvas(exportContainer, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgProps = pdf.getImageProperties(imgData);
-      const ratio = imgProps.height / imgProps.width;
-      const imgHeight = pdfWidth * ratio;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-      
-      pdf.save(`chi-tiet-thanh-toan-${huiName}.pdf`);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-    } finally {
-      // 4. Clean up
-      document.body.removeChild(exportContainer);
-    }
-  };
-
   return (
     <div className="mt-8 bg-white shadow sm:rounded-lg">
       <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
@@ -363,8 +189,8 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
             </button>
             {showExportOptions && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
-                    <button onClick={handleExportPDF} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
-                    <button onClick={handleExportExcel} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
+                    <button onClick={() => { exportDetailedScheduleToPDF(huiGroup); setShowExportOptions(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
+                    <button onClick={() => { exportDetailedScheduleToExcel(huiGroup); setShowExportOptions(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
                 </div>
             )}
           </div>
