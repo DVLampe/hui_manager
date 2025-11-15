@@ -10,6 +10,12 @@ export default function HuiListAndCreatePages() {
   const [sortOrder, setSortOrder] = useState('nearest');
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [searchMember, setSearchMember] = useState('');
+  
+  // Simulate current user
+  const currentUserId = 6; 
+  const currentUser = { id: currentUserId, name: 'Tôi (Bạn)', email: 'me@email.com' };
+
+  const [ownerId, setOwnerId] = useState(currentUserId);
 
   const huiList = [
     { id: 1, name: 'Hụi Gia Đình', status: 'active', amount: '10tr', members: 12, period: '5/12', nextPayment: '01/06/2025' },
@@ -27,6 +33,8 @@ export default function HuiListAndCreatePages() {
     { id: 4, name: 'Phạm Thị D', email: 'phamthid@email.com' },
     { id: 5, name: 'Hoàng Văn E', email: 'hoangvane@email.com' },
   ];
+  
+  const potentialOwners = [currentUser, ...friends];
 
   const filteredHuiList = huiList.filter(hui => {
     if (statusFilter === 'all') return true;
@@ -244,6 +252,23 @@ export default function HuiListAndCreatePages() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Chủ hụi <span className="text-red-600">*</span>
+                      </label>
+                      <select 
+                        value={ownerId}
+                        onChange={(e) => setOwnerId(Number(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                      >
+                        {potentialOwners.map(owner => (
+                          <option key={owner.id} value={owner.id}>
+                            {owner.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Mô tả
                       </label>
                       <textarea 
@@ -310,6 +335,37 @@ export default function HuiListAndCreatePages() {
                       />
                     </div>
                   </div>
+
+                  {/* Bank Info Section - Conditional */}
+                  {ownerId === currentUserId && (
+                    <div className="mt-6">
+                      <h2 className="text-lg font-bold text-gray-800 mb-6">Thông tin ngân hàng (Chủ hụi)</h2>
+                      <div className="space-y-5">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Tên ngân hàng
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder="VD: Vietcombank" 
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50"
+                            readOnly
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Số tài khoản
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder="0123456789" 
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50"
+                            readOnly
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

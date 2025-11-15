@@ -26,6 +26,7 @@ import StatCard from '@/components/ui/StatCard';
 import ActionButton from '@/components/ui/ActionButton';
 import MobilePaymentPeriod from '@/components/mobile/MobilePaymentPeriod';
 import MobileChatModal from '@/components/mobile/MobileChatModal';
+import Image from 'next/image';
 import { 
   Users, Calendar, DollarSign, Edit, Trash2, Download, 
   ChevronDown, X, QrCode, Dice5, MessageCircle, Shield,
@@ -531,7 +532,7 @@ export default function HuiDetailPage({ params }) {
       )}
       <PermissionsModal isOpen={isPermissionsModalOpen} onClose={() => setIsPermissionsModalOpen(false)} hui={hui} onSave={async (updatedPermissions) => { const payload = { ...hui, permissions: updatedPermissions }; await handleUpdateHui(payload); setIsPermissionsModalOpen(false); }} />
       {isWheelModalOpen && (<LuckyWheelModal isOpen={isWheelModalOpen} onClose={() => setIsWheelModalOpen(false)} members={memberOptions} />)}
-      <OwnerBankInfoModal isOpen={isBankInfoModalOpen} onClose={() => setIsBankInfoModalOpen(false)} owner={hui?.manager} />
+      <OwnerBankInfoModal isOpen={isBankInfoModalOpen} onClose={() => setIsBankInfoModalOpen(false)} owner={hui} />
 
       {isMobile ? (
         <div className="pb-24">
@@ -662,7 +663,7 @@ export default function HuiDetailPage({ params }) {
                 />
               </div>
             )}
-
+            
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="border-b border-gray-200">
                 <div className="flex gap-1 p-2">
@@ -709,7 +710,7 @@ export default function HuiDetailPage({ params }) {
                           
                           <div>
                             <label className="text-sm font-medium text-gray-600">Chủ Hụi</label>
-                            <p className="mt-1 text-gray-800 font-medium">{hui?.manager?.name || 'N/A'}</p>
+                            <p className="mt-1 text-gray-800 font-medium">{hui?.manager?.name || hui?.ownerGuestName || 'N/A'}</p>
                           </div>
                           
                           <div>

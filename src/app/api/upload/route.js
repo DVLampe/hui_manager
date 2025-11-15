@@ -21,50 +21,70 @@ export async function POST(request) {
   const { AWS_S3_BUCKET_NAME } = process.env;
 
   if (!AWS_S3_BUCKET_NAME) {
-    const errorResponse = JSON.stringify({ error: "AWS_S3_BUCKET_NAME is not configured in .env.local" });
-    return new NextResponse(errorResponse, { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new NextResponse(JSON.stringify({ error: "AWS_S3_BUCKET_NAME is not configured." }), { status: 500 });
   }
 
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-        return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
+    const userId = session.user.id;
 
-    const { fileName, fileType, fileSize, huiId } = await request.json();
+    const formData = await request.formData();
+    const file = formData.get("file");
+    const uploadType = formData.get("uploadType") || 'chat'; // default to chat
+    const huiId = formData.get("huiId");
 
-    if (!fileName || !fileType || !fileSize || !huiId) {
-      const errorResponse = JSON.stringify({ error: "File name, type, size, and huiId are required." });
-      return new NextResponse(errorResponse, { status: 400, headers: { 'Content-Type': 'application/json' } });
+    if (!file) {
+      return new NextResponse(JSON.stringify({ error: "File is required." }), { status: 400 });
     }
 
     // Check file size (max 10MB)
-    if (fileSize > 10 * 1024 * 1024) {
-      const errorResponse = JSON.stringify({ error: "File size cannot exceed 10MB." });
-      return new NextResponse(errorResponse, { status: 400, headers: { 'Content-Type': 'application/json' } });
+    if (file.size > 10 * 1024 * 1024) {
+      return new NextResponse(JSON.stringify({ error: "File size cannot exceed 10MB." }), { status: 400 });
     }
 
-    const date = new Date().toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+    const buffer = Buffer.from(await file.arrayBuffer());
     const randomName = generateFileName();
-    const key = `chats/${date}_${huiId}_${session.user.id}_${randomName}`;
+    const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    let key;
+
+    switch (uploadType) {
+      case 'avatar':
+        key = `avatars/${userId}_${randomName}`;
+        break;
+      case 'profileQrCode':
+        key = `qrcodes/${userId}_${randomName}`;
+        break;
+      case 'huiQrCode':
+        // huiId is optional here. If not provided, it's for a new hui.
+        key = `hui_qrcodes/${huiId || 'new'}_${userId}_${randomName}`;
+        break;
+      case 'chatFile':
+      default:
+        if (!huiId) return new NextResponse(JSON.stringify({ error: "huiId is required for chat files." }), { status: 400 });
+        key = `chats/${huiId}_${userId}_${randomName}`;
+        break;
+    }
 
     const command = new PutObjectCommand({
       Bucket: AWS_S3_BUCKET_NAME,
       Key: key,
-      ContentType: fileType,
-      ContentLength: fileSize,
+      Body: buffer,
+      ContentType: file.type,
     });
 
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 }); // URL expires in 60 seconds
+    await s3Client.send(command);
 
     const fileUrl = `https://${AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_S3_REGION}.amazonaws.com/${key}`;
 
-    const successResponse = JSON.stringify({ uploadUrl, fileUrl });
+    const successResponse = JSON.stringify({ url: fileUrl });
     return new NextResponse(successResponse, { status: 200, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {
-    console.error("Error creating presigned URL:", error);
-    const errorResponse = JSON.stringify({ error: "Failed to create presigned URL.", details: error.message });
+    console.error("Error uploading file:", error);
+    const errorResponse = JSON.stringify({ error: "Failed to upload file.", details: error.message });
     return new NextResponse(errorResponse, { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }

@@ -9,6 +9,7 @@ import NumberInput from '@/components/ui/NumberInput';
 import Select from '@/components/ui/Select';
 import Alert from '@/components/ui/Alert';
 import Loading from '@/components/ui/Loading';
+import Image from 'next/image';
 import Link from 'next/link';
 import AddMembersPanel from '@/components/hui/AddMembersPanel';
 import { Search, CheckCircle } from 'lucide-react';
@@ -27,9 +28,17 @@ export default function CreateHuiPage() {
     endDate: '',
     frequency: 'MONTHLY',
     numberOfPeriods: '',
+    ownerId: '',
+    ownerGuestName: '',
+    bankName: '',
+    bankAccountNumber: '',
+    bankAccountName: '',
+    qrCodeUrl: '',
   });
+  const [qrCodeFile, setQrCodeFile] = useState(null);
   const [members, setMembers] = useState([]);
   const [friends, setFriends] = useState([]);
+  const [ownerSelection, setOwnerSelection] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,19 +54,78 @@ export default function CreateHuiPage() {
             throw new Error('Failed to fetch friends');
           }
           const data = await response.json();
-          setFriends(data.friends);
+          if (session?.user) {
+            const currentUser = { id: session.user.id, name: "Tôi (Bạn)", email: session.user.email };
+            const allAvailableUsers = [currentUser, ...data.friends.filter(f => f.id !== session.user.id)];
+            setFriends(allAvailableUsers);
+          } else {
+            setFriends(data.friends);
+          }
         } catch (err) {
           console.error(err);
         }
       };
       fetchFriends();
+      if (session?.user?.id) {
+        setOwnerSelection(session.user.id);
+        setFormData(prev => ({
+          ...prev,
+          ownerId: session.user.id,
+          ownerGuestName: '',
+          bankName: session.user.bankName || '',
+          bankAccountNumber: session.user.bankAccountNumber || '',
+          bankAccountName: session.user.bankAccountName || '',
+          qrCodeUrl: session.user.qrCodeUrl || '',
+        }));
+      }
     }
-  }, [status, router]);
+  }, [status, router, session]);
+
+  const handleOwnerChange = (e) => {
+    const { value } = e.target;
+    setOwnerSelection(value);
+
+    if (value === 'guest') {
+      setFormData({
+        ...formData,
+        ownerId: '',
+        ownerGuestName: '',
+        bankName: '',
+        bankAccountNumber: '',
+        bankAccountName: '',
+        qrCodeUrl: '',
+      });
+    } else if (value === session?.user?.id) {
+      setFormData({
+        ...formData,
+        ownerId: value,
+        ownerGuestName: '',
+        bankName: session.user.bankName || '',
+        bankAccountNumber: session.user.bankAccountNumber || '',
+        bankAccountName: session.user.bankAccountName || '',
+        qrCodeUrl: session.user.qrCodeUrl || '',
+      });
+    } else {
+      setFormData({
+        ...formData,
+        ownerId: value,
+        ownerGuestName: '',
+        bankName: '',
+        bankAccountNumber: '',
+        bankAccountName: '',
+        qrCodeUrl: '',
+      });
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     setError('');
+  };
+
+  const handleQrCodeChange = (e) => {
+    setQrCodeFile(e.target.files[0]);
   };
   
   const handleSubmit = async (e) => {
@@ -71,16 +139,35 @@ export default function CreateHuiPage() {
       return;
     }
     
-    const dataToSubmit = {
-      ...formData,
-      members,
-    };
+    let submittedData = { ...formData, members };
 
+    if (qrCodeFile) {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', qrCodeFile);
+      uploadFormData.append('uploadType', 'huiQrCode');
+      // Since huiId is not created yet, we can't pass it. 
+      // The API should be updated to handle this case if huiId is strictly required.
+      // For now, we assume the API can handle huiQrCode without a huiId initially.
+      try {
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: uploadFormData,
+        });
+        if (!uploadResponse.ok) throw new Error('QR code upload failed');
+        const { url } = await uploadResponse.json();
+        submittedData.qrCodeUrl = url;
+      } catch (err) {
+        setError(`QR Code Upload Error: ${err.message}`);
+        setLoading(false);
+        return;
+      }
+    }
+    
     try {
       const response = await fetch('/api/hui', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSubmit),
+        body: JSON.stringify(submittedData),
       });
 
       if (!response.ok) {
@@ -130,6 +217,37 @@ export default function CreateHuiPage() {
                 <Input id="name" name="name" type="text" required value={formData.name} onChange={handleChange} placeholder="VD: Hụi Tết 2025" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Chủ hụi <span className="text-red-600">*</span></label>
+                <Select
+                  id="ownerSelection"
+                  name="ownerSelection"
+                  required
+                  value={ownerSelection}
+                  onChange={handleOwnerChange}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                  options={[
+                    { value: session?.user?.id, label: 'Tôi (Bạn)' },
+                    ...friends.map(friend => ({ value: friend.id, label: friend.name })),
+                    { value: 'guest', label: 'Khách (Nhập tên)' }
+                  ]}
+                />
+              </div>
+              {ownerSelection === 'guest' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tên chủ hụi (khách) <span className="text-red-600">*</span></label>
+                  <Input
+                    id="ownerGuestName"
+                    name="ownerGuestName"
+                    type="text"
+                    required
+                    value={formData.ownerGuestName}
+                    onChange={handleChange}
+                    placeholder="Nhập tên chủ hụi"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+              )}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
                 <textarea id="description" name="description" rows="4" value={formData.description} onChange={handleChange} placeholder="Mô tả về hụi này..." className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
@@ -156,6 +274,32 @@ export default function CreateHuiPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Số kỳ <span className="text-red-600">*</span></label>
                 <Input id="numberOfPeriods" name="numberOfPeriods" type="number" required value={formData.numberOfPeriods} onChange={handleChange} placeholder="12" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+            </div>
+            <div className="mt-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-6">Thông tin ngân hàng (Chủ hụi)</h2>
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tên ngân hàng</label>
+                  <Input id="bankName" name="bankName" type="text" value={formData.bankName} onChange={handleChange} readOnly={formData.ownerId === session?.user?.id} placeholder="VD: Vietcombank" className={`w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${formData.ownerId === session?.user?.id ? 'bg-gray-50' : ''}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Số tài khoản</label>
+                  <Input id="bankAccountNumber" name="bankAccountNumber" type="text" value={formData.bankAccountNumber} onChange={handleChange} readOnly={formData.ownerId === session?.user?.id} placeholder="0123456789" className={`w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${formData.ownerId === session?.user?.id ? 'bg-gray-50' : ''}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tên tài khoản</label>
+                  <Input id="bankAccountName" name="bankAccountName" type="text" value={formData.bankAccountName} onChange={handleChange} readOnly={formData.ownerId === session?.user?.id} placeholder="NGUYEN VAN A" className={`w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${formData.ownerId === session?.user?.id ? 'bg-gray-50' : ''}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh QR Chuyển khoản</label>
+                  <Input id="qrCodeUrl" name="qrCodeUrl" type="file" onChange={handleQrCodeChange} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100" />
+                  {(formData.qrCodeUrl || qrCodeFile) && (
+                    <div className="mt-4">
+                      <Image src={qrCodeFile ? URL.createObjectURL(qrCodeFile) : formData.qrCodeUrl} alt="QR Code Preview" width={150} height={150} className="rounded-lg border border-gray-200" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

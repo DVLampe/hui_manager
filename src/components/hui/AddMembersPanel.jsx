@@ -95,16 +95,19 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
   }, [allUsers, friends, stagedForAdditionUserIds, loadingAllUsers]);
 
   const rightPanelStagedUsers = useMemo(() => {
+    const combinedUsers = [...friends, ...allUsers];
+    const uniqueUsers = Array.from(new Map(combinedUsers.map(u => [u.id, u])).values());
+
     return Array.from(stagedForAdditionUserIds).map(item => {
       if (typeof item === 'string' && !item.startsWith('guest:')) {
-        const user = allUsers.find(u => u.id === item);
+        const user = uniqueUsers.find(u => u.id === item);
         return user ? { id: user.id, name: user.name, email: user.email } : null;
       } else {
         const guestName = item.replace('guest:', '');
         return { id: item, name: guestName, email: 'Guest' };
       }
     }).filter(Boolean);
-  }, [allUsers, stagedForAdditionUserIds]);
+  }, [allUsers, friends, stagedForAdditionUserIds]);
 
   const remainingCapacity = totalMembers ? totalMembers - stagedForAdditionUserIds.size : Infinity;
   const canStageMoreUsers = remainingCapacity > 0;

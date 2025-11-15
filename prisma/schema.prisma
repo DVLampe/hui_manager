@@ -41,6 +41,7 @@ model User {
   sessions      Session[]
 
   huiGroups     HuiGroup[]    @relation("GroupManager")
+  createdHuiGroups HuiGroup[]   @relation("CreatedGroups")
   memberships   HuiMember[]
   permissions   HuiPermission[]
   payments      Payment[]     @relation("UserPayments") // Payments managed by this user
@@ -105,8 +106,18 @@ model HuiGroup {
   startDate       DateTime
   endDate         DateTime?
   status          GroupStatus   @default(ACTIVE)
-  ownerId         String
-  manager         User          @relation("GroupManager", fields: [ownerId], references: [id])
+  ownerId         String?
+  manager         User?         @relation("GroupManager", fields: [ownerId], references: [id])
+  ownerGuestName  String?       // For owners not on the platform
+  creatorId       String?
+  creator         User?         @relation("CreatedGroups", fields: [creatorId], references: [id], onDelete: SetNull)
+  
+  // Group-specific bank details
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+  qrCodeUrl         String?
+
   members         HuiMember[]
   permissions     HuiPermission[]
   payments        Payment[] // Represents periods/events in this group

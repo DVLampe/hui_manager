@@ -78,7 +78,7 @@ export async function POST(request) {
   if (!session?.user?.id) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  const ownerId = session.user.id; // Manager is the authenticated user
+  const creatorId = session.user.id; // The creator is the authenticated user
 
   try {
     const body = await request.json();
@@ -86,6 +86,12 @@ export async function POST(request) {
       name,
       amount,
       startDate,
+      ownerId: bodyOwnerId,
+      ownerGuestName,
+      bankName,
+      bankAccountNumber,
+      bankAccountName,
+      qrCodeUrl,
       frequency,
       numberOfPeriods,
       description,
@@ -143,15 +149,11 @@ export async function POST(request) {
 
     const newHuiGroup = await prisma.$transaction(async (tx) => {
       // Ensure the owner exists before creating the group
-      const owner = await tx.user.findUnique({
-        where: { id: ownerId },
-      });
-
-      if (!owner) {
-        // This case should ideally not be reached if session is managed correctly
-        throw new Error('Owner not found. Please log in again.');
+      if (bodyOwnerId) {
+        const owner = await tx.user.findUnique({ where: { id: bodyOwnerId } });
+        if (!owner) throw new Error('Selected owner not found.');
       }
-      
+
       const group = await tx.huiGroup.create({
         data: {
           name,
@@ -159,7 +161,13 @@ export async function POST(request) {
           amount: parsedAmount,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
-          ownerId, // Set from session
+          ownerId: bodyOwnerId || null, // Ensure null is passed if bodyOwnerId is empty
+          ownerGuestName,
+          creatorId, // Always set the creator
+          bankName,
+          bankAccountNumber,
+          bankAccountName,
+          qrCodeUrl,
           frequency,
           numberOfPeriods: parsedNumberOfPeriods,
           totalMembers: parsedNumberOfPeriods, // Total members is the same as number of periods
@@ -170,7 +178,7 @@ export async function POST(request) {
       // Automatically grant the creator MANAGE permission
       await tx.huiPermission.create({
         data: {
-          userId: ownerId,
+          userId: creatorId,
           groupId: group.id,
           permission: 'MANAGE',
         },
@@ -198,7 +206,7 @@ export async function POST(request) {
         });
 
         // --- Create Notifications for initial members ---
-        const membersToNotify = initialMembers.filter(m => m.userId && m.userId !== ownerId);
+        const membersToNotify = initialMembers.filter(m => m.userId && m.userId !== bodyOwnerId);
         if (membersToNotify.length > 0) {
           const notificationData = membersToNotify.map(member => ({
             userId: member.userId,
@@ -241,7 +249,7 @@ export async function POST(request) {
             period: i + 1,
             dueDate: dueDate,
             amount: parsedAmount,
-            userId: ownerId,
+            userId: creatorId, // The creator manages the payments
             transactionStatus: i === 0 ? 'CHO_THANH_TOAN' : 'CHUA_DEN_KY',
             type: 'PERIOD_SETTLEMENT',
           });
@@ -256,7 +264,7 @@ export async function POST(request) {
           dueDate: p.dueDate ? new Date(p.dueDate) : new Date(),
           amount: p.amount ? new Prisma.Decimal(p.amount) : parsedAmount,
           potTakerMemberId: p.potTakerMemberId || null,
-          userId: p.userId || ownerId,
+          userId: p.userId || creatorId, // The creator manages the payments
           amountCollected: p.amountCollected ? new Prisma.Decimal(p.amountCollected) : null,
           thamKeu: p.thamKeu ? new Prisma.Decimal(p.thamKeu) : null,
           thao: p.thao ? new Prisma.Decimal(p.thao) : null,
