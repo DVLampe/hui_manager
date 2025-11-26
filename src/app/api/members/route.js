@@ -125,7 +125,7 @@ export async function POST(request) {
 
     if (existingMember) {
       return NextResponse.json(
-        { error: 'Member already exists in this hui group' },
+        { error: 'Thành viên này đã tham ra trong hụi' },
         { status: 400 }
       );
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Button from '@/components/ui/Button';
 import { t } from '@/lib/translations';
+import { formatDate, formatNumber } from '@/lib/utils';
 import { CheckCircle, Download, ChevronDown } from 'lucide-react';
 import { exportDetailedScheduleToExcel, exportDetailedScheduleToPDF } from '@/lib/export';
 

@@ -27,7 +27,8 @@ const Chat = ({ huiId }) => {
   useEffect(() => {
     if (!huiId) return;
 
-    const newSocket = io('http://localhost:3001');
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+    const newSocket = io(socketUrl);
     setSocket(newSocket);
 
     newSocket.emit('joinRoom', huiId);
