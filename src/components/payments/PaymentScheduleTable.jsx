@@ -272,6 +272,24 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
     HUY: 'Hủy',
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'DA_THANH_TOAN':
+      case 'DA_DONG':
+        return 'bg-green-100 text-green-700';
+      case 'CHO_THANH_TOAN':
+      case 'CHO_XAC_NHAN':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'HUY':
+      case 'TRE_HAN':
+        return 'bg-red-100 text-red-700';
+      case 'MIEN_DONG':
+        return 'bg-blue-100 text-blue-700';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
+
   return (
     <div className="mt-8 bg-white shadow sm:rounded-lg">
       <div className="px-4 py-5 sm:px-6">
@@ -414,7 +432,9 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                         <option value="HUY">Hủy</option>
                       </select>
                     ) : (
-                      statusDisplayMap[item.status] || item.status
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(item.status)}`}>
+                        {statusDisplayMap[item.status] || item.status}
+                      </span>
                     )}
                   </td>
                 </tr>
