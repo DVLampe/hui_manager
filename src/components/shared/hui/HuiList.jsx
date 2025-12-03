@@ -42,7 +42,7 @@ export function HuiList({ huis, type = 'participating', tableRef }) {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {huis.map((hui) => (
                             <tr key={hui.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(hui.id)}>
-                                <td className="py-4 pl-4 pr-3 text-sm font-medium text-indigo-600 sm:pl-6">{hui.name}</td>
+                                <td className="py-4 pl-4 pr-3 text-sm font-medium text-red-700 sm:pl-6">{hui.name}</td>
                                 <td className="px-3 py-4 text-sm">
                                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(hui.status)}`}>
                                         {t(hui.status)}

@@ -98,7 +98,7 @@ export default function NotificationBell() {
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold text-gray-800">Thông báo</h3>
               {unreadCount > 0 && (
-                <button onClick={handleMarkAllAsRead} className="text-sm text-indigo-600 hover:underline font-semibold">
+                <button onClick={handleMarkAllAsRead} className="text-sm text-red-600 hover:underline font-semibold">
                   Đánh dấu tất cả là đã đọc
                 </button>
               )}
@@ -106,13 +106,13 @@ export default function NotificationBell() {
             <div className="mt-4 flex space-x-4">
               <button 
                 onClick={() => setFilter('all')}
-                className={`px-3 py-1 text-sm font-semibold rounded-full ${filter === 'all' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`px-3 py-1 text-sm font-semibold rounded-full ${filter === 'all' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 Tất cả
               </button>
               <button 
                 onClick={() => setFilter('unread')}
-                className={`px-3 py-1 text-sm font-semibold rounded-full ${filter === 'unread' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`px-3 py-1 text-sm font-semibold rounded-full ${filter === 'unread' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 Chưa đọc
               </button>
@@ -130,11 +130,11 @@ export default function NotificationBell() {
                         <span className="font-bold">{n.title}</span>
                         <span className="text-gray-600"> - {n.message}</span>
                       </p>
-                      <p className="text-xs text-indigo-600 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                      <p className="text-xs text-red-600 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                     </div>
                     {!n.isRead && (
                       <div className="ml-3">
-                        <span className="block h-2.5 w-2.5 rounded-full bg-indigo-500"></span>
+                        <span className="block h-2.5 w-2.5 rounded-full bg-red-500"></span>
                       </div>
                     )}
                   </div>

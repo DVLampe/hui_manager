@@ -22,7 +22,7 @@ export default function Header() {
         ) : user ? (
           <>
             <NotificationBell />
-            <Link href="/profile" className="flex items-center space-x-2 text-sm text-gray-700 hover:text-indigo-600">
+            <Link href="/profile" className="flex items-center space-x-2 text-sm text-gray-700 hover:text-red-600">
               <UserCircleIcon className="h-5 w-5 text-gray-500" />
               <span>{user.name || user.email}</span>
             </Link>
@@ -48,7 +48,7 @@ export default function Header() {
               Đăng nhập
             </Button>
             <Link href="/register">
-              <Button variant="solid" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              <Button variant="solid" size="sm" className="bg-red-600 hover:bg-red-700 text-white">
                 Đăng ký
               </Button>
             </Link>
