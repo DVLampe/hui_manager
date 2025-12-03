@@ -12,7 +12,7 @@ import { useIsMobile } from '@/lib/hooks';
 import Link from 'next/link';
 import { 
   TrendingUp, TrendingDown, Users, Clock, DollarSign, 
-  PieChart, Download, ChevronDown, Calendar
+  PieChart, Download, ChevronDown, Calendar, Plus
 } from 'lucide-react';
 
 const DashboardChart = dynamic(() => import('@/components/dashboard/DashboardChart'), {
@@ -187,7 +187,7 @@ export default function DashboardPage() {
             <div className="flex items-start gap-3">
               <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
               <div>
-                <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng góp</p>
+                <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng hụi</p>
                 <p className="text-sm text-gray-600">{stats.nearestPayment.huiName} - {formatVietnameseCurrency(stats.nearestPayment.amount)}</p>
                 <p className="text-xs text-yellow-700 mt-1">
                   {stats.nearestPayment.daysLeft === 0 
@@ -276,15 +276,28 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        <Link href="/hui/create">
+          <button className="fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center z-40">
+            <Plus className="w-7 h-7" />
+          </button>
+        </Link>
       </div>
     );
   }
 
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Bảng thống kê</h1>
-        <p className="text-gray-500 mt-1">Tổng quan hoạt động tài chính của bạn</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Bảng thống kê</h1>
+          <p className="text-gray-500 mt-1">Tổng quan hoạt động tài chính của bạn</p>
+        </div>
+        <Link href="/hui/create">
+          <button className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg hover:shadow-xl font-medium">
+            <Plus className="w-5 h-5" />
+            Tạo Hụi Mới
+          </button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -306,8 +319,7 @@ export default function DashboardPage() {
           <div className="flex items-start gap-3">
             <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
             <div>
-              <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng góp</p>
-              <p className="text-sm text-gray-600">{stats.nearestPayment.huiName} - {formatVietnameseCurrency(stats.nearestPayment.amount)}</p>
+              <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng hụi - <span className="font-normal text-gray-600"> {stats.nearestPayment.huiName} - {formatVietnameseCurrency(stats.nearestPayment.amount)} </span> </p>
               <p className="text-xs text-yellow-700 mt-1">
                 {stats.nearestPayment.daysLeft === 0 
                   ? `Hôm nay (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})` 

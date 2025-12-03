@@ -109,38 +109,45 @@ export async function GET(request) {
     const userHuiGroups = allUserHuiGroups.filter(hui => hui.members.some(m => m.userId === userId));
 
     // Calculate nearest payment
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Check user settings first
+    const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { notificationPreferences: true } });
+    const notifyPaymentDue = currentUser?.notificationPreferences?.notifyPaymentDue !== false; // Default true
+
     let nearestPayment = null;
-    let minDiff = Infinity;
 
-    userHuiGroups.forEach(hui => {
-      hui.payments.forEach(payment => {
-        // Skip if user has already contributed
-        if (payment.memberContributions.length > 0) return;
-        // Skip if payment is settled or cancelled
-        if (payment.transactionStatus === 'DA_THANH_TOAN' || payment.transactionStatus === 'HUY') return;
-        // Skip if current user is the pot taker (they receive, don't pay contribution)
-        if (payment.potTakerMember?.userId === userId) return;
+    if (notifyPaymentDue) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let minDiff = Infinity;
 
-        const dueDate = new Date(payment.dueDate);
-        dueDate.setHours(0, 0, 0, 0);
-        const diffTime = dueDate.getTime() - today.getTime();
+      userHuiGroups.forEach(hui => {
+        hui.payments.forEach(payment => {
+          // Skip if user has already contributed
+          if (payment.memberContributions.length > 0) return;
+          // Skip if payment is settled or cancelled
+          if (payment.transactionStatus === 'DA_THANH_TOAN' || payment.transactionStatus === 'HUY') return;
+          // Skip if current user is the pot taker (they receive, don't pay contribution)
+          if (payment.potTakerMember?.userId === userId) return;
 
-        // Only look for future or today's payments
-        if (diffTime >= 0) {
-          if (diffTime < minDiff) {
-            minDiff = diffTime;
-            nearestPayment = {
-              huiName: hui.name,
-              amount: payment.thamKeu ? Number(hui.amount) - Number(payment.thamKeu) : Number(hui.amount),
-              dueDate: payment.dueDate,
-              daysLeft: Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-            };
+          const dueDate = new Date(payment.dueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          const diffTime = dueDate.getTime() - today.getTime();
+
+          // Only look for future or today's payments
+          if (diffTime >= 0) {
+            if (diffTime < minDiff) {
+              minDiff = diffTime;
+              nearestPayment = {
+                huiName: hui.name,
+                amount: payment.thamKeu ? Number(hui.amount) - Number(payment.thamKeu) : Number(hui.amount),
+                dueDate: payment.dueDate,
+                daysLeft: Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+              };
+            }
           }
-        }
+        });
       });
-    });
+    }
 
     let totalHui = userHuiGroups.length;
     let participatingHui = userHuiGroups.filter(h => h.status === 'ACTIVE').length;

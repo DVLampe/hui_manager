@@ -29,6 +29,7 @@ model User {
   bankAccountNumber String?
   bankAccountName   String?
   qrCodeUrl         String?
+  notificationPreferences Json? // { notifyPaymentDue: boolean, notifyGeneral: boolean }
   isActive      Boolean   @default(true)
   lastLoginAt   DateTime?
   createdAt     DateTime  @default(now())

@@ -206,18 +206,33 @@ export async function POST(request) {
         });
 
         // --- Create Notifications for initial members ---
-        const membersToNotify = initialMembers.filter(m => m.userId && m.userId !== bodyOwnerId);
-        if (membersToNotify.length > 0) {
-          const notificationData = membersToNotify.map(member => ({
-            userId: member.userId,
-            title: 'Lời mời tham gia nhóm',
-            message: `Bạn đã được thêm vào nhóm mới "${group.name}".`,
-            type: 'HUI_INVITATION',
-            link: `/hui/${group.id}`,
-          }));
-          await tx.notification.createMany({
-            data: notificationData,
-          });
+        const memberUserIds = initialMembers
+            .filter(m => m.userId && m.userId !== bodyOwnerId)
+            .map(m => m.userId);
+
+        if (memberUserIds.length > 0) {
+            const usersWithSettings = await tx.user.findMany({
+                where: { id: { in: memberUserIds } },
+                select: { id: true, notificationPreferences: true }
+            });
+
+            const notifyUserIds = usersWithSettings
+                .filter(u => u.notificationPreferences?.notifyGeneral !== false) // Default true
+                .map(u => u.id);
+
+            const notificationData = notifyUserIds.map(userId => ({
+                userId: userId,
+                title: 'Lời mời tham gia nhóm',
+                message: `Bạn đã được thêm vào nhóm mới "${group.name}".`,
+                type: 'HUI_INVITATION',
+                link: `/hui/${group.id}`,
+            }));
+
+            if (notificationData.length > 0) {
+                await tx.notification.createMany({
+                    data: notificationData,
+                });
+            }
         }
         // -----------------------------------------
       }

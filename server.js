@@ -72,6 +72,9 @@ io.on("connection", (socket) => {
             members: {
               select: {
                 userId: true,
+                user: {
+                  select: { notificationPreferences: true }
+                }
               },
             },
           },
@@ -79,7 +82,8 @@ io.on("connection", (socket) => {
 
         if (group && group.members) {
           const recipients = group.members.filter(
-            (member) => member.userId && member.userId !== userId
+            (member) => member.userId && member.userId !== userId &&
+            member.user?.notificationPreferences?.notifyGeneral !== false
           );
 
           const notificationData = recipients.map((recipient) => ({

@@ -116,15 +116,19 @@ export async function POST(request, { params }) {
 
         // --- Create Notification ---
         try {
-            await prisma.notification.create({
-                data: {
-                    userId: userId,
-                    title: 'Lời mời tham gia nhóm',
-                    message: `Bạn đã được mời vào nhóm "${group.name}".`,
-                    type: 'HUI_INVITATION',
-                    link: `/hui/${groupId}`,
-                },
-            });
+            const notifyGeneral = userToAdd.notificationPreferences?.notifyGeneral !== false; // Default true
+
+            if (notifyGeneral) {
+                await prisma.notification.create({
+                    data: {
+                        userId: userId,
+                        title: 'Lời mời tham gia nhóm',
+                        message: `Bạn đã được mời vào nhóm "${group.name}".`,
+                        type: 'HUI_INVITATION',
+                        link: `/hui/${groupId}`,
+                    },
+                });
+            }
         } catch (notificationError) {
             console.error('Failed to create notification for new member:', notificationError);
             // We don't want to fail the whole request if notification fails, so we just log it.
