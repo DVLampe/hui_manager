@@ -8,6 +8,7 @@ import Link from 'next/link';
 import PasswordInput from '@/components/auth/PasswordInput';
 import SocialLogins from '@/components/auth/SocialLogins';
 import { Users, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import Alert from '@/components/ui/Alert';
 
 const SignInPage = () => {
   const [email, setEmail] = useState('');
@@ -43,6 +44,7 @@ const SignInPage = () => {
         password,
       });
 
+      console.log('Sign in result:', result);
       if (result.error) {
         // Handle specific error from our authorize callback
         if (result.error === 'CredentialsSignin') {

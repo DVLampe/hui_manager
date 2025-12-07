@@ -2,6 +2,7 @@
 export default function Alert({
     type = 'info',
     title,
+    message,
     children,
     onClose,
     className = ''
@@ -30,7 +31,7 @@ export default function Alert({
             {title && (
               <h3 className="text-sm font-medium">{title}</h3>
             )}
-            <div className="text-sm">{children}</div>
+            <div className="text-sm">{message || children}</div>
           </div>
           {onClose && (
             <div className="ml-auto pl-3">

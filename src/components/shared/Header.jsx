@@ -38,20 +38,6 @@ export default function Header() {
           </>
         ) : (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => signIn()}
-              className="flex items-center"
-            >
-               <ArrowRightOnRectangleIcon className="h-5 w-5 mr-1" />
-              Đăng nhập
-            </Button>
-            <Link href="/register">
-              <Button variant="solid" size="sm" className="bg-red-600 hover:bg-red-700 text-white">
-                Đăng ký
-              </Button>
-            </Link>
           </>
         )}
       </div>

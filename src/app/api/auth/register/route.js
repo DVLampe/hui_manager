@@ -27,11 +27,27 @@ export async function POST(request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const premiumForeverPlan = await prisma.subscriptionPlan.findUnique({
+      where: { name: 'Premium Forever' },
+    });
+
+    if (!premiumForeverPlan) {
+      return new NextResponse(JSON.stringify({ error: 'Premium Forever plan not found' }), { status: 500 });
+    }
+
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
+        subscription: {
+          create: {
+            planId: premiumForeverPlan.id,
+            startDate: new Date(),
+            endDate: null,
+            isActive: true,
+          },
+        },
       },
     });
 

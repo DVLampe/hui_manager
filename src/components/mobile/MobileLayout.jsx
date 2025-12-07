@@ -32,9 +32,9 @@ const SideMenu = ({ onClose, onNavigate }) => (
             <Calendar className="w-5 h-5 text-gray-600" />
             <span className="font-medium text-gray-800">Danh sách Hụi</span>
           </button>
-          <button onClick={() => onNavigate('/friends')} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50">
+          <button onClick={() => onNavigate('/members')} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50">
             <UserPlus className="w-5 h-5 text-gray-600" />
-            <span className="font-medium text-gray-800">Bạn bè</span>
+            <span className="font-medium text-gray-800">Thành viên</span>
           </button>
           <button onClick={() => onNavigate('/profile')} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50">
             <User className="w-5 h-5 text-gray-600" />
@@ -111,7 +111,7 @@ export default function MobileLayout({ children }) {
   const getHeaderTitle = () => {
     if (pathname.includes('/dashboard')) return 'Hụi Online';
     if (pathname.includes('/hui')) return 'Danh sách Hụi';
-    if (pathname.includes('/friends')) return 'Bạn bè';
+    if (pathname.includes('/members')) return 'Thành viên';
     if (pathname.includes('/profile')) return 'Hồ sơ';
     return 'Hụi Online';
   };
@@ -146,7 +146,7 @@ export default function MobileLayout({ children }) {
         <div className="max-w-md mx-auto grid grid-cols-4 gap-1 p-2">
           <BottomNavItem href="/dashboard" icon={Users} label="Trang chủ" />
           <BottomNavItem href="/hui" icon={Calendar} label="Hụi" />
-          <BottomNavItem href="/friends" icon={UserPlus} label="Bạn bè" />
+          <BottomNavItem href="/members" icon={UserPlus} label="Thành viên" />
           <BottomNavItem href="/profile" icon={User} label="Cá nhân" />
         </div>
       </nav>

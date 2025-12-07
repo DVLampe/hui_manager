@@ -80,6 +80,33 @@ export async function POST(request) {
   }
   const creatorId = session.user.id; // The creator is the authenticated user
 
+  // Subscription check
+  const user = await prisma.user.findUnique({
+    where: { id: creatorId },
+    include: {
+      subscription: {
+        include: {
+          plan: true,
+        },
+      },
+      _count: {
+        select: { createdHuiGroups: true },
+      },
+    },
+  });
+
+  if (!user.subscription || !user.subscription.isActive) {
+    return NextResponse.json({ message: 'No active subscription found.' }, { status: 403 });
+  }
+
+  const { plan } = user.subscription;
+
+  if (plan.type === 'BASIC') {
+    if (user._count.createdHuiGroups >= plan.huiLimit) {
+      return NextResponse.json({ message: `You have reached the limit of ${plan.huiLimit} Hui groups for the Basic plan.` }, { status: 403 });
+    }
+  }
+
   try {
     const body = await request.json();
     const {

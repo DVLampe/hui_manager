@@ -64,6 +64,101 @@ async function main() {
   });
   console.log(`Upserted user: ${user3.name} with id: ${user3.id}`);
 
+  // Upsert Subscription Plans
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Trial' },
+    update: {},
+    create: {
+      name: 'Trial',
+      type: 'TRIAL',
+      price: 0,
+      duration: 14,
+      huiLimit: 0,
+      features: {},
+    },
+  });
+
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Basic' },
+    update: {},
+    create: {
+      name: 'Basic',
+      type: 'BASIC',
+      price: 0,
+      duration: 0,
+      huiLimit: 10,
+      features: {},
+    },
+  });
+
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Premium 1 Month' },
+    update: {},
+    create: {
+      name: 'Premium 1 Month',
+      type: 'PREMIUM',
+      price: 0,
+      duration: 30,
+      huiLimit: 0,
+      features: {},
+    },
+  });
+
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Premium 6 Months' },
+    update: {},
+    create: {
+      name: 'Premium 6 Months',
+      type: 'PREMIUM',
+      price: 0,
+      duration: 180,
+      huiLimit: 0,
+      features: {},
+    },
+  });
+
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Premium 12 Months' },
+    update: {},
+    create: {
+      name: 'Premium 12 Months',
+      type: 'PREMIUM',
+      price: 0,
+      duration: 365,
+      huiLimit: 0,
+      features: {},
+    },
+  });
+
+  const premiumForever = await prisma.subscriptionPlan.upsert({
+    where: { name: 'Premium Forever' },
+    update: {},
+    create: {
+      name: 'Premium Forever',
+      type: 'PREMIUM',
+      price: 0,
+      duration: 0,
+      huiLimit: 0,
+      features: {},
+    },
+  });
+
+  // Assign Premium Forever to all existing users
+  const allUsers = await prisma.user.findMany();
+  for (const user of allUsers) {
+    await prisma.userSubscription.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: {
+        userId: user.id,
+        planId: premiumForever.id,
+        startDate: new Date(),
+        endDate: null,
+        isActive: true,
+      },
+    });
+  }
+
   console.log('Seeding finished.');
 }
 
