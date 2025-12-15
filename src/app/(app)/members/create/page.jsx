@@ -89,11 +89,11 @@ export default function CreateMultipleMembersPage() {
   }, [huiIdFromUrl]);
 
 
-  const createMemberAPI = async (userId, groupId) => {
+  const createMemberAPI = async (memberData) => {
     const response = await fetch('/api/members', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, groupId: groupId }),
+      body: JSON.stringify(memberData),
     });
     if (!response.ok) {
       const errorData = await response.json();
@@ -114,10 +114,21 @@ export default function CreateMultipleMembersPage() {
     const memberCreationPromises = [];
 
     stagedMembers.forEach(member => {
+      const memberData = {
+        groupId: selectedHuiId,
+        ...(member.userId && { userId: member.userId }),
+        ...(member.guestName && { guestName: member.guestName }),
+      };
       memberCreationPromises.push(
-        createMemberAPI(member.userId, selectedHuiId)
-          .then(createdMember => results.succeeded.push(createdMember.user ? createdMember.user.name : member.userId))
-          .catch(error => results.failed.push({ userId: member.userId, error: error.message }))
+        createMemberAPI(memberData)
+          .then(createdMember => {
+            const name = createdMember.user ? createdMember.user.name : (createdMember.guest ? createdMember.guest.name : 'N/A');
+            results.succeeded.push(name);
+          })
+          .catch(error => {
+            const identifier = member.userId || member.guestName;
+            results.failed.push({ identifier, error: error.message });
+          })
       );
     });
 
@@ -132,11 +143,8 @@ export default function CreateMultipleMembersPage() {
       messageType = 'success';
     }
     if (results.failed.length > 0) {
-      const failedNames = results.failed.map(f => {
-        const user = allUsers.find(u => u.id === f.userId);
-        return user ? `${user.name} (${f.error})` : `${f.userId} (${f.error})`;
-      });
-      message += `Thêm thất bại ${results.failed.length} thành viên: ${failedNames.join(', ')}.`;
+      const failedDetails = results.failed.map(f => `${f.identifier} (${f.error})`);
+      message += `Thêm thất bại ${results.failed.length} thành viên: ${failedDetails.join(', ')}.`;
       messageType = results.succeeded.length > 0 ? 'warning' : 'error';
     }
     showToast({ message, type: messageType, duration: results.failed.length > 0 ? 7000 : 4000 });
@@ -198,6 +206,7 @@ export default function CreateMultipleMembersPage() {
           <AddMembersPanel
             onStagedMembersChange={setStagedMembers}
             totalMembers={currentHui.totalMembers}
+            existingMembersCount={currentHui.members?.length || 0}
           />
         )}
 

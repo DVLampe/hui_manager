@@ -180,12 +180,26 @@ export default function HuiDetailPage({ params }) {
         if (typeof str !== 'string' || !str.trim()) return null;
         return parseFloat(str.replace(/\./g, '').replace(',', '.'));
       };
+      
+      const parseDueDate = (dateStr) => {
+        if (!dateStr) return null;
+        // Parse DD/MM/YYYY format
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+          const year = parseInt(parts[2], 10);
+          return new Date(year, month, day);
+        }
+        return null;
+      };
+      
       return {
         period: parseInt(item.period, 10),
-        dueDate: item.dueDate,
+        dueDate: parseDueDate(item.dueDate),
         amount: parseLocaleNumber(String(item.amountDisplay)),
         potTakerMemberId: item.thanhVienHotHui || null,
-        amountCollected: parseLocaleNumber(String(item.tienHot)),
+        amountCollected: parseLocaleNumber(String(item.tienHot)), // Use recalculated value
         status: item.status,
         thamKeu: parseLocaleNumber(String(item.thamKeu)),
         thao: parseLocaleNumber(String(item.thao)),
@@ -597,12 +611,6 @@ export default function HuiDetailPage({ params }) {
               </div>
               {canManage && (
                 <div className="flex items-center gap-3">
-                  <Link href={`/hui/${params.id}/edit`}>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <Edit className="w-4 h-4" />
-                      <span className="text-sm font-medium">Chỉnh sửa hụi</span>
-                    </button>
-                  </Link>
                   <button 
                     onClick={() => setIsDeleteModalOpen(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"

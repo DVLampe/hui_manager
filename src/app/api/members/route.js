@@ -106,19 +106,41 @@ export async function POST(request) {
 
   try {
 
-    const body = await request.json()
+    const body = await request.json();
+    const { userId, groupId, guestName } = body;
 
-    if (!body.userId || !body.groupId) {
+    if (!groupId || (!userId && !guestName)) {
       return NextResponse.json(
-        { error: 'Missing required fields: userId and groupId are required.' },
+        { error: 'Missing required fields: groupId and either userId or guestName are required.' },
         { status: 400 }
       );
     }
 
+    // Handle guest member creation
+    if (guestName) {
+      const newGuestMember = await prisma.huiMember.create({
+        data: {
+          guestName: guestName,
+          group: {
+            connect: { id: groupId },
+          },
+          joinedAt: new Date(),
+          totalPaid: 0,
+          totalDue: 0,
+        },
+        select: {
+          id: true,
+          guestName: true,
+        }
+      });
+      return NextResponse.json(newGuestMember);
+    }
+
+    // Handle registered user member creation
     const existingMember = await prisma.huiMember.findFirst({
       where: {
-        userId: body.userId,
-        groupId: body.groupId
+        userId: userId,
+        groupId: groupId
       },
       select: { id: true }
     });
@@ -132,8 +154,8 @@ export async function POST(request) {
 
     const member = await prisma.huiMember.create({
       data: {
-        userId: body.userId,
-        groupId: body.groupId,
+        userId: userId,
+        groupId: groupId,
         joinedAt: body.joinedAt ? new Date(body.joinedAt) : new Date(),
         position: body.position,
         totalPaid: body.totalPaid || 0,

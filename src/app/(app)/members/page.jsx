@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button';
 import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
 import Input from '@/components/ui/Input';
-import { useToast } from '@/components/ui/Toaster';
+import { useToast, Toaster } from '@/components/ui/Toaster';
 import { UserPlus, UserGroupIcon, Users, Search, ArrowUpDown, Check, X, ChevronRight } from 'lucide-react';
 
 // Main component for the Friends/Members page
@@ -131,6 +131,7 @@ export default function FriendsPage() {
           )}
         </main>
       </div>
+      <Toaster />
     </>
   );
 }
@@ -265,6 +266,14 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Reset state when modal closes
+  const handleClose = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSendingRequest({});
+    onClose();
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     setIsSearching(true);
@@ -280,25 +289,35 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
     }
   };
 
+  const [sendingRequest, setSendingRequest] = useState({});
+
   const handleSendRequest = async (addresseeId) => {
+    console.log('handleSendRequest called with addresseeId:', addresseeId);
+    setSendingRequest(prev => ({ ...prev, [addresseeId]: true }));
     try {
+      console.log('Sending friend request to:', addresseeId);
       const response = await fetch('/api/friends', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addresseeId }),
       });
       
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to send friend request');
       }
 
-      showToast({ message: 'Friend request sent!', type: 'success' });
+      showToast({ message: 'Lời mời kết bạn đã được gửi!', type: 'success' });
       onFriendRequestSent();
-      onClose();
+      handleClose();
     } catch (err) {
-      showToast({ message: err.message, type: 'error' });
+      console.error('Error sending friend request:', err);
+      showToast({ message: err.message || 'Có lỗi xảy ra khi gửi lời mời', type: 'error' });
+    } finally {
+      setSendingRequest(prev => ({ ...prev, [addresseeId]: false }));
     }
   };
 
@@ -310,7 +329,7 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-800">Thêm bạn</h2>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-lg">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -326,6 +345,9 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
           <div className="border-t border-gray-200 pt-4">
             <p className="text-sm text-gray-500 mb-3">Kết quả tìm kiếm</p>
             <div className="space-y-2">
+              {searchResults.length === 0 && searchQuery && !isSearching && (
+                <p className="text-center text-gray-500 py-4">Không tìm thấy người dùng nào</p>
+              )}
               {searchResults.map(user => (
                 <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
@@ -337,8 +359,15 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
                       <p className="text-xs text-gray-500">{user.email}</p>
                     </div>
                   </div>
-                  <button onClick={() => handleSendRequest(user.id)} className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">
-                    Gửi lời mời
+                  <button 
+                    onClick={() => {
+                      console.log('Button clicked for user:', user.id, user.name);
+                      handleSendRequest(user.id);
+                    }} 
+                    disabled={sendingRequest[user.id]}
+                    className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {sendingRequest[user.id] ? 'Đang gửi...' : 'Gửi lời mời'}
                   </button>
                 </div>
               ))}
@@ -346,7 +375,7 @@ const AddFriendModal = ({ isOpen, onClose, onFriendRequestSent }) => {
           </div>
         </div>
         <div className="p-6 border-t border-gray-200">
-          <button onClick={onClose} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+          <button onClick={handleClose} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
             Đóng
           </button>
         </div>

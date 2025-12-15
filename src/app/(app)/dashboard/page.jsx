@@ -312,26 +312,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-
-      {/* Next Payment Alert for Desktop */}
-      {stats?.nearestPayment ? (
-        <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-l-4 border-yellow-500 rounded-lg p-4 mb-8 shadow-sm max-w-2xl">
-          <div className="flex items-start gap-3">
-            <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
-            <div>
-              <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng hụi - <span className="font-normal text-gray-600"> {stats.nearestPayment.huiName} - {formatVietnameseCurrency(stats.nearestPayment.amount)} </span> </p>
-              <p className="text-xs text-yellow-700 mt-1">
-                {stats.nearestPayment.daysLeft === 0 
-                  ? `Hôm nay (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})` 
-                  : `Còn ${stats.nearestPayment.daysLeft} ngày (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})`
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-
       <div className="bg-white rounded-xl p-6 border border-gray-200 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-800">Biểu đồ thống kê</h2>
@@ -352,6 +332,24 @@ export default function DashboardPage() {
           <DashboardChart chartData={stats?.monthlyStats} isLoading={isChartLoading} />
         </div>
       </div>
+
+      {/* Next Payment Alert for Desktop */}
+      {stats?.nearestPayment ? (
+        <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-l-4 border-yellow-500 rounded-lg p-4 mb-8 shadow-sm">
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
+            <div>
+              <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng hụi - <span className="font-normal text-gray-600"> {stats.nearestPayment.huiName} - {formatVietnameseCurrency(stats.nearestPayment.amount)} </span> </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                {stats.nearestPayment.daysLeft === 0 
+                  ? `Hôm nay (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})` 
+                  : `Còn ${stats.nearestPayment.daysLeft} ngày (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})`
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">

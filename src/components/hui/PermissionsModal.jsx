@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import Select from '@/components/ui/Select';
 
 export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
   const [permissions, setPermissions] = useState([]);
@@ -17,11 +16,15 @@ export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
+        console.log('Fetching users for permissions modal...');
         const response = await fetch('/api/users');
+        console.log('Users API response status:', response.status);
         if (response.ok) {
           const data = await response.json();
+          console.log('Users API response data:', data);
           if (Array.isArray(data)) {
             setAllUsers(data);
+            console.log('Set allUsers:', data);
           } else {
             console.error("API response for users is not an array:", data);
             setAllUsers([]);
@@ -35,15 +38,33 @@ export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
         setAllUsers([]);
       }
     };
-    fetchUsers();
-  }, []);
+    if (isOpen) { // Only fetch when modal is open
+      fetchUsers();
+    }
+  }, [isOpen]);
 
   const handleAddPermission = () => {
-    if (selectedUser && !permissions.some(p => p.userId === selectedUser)) {
-      const user = allUsers.find(u => u.id === selectedUser);
-      if (user) {
-        setPermissions([...permissions, { userId: selectedUser, user: { name: user.name } }]);
-      }
+    console.log('handleAddPermission called');
+    console.log('selectedUser:', selectedUser);
+    console.log('allUsers:', allUsers);
+    console.log('permissions:', permissions);
+    
+    if (!selectedUser) {
+      alert('Vui lòng chọn người dùng trước khi thêm!');
+      return;
+    }
+    
+    if (permissions.some(p => p.userId === selectedUser)) {
+      alert('Người dùng này đã có quyền quản lý!');
+      return;
+    }
+    
+    const user = allUsers.find(u => u.id === selectedUser);
+    if (user) {
+      setPermissions([...permissions, { userId: selectedUser, user: { name: user.name } }]);
+      setSelectedUser(''); // Reset selection after adding
+    } else {
+      alert('Không tìm thấy thông tin người dùng!');
     }
   };
 
@@ -63,12 +84,18 @@ export default function PermissionsModal({ isOpen, onClose, hui, onSave }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Thêm người quản lý</label>
           <div className="flex items-center gap-3">
-            <Select
-              options={userOptions}
+            <select
               value={selectedUser}
               onChange={(e) => setSelectedUser(e.target.value)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
+            >
+              <option value="">-- Chọn người dùng --</option>
+              {userOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <button onClick={handleAddPermission} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">Thêm</button>
           </div>
         </div>

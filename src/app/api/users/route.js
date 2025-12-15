@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Revert to the original NextResponse handling pattern
 const NextResponse = OriginalNextResponse.default ? OriginalNextResponse.default : OriginalNextResponse;
 
-// API to get the list of friends for the current user
+// API to get the list of friends for the current user or search for users
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,7 +16,51 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const userId = session.user.id;
+    
+    // Check if this is a search request
+    const url = new URL(request.url);
+    const searchQuery = url.searchParams.get('search');
 
+    if (searchQuery) {
+      // Search for users by email or phone
+      const users = await prisma.user.findMany({
+        where: {
+          AND: [
+            {
+              id: {
+                not: userId // Exclude current user
+              }
+            },
+            {
+              OR: [
+                {
+                  email: {
+                    contains: searchQuery,
+                    mode: 'insensitive'
+                  }
+                },
+                {
+                  phone: {
+                    contains: searchQuery
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true
+        },
+        take: 10 // Limit results
+      });
+
+      return NextResponse.json(users);
+    }
+
+    // Default behavior: get friends list
     const friendships = await prisma.friendship.findMany({
       where: {
         OR: [

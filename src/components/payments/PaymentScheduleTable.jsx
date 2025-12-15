@@ -134,9 +134,30 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
 
   const handleInputChange = (period, field, value) => {
     setEditableSchedule(currentSchedule =>
-      currentSchedule.map(item =>
-        item.period === period ? { ...item, [field]: value } : item
-      )
+      currentSchedule.map(item => {
+        if (item.period === period) {
+          const updatedItem = { ...item, [field]: value };
+          
+          // Recalculate Tiền hốt when Thăm kêu or Thảo changes
+          if (field === 'thamKeu' || field === 'thao') {
+            const soTienMoiKy = parseFloat(amount) || 0;
+            const tongSoKy = numberOfPeriods;
+            const soKyHienTai = period;
+            const thamKeuValue = parseFloat(String(field === 'thamKeu' ? value : updatedItem.thamKeu).replace(/[^\d.]/g, '')) || 0;
+            const thaoValue = parseFloat(String(field === 'thao' ? value : updatedItem.thao).replace(/[^\d.]/g, '')) || 0;
+            
+            // Correct Hụi formula: ((всего kỳ - номер текущего kỳ)*(số tiền mỗi kỳ - thăm kêu)+(номер текущего kỳ - 1)*số tiền mỗi kỳ)-Thảo
+            const part1 = (tongSoKy - soKyHienTai) * (soTienMoiKy - thamKeuValue);
+            const part2 = (soKyHienTai - 1) * soTienMoiKy;
+            const calculatedTienHot = part1 + part2 - thaoValue;
+            
+            updatedItem.tienHot = calculatedTienHot > 0 ? calculatedTienHot.toLocaleString('vi-VN') : '0';
+          }
+          
+          return updatedItem;
+        }
+        return item;
+      })
     );
   };
 
@@ -146,7 +167,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
         ...item,
         period: item.period,
         dueDate: item.dueDate, // Ensure dueDate is passed correctly
-        tienHot: item.tienHot ? String(item.tienHot).replace(/[^\d.]/g, '') : null,
+        tienHot: item.tienHot ? String(item.tienHot).replace(/[^\d.]/g, '') : null, // Now include recalculated tienHot
         memberId: item.thanhVienHotHui, // This will now correctly carry the potTakerMemberId
         amount: parseFloat(String(item.amountDisplay).replace(/[^\d.]/g, '')),
         thamKeu: item.thamKeu ? String(item.thamKeu).replace(/[^\d.]/g, '') : null,
@@ -407,15 +428,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
-                    {isEditing ? (
-                      <NumberInput
-                        value={item.tienHot}
-                        onChange={(e) => handleInputChange(item.period, 'tienHot', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-right"
-                      />
-                    ) : (
-                      formatNumber(item.tienHot)
-                    )}
+                    {formatNumber(item.tienHot)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {isEditing ? (

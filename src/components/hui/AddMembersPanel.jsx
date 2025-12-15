@@ -30,7 +30,7 @@ const UserListItem = ({ user, onAction, actionLabel, disabled }) => {
   );
 };
 
-export default function AddMembersPanel({ onStagedMembersChange, totalMembers, friends = [] }) {
+export default function AddMembersPanel({ onStagedMembersChange, totalMembers, existingMembersCount = 0, friends = [] }) {
   const { showToast } = useToast();
   const [allUsers, setAllUsers] = useState([]);
   const [loadingAllUsers, setLoadingAllUsers] = useState(false);
@@ -109,14 +109,14 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
     }).filter(Boolean);
   }, [allUsers, friends, stagedForAdditionUserIds]);
 
-  const remainingCapacity = totalMembers ? totalMembers - stagedForAdditionUserIds.size : Infinity;
+  const remainingCapacity = totalMembers ? totalMembers - existingMembersCount - stagedForAdditionUserIds.size : Infinity;
   const canStageMoreUsers = remainingCapacity > 0;
 
   const handleStageUser = (userId) => {
     if (canStageMoreUsers) {
       setStagedForAdditionUserIds(prevIds => new Set(prevIds).add(userId));
     } else {
-      showToast({ message: "Đã đạt số lượng thành viên tối đa cho hụi này.", type: 'warning' });
+      showToast({ message: `Không thể thêm thành viên. Hụi này chỉ có ${totalMembers} kỳ và đã có ${existingMembersCount} thành viên.`, type: 'warning' });
     }
   };
 
@@ -132,7 +132,7 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
       setGuestName('');
       setShowSuggestions(false);
     } else if (!canStageMoreUsers) {
-      showToast({ message: "Đã đạt số lượng thành viên tối đa cho hụi này.", type: 'warning' });
+      showToast({ message: `Không thể thêm khách. Hụi này chỉ có ${totalMembers} kỳ và đã có ${existingMembersCount} thành viên.`, type: 'warning' });
     }
   };
 
@@ -172,6 +172,11 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, f
         <div className="md:w-1/2 mt-6 md:mt-0 bg-white shadow-lg rounded-lg overflow-hidden">
           <h3 className="text-lg font-semibold px-6 py-4 text-gray-800 border-b border-gray-200">
             Thành viên sẽ thêm ({stagedForAdditionUserIds.size})
+            {totalMembers && (
+              <span className="text-sm font-normal text-gray-600 block">
+                Còn lại: {remainingCapacity}/{totalMembers} chỗ (Đã có: {existingMembersCount})
+              </span>
+            )}
           </h3>
           {rightPanelStagedUsers.length === 0 && (
             <p className="px-6 py-4 text-gray-500">Chưa chọn thành viên nào để thêm.</p>
