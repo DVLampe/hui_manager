@@ -456,7 +456,7 @@ export default function HuiDetailPage({ params }) {
         <Modal
           isOpen={true}
           onClose={() => setInvoiceData(null)}
-          title="Xem trước Hóa đơn"
+          title="Hốt tạo hóa đơn"
           size="4xl"
           footer={
             <div className="p-6 border-t border-gray-200 flex gap-3">
