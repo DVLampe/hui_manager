@@ -287,17 +287,9 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Bảng thống kê</h1>
-          <p className="text-gray-500 mt-1">Tổng quan hoạt động tài chính của bạn</p>
-        </div>
-        <Link href="/hui/create">
-          <button className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg hover:shadow-xl font-medium">
-            <Plus className="w-5 h-5" />
-            Tạo Hụi Mới
-          </button>
-        </Link>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">Bảng thống kê</h1>
+        <p className="text-gray-500 mt-1">Tổng quan hoạt động tài chính của bạn</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -333,23 +325,48 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Next Payment Alert for Desktop */}
-      {stats?.nearestPayment ? (
-        <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-l-4 border-yellow-500 rounded-lg p-4 mb-8 shadow-sm">
-          <div className="flex items-start gap-3">
-            <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
-            <div>
-              <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng hụi - <span className="font-normal text-gray-600"> {stats.nearestPayment.huiName} - {formatVietnameseCurrency(stats.nearestPayment.amount)} </span> </p>
-              <p className="text-xs text-yellow-700 mt-1">
-                {stats.nearestPayment.daysLeft === 0 
-                  ? `Hôm nay (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})` 
-                  : `Còn ${stats.nearestPayment.daysLeft} ngày (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})`
-                }
-              </p>
+      {/* Payment Alert and Create Button Section */}
+      <div className="relative mb-8">
+        {/* Next Payment Alert - Longer, reaching to center */}
+        {stats?.nearestPayment ? (
+          <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-l-4 border-yellow-500 rounded-lg p-4 shadow-sm w-1/2">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
+              <div>
+                <p className="font-bold text-gray-800 mb-1 text-sm">Sắp đến hạn đóng hụi</p>
+                <p className="font-normal text-gray-600 text-sm">{stats.nearestPayment.huiName}</p>
+                <p className="font-medium text-gray-800 text-sm">{formatVietnameseCurrency(stats.nearestPayment.amount)}</p>
+                <p className="text-xs text-yellow-700 mt-1">
+                  {stats.nearestPayment.daysLeft === 0 
+                    ? `Hôm nay (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})` 
+                    : `Còn ${stats.nearestPayment.daysLeft} ngày (${new Date(stats.nearestPayment.dueDate).toLocaleDateString('vi-VN')})`
+                  }
+                </p>
+              </div>
             </div>
           </div>
+        ) : (
+          <div className="bg-gradient-to-r from-green-50 to-green-100 border-l-4 border-green-500 rounded-lg p-4 shadow-sm w-1/2">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-green-600 mt-0.5" />
+              <div>
+                <p className="font-bold text-gray-800 mb-1 text-sm">Tuyệt vời!</p>
+                <p className="text-sm text-gray-600">Không có khoản đóng góp nào sắp đến hạn.</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Create New Hui Button - Absolutely centered */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <Link href="/hui/create">
+            <button className="flex items-center gap-2 px-8 py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg hover:shadow-xl font-medium text-lg">
+              <Plus className="w-6 h-6" />
+              Tạo Hụi Mới
+            </button>
+          </Link>
         </div>
-      ) : null}
+      </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">

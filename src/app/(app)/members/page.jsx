@@ -187,7 +187,6 @@ const FriendsList = ({ friends }) => {
                       <p className="text-sm text-gray-500">{friend.email}</p>
                     </div>
                   </div>
-                  <button className="text-red-600 hover:text-red-700 text-sm font-medium">Xem hồ sơ</button>
                 </div>
               ))}
             </div>
