@@ -3,22 +3,13 @@ import { formatVietnameseCurrency } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { t } from '@/lib/translations';
+import { getHuiStatusColor, getHuiStatusDisplayText } from '@/lib/huiStatus';
 
 export function HuiList({ huis, type = 'participating', tableRef }) {
     const router = useRouter();
 
     const handleRowClick = (huiId) => {
         router.push(`/hui/${huiId}`);
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'ACTIVE': return 'bg-green-100 text-green-700';
-            case 'PENDING': return 'bg-yellow-100 text-yellow-700';
-            case 'COMPLETED': return 'bg-blue-100 text-blue-700';
-            case 'CANCELLED': return 'bg-red-100 text-red-700';
-            default: return 'bg-gray-100 text-gray-600';
-        }
     };
 
     return (
@@ -44,8 +35,8 @@ export function HuiList({ huis, type = 'participating', tableRef }) {
                             <tr key={hui.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(hui.id)}>
                                 <td className="py-4 pl-4 pr-3 text-sm font-medium text-red-700 sm:pl-6">{hui.name}</td>
                                 <td className="px-3 py-4 text-sm">
-                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(hui.status)}`}>
-                                        {t(hui.status)}
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getHuiStatusColor(hui.status)}`}>
+                                        {getHuiStatusDisplayText(hui.status)}
                                     </span>
                                 </td>
                                 <td className="px-3 py-4 text-sm text-gray-500">{formatVietnameseCurrency(hui.amount)}</td>

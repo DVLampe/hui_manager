@@ -9,6 +9,8 @@ const formatDate = (dateString) => {
   return `${day}/${month}/${year}`;
 };
 
+import { getStatusDisplayText } from '@/lib/paymentStatus';
+
 // Helper function to format numbers with dot as thousands separator
 const formatNumber = (num) => {
   if (num === null || num === undefined || isNaN(parseFloat(num))) {
@@ -39,18 +41,6 @@ const getMemberOverallStatus = (memberId, currentPeriodData, allPeriodsData) => 
     return 'Hụi sống (Chưa hốt)';
 };
 
-const statusDisplayMap = {
-    CHUA_DEN_KY: 'Chưa đến kỳ',
-    CHO_THANH_TOAN: 'Chờ thanh toán',
-    DA_THANH_TOAN: 'Đã thanh toán',
-    HUY: 'Hủy',
-    CHUA_DONG: 'Chưa đóng',
-    DA_DONG: 'Đã đóng',
-    MIEN_DONG: 'Miễn đóng (Hốt)',
-    TRE_HAN: 'Trễ hạn',
-    CHO_XAC_NHAN: 'Chờ xác nhận',
-};
-
 export const exportDetailedScheduleToExcel = async (huiGroup) => {
     const XLSX = await import('xlsx');
     const { name: huiName, amount: groupBaseAmount, members: groupMembers, payments: groupPeriods } = huiGroup || {};
@@ -71,19 +61,27 @@ export const exportDetailedScheduleToExcel = async (huiGroup) => {
     groupPeriods.forEach(period => {
       allPeriodsData.push([`Kỳ ${period.period}`]);
       allPeriodsData.push(['Ngày đến hạn', formatDate(period.dueDate)]);
-      allPeriodsData.push(['Trạng thái kỳ', statusDisplayMap[period.transactionStatus] || period.transactionStatus]);
+      allPeriodsData.push(['Trạng thái kỳ', getStatusDisplayText(period.transactionStatus)]);
       allPeriodsData.push(['Người hốt hụi', period.potTakerMember?.user?.name || period.potTakerMember?.guestName || 'Chưa xác định']);
       allPeriodsData.push(['Tiền hốt (VNĐ)', formatNumber(period.amountCollected)]);
       allPeriodsData.push(['Thăm kêu (VNĐ)', formatNumber(period.thamKeu)]);
       allPeriodsData.push(['Thảo (VNĐ)', formatNumber(period.thao)]);
       allPeriodsData.push([]);
-      allPeriodsData.push(['Thành viên', 'Số tiền đóng (VNĐ)', 'Trạng thái thành viên']);
+      allPeriodsData.push(['Thành viên', 'Số tiền đóng', 'Trạng thái thành viên']);
 
       groupMembers.forEach(member => {
         const isPotTakerThisPeriod = member.id === period.potTakerMemberId;
         const hasTakenPotPreviously = groupPeriods.some(p => p.period < period.period && p.potTakerMemberId === member.id && p.status === 'DA_THANH_TOAN');
+        
+        // First check if there's an actual contribution record
+        const contributionRecord = period.memberContributions?.find(c => c.memberId === member.id);
+        
         let individualPaymentAmount = null;
-        if (period.status === 'DA_THANH_TOAN' || period.status === 'CHO_THANH_TOAN') {
+        if (contributionRecord) {
+          // Use actual contributed amount from database
+          individualPaymentAmount = parseFloat(contributionRecord.amountContributed);
+        } else if (period.transactionStatus === 'DA_THANH_TOAN' || period.transactionStatus === 'CHO_THANH_TOAN') {
+          // Fall back to calculated amount if no contribution record exists
           if (isPotTakerThisPeriod) {
             individualPaymentAmount = 0;
           } else if (hasTakenPotPreviously) {
@@ -141,9 +139,17 @@ export const exportDetailedScheduleToPDF = async (huiGroup) => {
       let subRowsHtml = '';
       groupMembers.forEach(member => {
         const isPotTakerThisPeriod = member.id === period.potTakerMemberId;
-        const hasTakenPotPreviously = groupPeriods.some(p => p.period < period.period && p.potTakerMemberId === member.id && p.status === 'DA_THANH_TOAN');
+        const hasTakenPotPreviously = groupPeriods.some(p => p.period < period.period && p.potTakerMemberId === member.id && p.transactionStatus === 'DA_THANH_TOAN');
+        
+        // First check if there's an actual contribution record
+        const contributionRecord = period.memberContributions?.find(c => c.memberId === member.id);
+        
         let individualPaymentAmount = null;
-        if (period.status === 'DA_THANH_TOAN' || period.status === 'CHO_THANH_TOAN') {
+        if (contributionRecord) {
+          // Use actual contributed amount from database
+          individualPaymentAmount = parseFloat(contributionRecord.amountContributed);
+        } else if (period.transactionStatus === 'DA_THANH_TOAN' || period.transactionStatus === 'CHO_THANH_TOAN') {
+          // Fall back to calculated amount if no contribution record exists
           if (isPotTakerThisPeriod) {
             individualPaymentAmount = 0;
           } else if (hasTakenPotPreviously) {
@@ -166,7 +172,7 @@ export const exportDetailedScheduleToPDF = async (huiGroup) => {
           <h4 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 4px;">Chi tiết Kỳ ${period.period}</h4>
           <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; font-size: 14px; margin-bottom: 16px;">
             <p><strong>Ngày đến hạn:</strong> ${formatDate(period.dueDate)}</p>
-            <p><strong>Trạng thái kỳ:</strong> ${statusDisplayMap[period.transactionStatus] || period.transactionStatus}</p>
+            <p><strong>Trạng thái kỳ:</strong> ${getStatusDisplayText(period.transactionStatus)}</p>
             <p><strong>Người hốt hụi:</strong> ${period.potTakerMember?.user?.name || period.potTakerMember?.guestName || 'Chưa xác định'}</p>
             <p><strong>Tiền hốt (VNĐ):</strong> ${formatNumber(period.amountCollected) || 'N/A'}</p>
             <p><strong>Thăm kêu (VNĐ):</strong> ${formatNumber(period.thamKeu)}</p>
@@ -177,7 +183,7 @@ export const exportDetailedScheduleToPDF = async (huiGroup) => {
             <thead style="background-color: #f9fafb;">
               <tr>
                 <th style="padding: 8px 16px; text-align: left; font-size: 12px; font-weight: 500; color: #374151; text-transform: uppercase;">Thành viên</th>
-                <th style="padding: 8px 16px; text-align: right; font-size: 12px; font-weight: 500; color: #374151; text-transform: uppercase;">Số tiền đóng (VNĐ)</th>
+                <th style="padding: 8px 16px; text-align: right; font-size: 12px; font-weight: 500; color: #374151; text-transform: uppercase;">Số tiền đóng</th>
                 <th style="padding: 8px 16px; text-align: left; font-size: 12px; font-weight: 500; color: #374151; text-transform: uppercase;">Trạng thái thành viên</th>
               </tr>
             </thead>

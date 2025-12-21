@@ -4,6 +4,7 @@ import NumberInput from '@/components/ui/NumberInput';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatNumber } from '@/lib/utils';
 import { Download, ChevronDown } from 'lucide-react';
+import { getStatusColor, getStatusDisplayText, PAYMENT_STATUS } from '@/lib/paymentStatus';
 
 // Helper function to format date as DD/MM/YYYY
 const formatDate = (date) => {
@@ -103,9 +104,9 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
             dueDate.setMonth(dueDate.getMonth() + i);
           }
 
-          let initialDisplayStatus = 'CHO_THANH_TOAN';
+          let initialDisplayStatus = PAYMENT_STATUS.CHO_THANH_TOAN;
           if (dueDate > today) {
-            initialDisplayStatus = 'CHUA_DEN_KY';
+            initialDisplayStatus = PAYMENT_STATUS.CHUA_DEN_KYS.CHUA_DEN_KY;
           }
 
           const paymentForPeriod = huiGroup.payments?.find(p => {
@@ -271,7 +272,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
       'Thăm kêu': item.thamKeu,
       'Thảo': item.thao,
       'Tiền hốt (VNĐ)': item.tienHot,
-      'Trạng thái': statusDisplayMap[item.status] || item.status,
+      'Trạng thái': getStatusDisplayText(item.status),
     }));
 
     const huiInfoSheet = XLSX.utils.json_to_sheet(huiInfo, { header: ["A", "B"], skipHeader: true });
@@ -284,31 +285,6 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
 
     XLSX.writeFile(workbook, `lich-thanh-toan-${huiName}.xlsx`);
     setShowExportOptions(false);
-  };
-
-  const statusDisplayMap = {
-    CHUA_DEN_KY: 'Chưa đến kỳ',
-    CHO_THANH_TOAN: 'Chờ thanh toán',
-    DA_THANH_TOAN: 'Đã thanh toán',
-    HUY: 'Hủy',
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'DA_THANH_TOAN':
-      case 'DA_DONG':
-        return 'bg-green-100 text-green-700';
-      case 'CHO_THANH_TOAN':
-      case 'CHO_XAC_NHAN':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'HUY':
-      case 'TRE_HAN':
-        return 'bg-red-100 text-red-700';
-      case 'MIEN_DONG':
-        return 'bg-blue-100 text-blue-700';
-      default:
-        return 'bg-gray-100 text-gray-600';
-    }
   };
 
   return (
@@ -446,7 +422,7 @@ const PaymentScheduleTable = ({ huiGroup, currentDateString, onSaveChanges, disa
                       </select>
                     ) : (
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(item.status)}`}>
-                        {statusDisplayMap[item.status] || item.status}
+                        {getStatusDisplayText(item.status)}
                       </span>
                     )}
                   </td>

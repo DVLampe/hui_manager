@@ -98,9 +98,27 @@ const SummaryPage = ({ hui, period, potTaker, calculationDetails, bankInfo }) =>
           </div>
         </div>
         <div className="w-1/2 flex justify-center items-center">
-          <div className="w-32 h-32 bg-gray-300 flex items-center justify-center mr-4">
-            <p className="text-gray-500 text-sm">QR Code</p>
-          </div>
+          {bankInfo?.qrCodeUrl ? (
+            <div className="w-32 h-32 mr-4">
+              {(() => {
+                const urlParts = bankInfo.qrCodeUrl.split('/');
+                const key = urlParts.slice(3).join('/');
+                const secureUrl = `/api/files/${key}`;
+                return (
+                  <img 
+                    src={secureUrl} 
+                    alt="QR Code" 
+                    className="w-full h-full object-contain border-2 border-gray-300 rounded-lg"
+                  />
+                );
+              })()
+            }
+            </div>
+          ) : (
+            <div className="w-32 h-32 bg-gray-300 flex items-center justify-center mr-4">
+              <p className="text-gray-500 text-sm">QR Code</p>
+            </div>
+          )}
           <BankInfoDisplay bankInfo={bankInfo} />
         </div>
       </div>
@@ -152,9 +170,27 @@ const InvoicePage = ({ hui, period, member, memberType, amount, bankInfo }) => (
         </p>
       </div>
       <div className="w-1/2 flex justify-center items-center">
-        <div className="w-32 h-32 bg-gray-300 flex items-center justify-center mr-4">
-          <p className="text-gray-500 text-sm">QR Code</p>
-        </div>
+        {bankInfo?.qrCodeUrl ? (
+          <div className="w-32 h-32 mr-4">
+            {(() => {
+              const urlParts = bankInfo.qrCodeUrl.split('/');
+              const key = urlParts.slice(3).join('/');
+              const secureUrl = `/api/files/${key}`;
+              return (
+                <img 
+                  src={secureUrl} 
+                  alt="QR Code" 
+                  className="w-full h-full object-contain border-2 border-gray-300 rounded-lg"
+                />
+              );
+            })()
+          }
+          </div>
+        ) : (
+          <div className="w-32 h-32 bg-gray-300 flex items-center justify-center mr-4">
+            <p className="text-gray-500 text-sm">QR Code</p>
+          </div>
+        )}
         <BankInfoDisplay bankInfo={bankInfo} />
       </div>
     </div>

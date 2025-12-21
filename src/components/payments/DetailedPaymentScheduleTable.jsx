@@ -4,6 +4,7 @@ import { t } from '@/lib/translations';
 import { formatDate, formatNumber } from '@/lib/utils';
 import { CheckCircle, Download, ChevronDown } from 'lucide-react';
 import { exportDetailedScheduleToExcel, exportDetailedScheduleToPDF } from '@/lib/export';
+import { getStatusColor, getStatusDisplayText, normalizeStatus, PAYMENT_STATUS } from '@/lib/paymentStatus';
 
 const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
   const [scheduleDetails, setScheduleDetails] = useState([]);
@@ -28,7 +29,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
     [...groupPeriods]
       .sort((a, b) => a.period - b.period)
       .forEach(p => {
-        if (p.status === 'DA_THANH_TOAN' && p.potTakerMemberId) {
+        if (p.status === PAYMENT_STATUS.DA_THANH_TOAN && p.potTakerMemberId) {
             membersWhoHaveTakenPot.add(p.potTakerMemberId);
         }
       });
@@ -45,7 +46,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
         potTakerMemberId: periodPayment.potTakerMemberId,
         potTakerName: periodPayment.potTakerMember?.user?.name || periodPayment.potTakerMember?.guestName || 'Chưa xác định',
         amountCollected: periodPayment.amountCollected,
-        status: periodPayment.transactionStatus || 'CHUA_DEN_KY',
+        status: normalizeStatus(periodPayment.transactionStatus) || PAYMENT_STATUS.CHUA_DEN_KY,
         thamKeu: periodPayment.thamKeu,
         thao: periodPayment.thao,
         memberContributions: periodPayment.memberContributions || [],
@@ -58,7 +59,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
       // Keep track of members who have taken the pot up to the period *before* the current one.
       const membersWhoTookPotBeforeThisPeriod = new Set();
        groupPeriods.forEach(p => {
-        if (p.period < periodDetail.period && p.status === 'DA_THANH_TOAN' && p.potTakerMemberId) {
+        if (p.period < periodDetail.period && p.status === PAYMENT_STATUS.DA_THANH_TOAN && p.potTakerMemberId) {
             membersWhoTookPotBeforeThisPeriod.add(p.potTakerMemberId);
         }
       });
@@ -71,7 +72,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
         let individualPaymentAmount = null;
         if (contributionRecord) {
           individualPaymentAmount = parseFloat(contributionRecord.amountContributed);
-        } else if (periodDetail.status === 'DA_THANH_TOAN' || periodDetail.status === 'CHO_THANH_TOAN') {
+        } else if (periodDetail.status === PAYMENT_STATUS.DA_THANH_TOAN || periodDetail.status === PAYMENT_STATUS.CHO_THANH_TOAN) {
           if (isPotTakerThisPeriod) {
             individualPaymentAmount = 0;
           } else if (hasTakenPotPreviously) {
@@ -95,9 +96,9 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
     setScheduleDetails(generatedScheduleDetails);
 
     // Auto-select the most relevant period
-    let currentPeriodIndex = generatedScheduleDetails.findIndex(p => p.rawDueDate >= today && p.status !== 'DA_THANH_TOAN');
+    let currentPeriodIndex = generatedScheduleDetails.findIndex(p => p.rawDueDate >= today && p.status !== PAYMENT_STATUS.DA_THANH_TOAN);
     if (currentPeriodIndex === -1) {
-        currentPeriodIndex = generatedScheduleDetails.findIndex(p => p.status === 'CHO_THANH_TOAN');
+        currentPeriodIndex = generatedScheduleDetails.findIndex(p => p.status === PAYMENT_STATUS.CHO_THANH_TOAN);
     }
     if (currentPeriodIndex === -1 && generatedScheduleDetails.length > 0) {
         currentPeriodIndex = generatedScheduleDetails.length - 1; // Fallback to last if all paid
@@ -106,51 +107,19 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
 
   }, [huiGroup, currentDateString, groupBaseAmount, groupMembers, groupPeriods]);
 
-  const statusDisplayMap = {
-    CHUA_DEN_KY: 'Chưa đến kỳ',
-    CHO_THANH_TOAN: 'Chờ thanh toán',
-    DA_THANH_TOAN: 'Đã thanh toán',
-    HUY: 'Hủy',
-    CHUA_DONG: 'Chưa đóng',
-    DA_DONG: 'Đã đóng',
-    MIEN_DONG: 'Miễn đóng (Hốt)',
-    TRE_HAN: 'Trễ hạn',
-    CHO_XAC_NHAN: 'Chờ xác nhận',
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'DA_THANH_TOAN':
-      case 'DA_DONG':
-        return 'bg-green-100 text-green-700 ring-green-600/20';
-      case 'CHO_THANH_TOAN':
-      case 'CHO_XAC_NHAN':
-        return 'bg-yellow-100 text-yellow-800 ring-yellow-600/20';
-      case 'HUY':
-      case 'TRE_HAN':
-        return 'bg-red-100 text-red-700 ring-red-600/20';
-      case 'MIEN_DONG':
-        return 'bg-blue-100 text-blue-700 ring-blue-600/20';
-      case 'CHUA_DEN_KY':
-      case 'CHUA_DONG':
-      default:
-        return 'bg-gray-100 text-gray-600 ring-gray-500/10';
-    }
-  };
-
   const getMemberOverallStatus = (memberId, currentPeriodData, allPeriodsData) => {
     if (!currentPeriodData || !allPeriodsData || allPeriodsData.length === 0) return 'N/A';
 
     if (memberId === currentPeriodData.potTakerMemberId) {
-      if (currentPeriodData.status === 'DA_THANH_TOAN') return 'Hốt hụi (Đã nhận)';
-      if (currentPeriodData.status === 'CHO_THANH_TOAN') return 'Hốt hụi (Đến lượt)';
+      if (currentPeriodData.status === PAYMENT_STATUS.DA_THANH_TOAN) return 'Hốt hụi (Đã nhận)';
+      if (currentPeriodData.status === PAYMENT_STATUS.CHO_THANH_TOAN) return 'Hốt hụi (Đến lượt)';
       return 'Hốt hụi (Sẽ hốt)';
     }
 
     const hasTakenPotPreviously = allPeriodsData.some(p =>
         p.period < currentPeriodData.period &&
         p.potTakerMemberId === memberId &&
-        p.status === 'DA_THANH_TOAN'
+        p.status === PAYMENT_STATUS.DA_THANH_TOAN
     );
 
     if (hasTakenPotPreviously) {
@@ -214,9 +183,9 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Kỳ {p.period}</span>
-                  {p.status === 'DA_THANH_TOAN' && (
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                  )}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${getStatusColor(p.status)}`}>
+                    {getStatusDisplayText(p.status)}
+                  </span>
                 </div>
                 <span className="text-xs opacity-75">{p.dueDate}</span>
               </button>
@@ -232,7 +201,9 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
                   <p><span className="text-gray-500">Ngày đến hạn:</span> <span className="font-medium">{selectedPeriodData.dueDate}</span></p>
                   <p><span className="text-gray-500">Trạng thái kỳ:</span>
-                    {t(selectedPeriodData.status)}
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ml-2 ${getStatusColor(selectedPeriodData.status)}`}>
+                      {getStatusDisplayText(selectedPeriodData.status)}
+                    </span>
                   </p>
                   <p><span className="text-gray-500">Tiền hốt (VNĐ):</span> <span className="font-medium">{formatNumber(selectedPeriodData.amountCollected) || 'N/A'}</span></p>
                   <p className="col-span-2 md:col-span-1"><span className="text-gray-500">Người hốt hụi:</span> <span className="font-medium">{selectedPeriodData.potTakerName}</span></p>
@@ -248,7 +219,7 @@ const DetailedPaymentScheduleTable = ({ huiGroup, currentDateString }) => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thành viên</th>
-                        <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền đóng (VNĐ)</th>
+                        <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền đóng</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái thành viên</th>
                       </tr>
                     </thead>

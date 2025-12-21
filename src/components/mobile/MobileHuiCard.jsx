@@ -2,6 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { formatVietnameseCurrency } from '@/lib/utils';
+import { getHuiStatusColor, getHuiStatusDisplayText } from '@/lib/huiStatus';
 
 export default function MobileHuiCard({ hui, viewMode }) {
   // Mock data for demonstration until API is ready
@@ -16,10 +17,8 @@ export default function MobileHuiCard({ hui, viewMode }) {
     <Link href={`/hui/${hui.id}`} className="block bg-white rounded-xl p-4 border border-gray-200 shadow-sm active:scale-98 transition-transform">
       <div className="flex items-start justify-between mb-3">
         <h3 className="font-bold text-gray-800">{hui.name}</h3>
-        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-          hui.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-        }`}>
-          {hui.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đang chờ'}
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getHuiStatusColor(hui.status)}`}>
+          {getHuiStatusDisplayText(hui.status)}
         </span>
       </div>
       <div className="grid grid-cols-3 gap-2 text-sm mb-3">
