@@ -1,37 +1,47 @@
+# Hui Manager
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+Hui Manager app is a full-featured service for managing rotating savings and credit associations (ROSCA). The platform allows users to create and manage hụi groups, track contributions and payouts by period, and view overall statistics for all active and completed hụi.
+
+## Key Features
+
+- **ROSCA Group Management:** Create, edit, and archive groups.
+- **Period-based Accounting:** Detailed tracking of contributions and payouts for each member in every period.
+- **Statistics:** Overall statistics for all hụi with filtering and analysis capabilities.
+- **Data Export:** Export reports in Excel and PDF formats.
+- **Group Chat:** Built-in chat for communication among group members.
+- **Member Management:** Functionality to search for, add, and manage members.
+
+## Screenshots
+
+Here are some screenshots of the application:
+
+| Screenshot 1 | Screenshot 2 | Screenshot 3 |
+| :---: | :---: | :---: |
+| ![Dashbord](public/dashbord_screen.png) | ![Group List](public/hui_list_screen.png) | ![Saving group](public/saving_group_screen.png)
+
+## Technology Stack
+
+- **Web Application:** [Next.js](https://nextjs.org/)
+- **Mobile Version:** [Capacitor](https://capacitorjs.com/)
+- **Database:** [PostgreSQL](https://www.postgresql.org/) with [Prisma](https://www.prisma.io/)
+- **Authentication:** [NextAuth.js](https://next-auth.js.org/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+
+## Deployment
+
+The project is planned to be deployed on a VPS using:
+
+- **Containerization:** [Docker](https://www.docker.com/)
+- **Web Server:** [NGINX](https://www.nginx.com/)
+- **CI/CD:** [GitLab CI/CD](https://docs.gitlab.com/ee/ci/)
 
 ## Getting Started
 
-First, run the development server:
+To run the project in development mode, execute the following commands:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the result.
