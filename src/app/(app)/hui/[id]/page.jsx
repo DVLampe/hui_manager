@@ -248,6 +248,10 @@ export default function HuiDetailPage({ params }) {
       return;
     }
     resetHotHuiForm();
+    // Automatically select the next available period
+    if (availableKyOptions.length > 0) {
+      setHotHuiKy(availableKyOptions[0].value);
+    }
     setIsHotHuiModalOpen(true);
   };
 

@@ -6,11 +6,12 @@ import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
 import Input from '@/components/ui/Input';
 import { useToast, Toaster } from '@/components/ui/Toaster';
-import { UserPlus, UserGroupIcon, Users, Search, ArrowUpDown, Check, X, ChevronRight } from 'lucide-react';
+import { UserPlus, UserGroupIcon, Users, Search, ArrowUpDown, Check, X, ChevronRight, QrCode } from 'lucide-react';
+import QrCodeScannerModal from '@/components/QrCodeScannerModal';
 
 // Main component for the Friends/Members page
 export default function FriendsPage() {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const { showToast } = useToast();
   
   // State for data
@@ -23,6 +24,7 @@ export default function FriendsPage() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'requests'
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   // Data fetching
   const fetchFriendsData = async () => {
@@ -68,6 +70,17 @@ export default function FriendsPage() {
     }
   };
 
+  const handleScanSuccess = (decodedText, decodedResult) => {
+    console.log(`Scan result: ${decodedText}`, decodedResult);
+    // Here you would typically redirect to the user's profile page
+    // For example: window.location.href = decodedText;
+    alert(`Scanned: ${decodedText}`);
+    setIsQrModalOpen(false);
+  };
+
+  // Assuming the user's profile link is constructed this way
+  const userProfileLink = session?.user?.id ? `${window.location.origin}/members/${session.user.id}` : "";
+
   // Render logic
   if (loading) return <Loading message="Đang tải..." />;
   if (error) return <Alert type="error" message={error} />;
@@ -79,18 +92,61 @@ export default function FriendsPage() {
         onClose={() => setIsAddFriendModalOpen(false)}
         onFriendRequestSent={fetchFriendsData}
       />
-      <div className="flex gap-6">
-        <aside className="w-64 flex-shrink-0">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sticky top-24">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Bạn bè</h2>
-            <button 
-              onClick={() => setIsAddFriendModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors mb-4 font-medium"
-            >
-              <UserPlus className="w-4 h-4" />
-              Thêm bạn
-            </button>
-            <nav className="space-y-1">
+      <QrCodeScannerModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        onScanSuccess={handleScanSuccess}
+        userProfileLink={userProfileLink}
+        userName={session?.user?.name}
+      />
+      <div className="flex flex-col lg:flex-row lg:gap-6">
+        {/* --- Mobile & Desktop Navigation --- */}
+        <aside className="lg:w-64 lg:flex-shrink-0">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 lg:sticky lg:top-24">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-800">Bạn bè</h2>
+                <button 
+                  onClick={() => setIsAddFriendModalOpen(true)}
+                  className="lg:w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden lg:inline">Thêm bạn</span>
+                </button>
+            </div>
+            
+            {/* Tab navigation for mobile */}
+            <nav className="lg:hidden border-b border-gray-200 mb-4">
+              <div className="flex -mb-px">
+                <button
+                  onClick={() => setActiveTab('friends')}
+                  className={`flex-1 py-3 px-1 text-center text-sm font-medium transition-colors ${
+                    activeTab === 'friends'
+                      ? 'border-b-2 border-red-600 text-red-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Bạn bè
+                </button>
+                <button
+                  onClick={() => setActiveTab('requests')}
+                  className={`flex-1 py-3 px-1 text-center text-sm font-medium transition-colors relative ${
+                    activeTab === 'requests'
+                      ? 'border-b-2 border-red-600 text-red-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Lời mời
+                  {(pendingRequests.length + sentRequests.length) > 0 && (
+                    <span className="absolute top-2 right-2 bg-red-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                      {pendingRequests.length + sentRequests.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </nav>
+
+            {/* Sidebar navigation for desktop */}
+            <nav className="hidden lg:block space-y-1">
               <button
                 onClick={() => setActiveTab('friends')}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
@@ -120,8 +176,10 @@ export default function FriendsPage() {
             </nav>
           </div>
         </aside>
-        <main className="flex-1">
-          {activeTab === 'friends' && <FriendsList friends={friends} />}
+
+        {/* --- Main Content --- */}
+        <main className="flex-1 mt-4 lg:mt-0">
+          {activeTab === 'friends' && <FriendsList friends={friends} onQrButtonClick={() => setIsQrModalOpen(true)} />}
           {activeTab === 'requests' && (
             <FriendRequests
               pendingRequests={pendingRequests}
@@ -137,7 +195,7 @@ export default function FriendsPage() {
 }
 
 // Component for the Friends List Tab
-const FriendsList = ({ friends }) => {
+const FriendsList = ({ friends, onQrButtonClick }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortAZ, setSortAZ] = useState(true);
 
@@ -166,9 +224,18 @@ const FriendsList = ({ friends }) => {
             <span className="text-sm font-medium">{sortAZ ? 'A → Z' : 'Z → A'}</span>
           </button>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input type="text" placeholder="Tìm kiếm bạn bè..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input type="text" placeholder="Tìm kiếm bạn bè..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+          </div>
+          <button 
+            onClick={onQrButtonClick}
+            className="p-2 border rounded-lg dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
+            title="Tìm kiếm bằng mã QR"
+          >
+            <QrCode size={24} className="text-gray-600"/>
+          </button>
         </div>
       </div>
       <div className="p-6">

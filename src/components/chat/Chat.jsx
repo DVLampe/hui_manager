@@ -51,29 +51,25 @@ const Chat = ({ huiId }) => {
     if (!file || !session?.user?.id) return;
 
     setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("huiId", huiId);
+    formData.append("uploadType", "chatFile");
 
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            fileName: file.name, 
-            fileType: file.type, 
-            fileSize: file.size,
-            huiId: huiId 
-        }),
+        body: formData,
       });
 
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed to get presigned URL');
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to upload file');
       
-      const { uploadUrl, fileUrl } = await res.json();
-
-      await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      const { url } = await res.json();
 
       socket.emit('sendMessage', {
         huiId,
         userId: session.user.id,
-        fileUrl,
+        fileUrl: url,
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,

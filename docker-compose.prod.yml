@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: $IMAGE_TAG # This is a placeholder, the actual tag is set in gitlab-ci
+    container_name: hui-manager-app-prod
+    restart: unless-stopped
+    # Environment variables will be injected by GitLab CI/CD
+    # For local testing, you can uncomment the line below:
+    # env_file: .env.local
+    networks:
+      - hui-net
+
+  socket:
+    image: $IMAGE_TAG # Use the same image as the app
+    container_name: hui-manager-socket-prod
+    restart: unless-stopped
+    command: ["node", "server.js"] # Override the default command
+    # env_file: .env.local
+    networks:
+      - hui-net
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: hui-manager-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf
+      # The volumes below are for SSL certificates
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    depends_on:
+      - app
+      - socket
+    networks:
+      - hui-net
+
+  certbot:
+    image: certbot/certbot
+    container_name: hui-manager-certbot-prod
+    restart: unless-stopped
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    # The command will run certbot renew every 12 hours
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+networks:
+  hui-net:
+    driver: bridge

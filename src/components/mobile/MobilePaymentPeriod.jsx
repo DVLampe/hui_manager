@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { t } from '@/lib/translations';
 import { formatVietnameseCurrency } from '@/lib/utils';
@@ -7,6 +7,47 @@ import { getStatusColor, getStatusDisplayText, normalizeStatus } from '@/lib/pay
 
 export default function MobilePaymentPeriod({ payment, hui }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const { huiSongMembers, huiChetMembers, potTakerDetails } = useMemo(() => {
+    if (!hui || !payment) {
+      return { huiSongMembers: [], huiChetMembers: [], potTakerDetails: null };
+    }
+
+    const currentPotTaker = payment.potTakerMemberId 
+      ? hui.members.find(m => m.id === payment.potTakerMemberId) 
+      : null;
+
+    if (!currentPotTaker) {
+      return { huiSongMembers: [], huiChetMembers: [], potTakerDetails: null };
+    }
+
+    const membersWhoHaveTakenPotBefore = new Set(
+      hui.payments
+        .filter(p => p.period < payment.period && p.potTakerMemberId)
+        .map(p => p.potTakerMemberId)
+    );
+
+    const song = hui.members.filter(m => 
+      m.id !== currentPotTaker.id && !membersWhoHaveTakenPotBefore.has(m.id)
+    );
+    
+    const chet = hui.members.filter(m => 
+      m.id !== currentPotTaker.id && membersWhoHaveTakenPotBefore.has(m.id)
+    );
+
+    const paidMembers = new Set(payment.details?.filter(d => d.status === 'DA_DONG').map(d => d.memberId));
+    const unpaidMembers = new Set(payment.details?.filter(d => d.status === 'CHUA_DONG').map(d => d.memberId));
+
+    return { 
+      huiSongMembers: song, 
+      huiChetMembers: chet,
+      potTakerDetails: {
+        ...currentPotTaker,
+        paidMembers,
+        unpaidMembers
+      }
+    };
+  }, [hui, payment]);
 
   const status = normalizeStatus(payment.transactionStatus || payment.status);
 
@@ -16,14 +57,15 @@ export default function MobilePaymentPeriod({ payment, hui }) {
         <div className="flex justify-between items-start mb-2">
           <div>
             <span className="text-sm font-bold text-gray-800 block">Kỳ {payment.period}</span>
-            <span className="text-xs text-gray-500">{new Date(payment.dueDate).toLocaleDateString('vi-VN')}</span>
+            <span className="text-xs text-gray-500 block">{new Date(payment.dueDate).toLocaleDateString('vi-VN')}</span>
+            {potTakerDetails && <span className="text-xs text-gray-500 block">Người hốt hụi: {potTakerDetails.user?.name || potTakerDetails.guestName}</span>}
           </div>
           <span className={`text-xs px-2 py-1 rounded-full font-semibold whitespace-nowrap ${getStatusColor(status)}`}>
             {getStatusDisplayText(status)}
           </span>
         </div>
         
-        {potTaker && <p className="text-sm text-gray-800 mb-2 font-medium">Người hốt: <span className="text-red-600">{potTaker.user?.name || potTaker.guestName}</span></p>}
+        
 
         <div className="grid grid-cols-3 gap-2 mt-2 bg-white p-2 rounded border border-gray-100">
           <div className="text-center">
@@ -44,14 +86,26 @@ export default function MobilePaymentPeriod({ payment, hui }) {
           <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
-      {isOpen && (
+      {isOpen && potTakerDetails && (
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <h4 className="font-semibold text-sm mb-2">Chi tiết kỳ:</h4>
-          <div className="text-xs space-y-1">
-            <p><strong>Hụi sống ({huiSongMembers.length}):</strong> {huiSongMembers.map(m => m.user?.name || m.guestName).join(', ')}</p>
-            <p><strong>Đóng:</strong> {formatVietnameseCurrency(hui.amount - payment.thamKeu)}</p>
-            <p><strong>Hụi chết ({huiChetMembers.length}):</strong> {huiChetMembers.map(m => m.user?.name || m.guestName).join(', ')}</p>
-            <p><strong>Đóng:</strong> {formatVietnameseCurrency(hui.amount)}</p>
+          <h4 className="font-semibold text-sm mb-3">Chi tiết kỳ:</h4>
+          <div className="text-xs space-y-3">
+            <div>
+              <p className="font-semibold text-gray-800">Hụi sống ({huiSongMembers.length}) đóng: <span className="font-normal text-green-600">{formatVietnameseCurrency(hui.amount - (payment.thamKeu || 0))}</span></p>
+              <p className="text-gray-600 text-[11px] pl-2 mt-1">({huiSongMembers.map(m => m.user?.name || m.guestName).join(', ') || 'Không có'})</p>
+              <div className="pl-2 mt-1">
+                <p className="text-gray-500 text-[11px]">Đã đóng: {huiSongMembers.filter(m => potTakerDetails.paidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
+                <p className="text-gray-500 text-[11px]">Chưa đóng: {huiSongMembers.filter(m => potTakerDetails.unpaidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
+              </div>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-800">Hụi chết ({huiChetMembers.length}) đóng: <span className="font-normal text-blue-600">{formatVietnameseCurrency(hui.amount)}</span></p>
+              <p className="text-gray-600 text-[11px] pl-2 mt-1">({huiChetMembers.map(m => m.user?.name || m.guestName).join(', ') || 'Không có'})</p>
+              <div className="pl-2 mt-1">
+                <p className="text-gray-500 text-[11px]">Đã đóng: {huiChetMembers.filter(m => potTakerDetails.paidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
+                <p className="text-gray-500 text-[11px]">Chưa đóng: {huiChetMembers.filter(m => potTakerDetails.unpaidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

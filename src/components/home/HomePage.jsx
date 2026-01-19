@@ -29,7 +29,7 @@ const HomePage = () => {
           <div className="mt-8 flex justify-center space-x-4">
             <button
               onClick={() => signIn()}
-              className="bg-gray-100 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition duration-300"
+              className="bg-yellow-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-600 transition duration-300 flex items-center space-x-2"
             >
               Đăng nhập
             </button>

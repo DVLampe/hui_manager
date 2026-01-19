@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app_dev:
+    image: $IMAGE_TAG # The image is built once in the 'build' stage
+    container_name: hui-manager-app-dev
+    restart: unless-stopped
+    # For local testing, you can uncomment the line below:
+    # env_file: .env.local
+    networks:
+      - hui-net-dev
+
+  socket_dev:
+    image: $IMAGE_TAG
+    container_name: hui-manager-socket-dev
+    restart: unless-stopped
+    command: ["node", "server.js"]
+    # env_file: .env.local
+    networks:
+      - hui-net-dev
+
+  nginx_dev:
+    image: nginx:1.25-alpine
+    container_name: hui-manager-nginx-dev
+    restart: unless-stopped
+    ports:
+      # Map host port 8080 to container port 80
+      - "8080:80"
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app_dev
+      - socket_dev
+    networks:
+      - hui-net-dev
+
+networks:
+  hui-net-dev:
+    driver: bridge
