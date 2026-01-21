@@ -1,6 +1,7 @@
 // src/app/(app)/hui/page.jsx
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { useSession } from 'next-auth/react'; // Import useSession
 import { HuiCard } from '@/components/hui/HuiCard';
 import MobileHuiCard from '@/components/mobile/MobileHuiCard';
 import { useIsMobile } from '@/lib/hooks';
@@ -15,6 +16,7 @@ import { FileDown } from 'lucide-react';
 
 export default function HuiPage() {
   const router = useRouter();
+  const { data: session } = useSession(); // Get session data
   const [huis, setHuis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,14 +28,14 @@ export default function HuiPage() {
 
   // 2. Data fetching logic
   useEffect(() => {
-    // This function will be called once when the component mounts
+    // This function will be called once the component mounts
     const fetchHuis = async () => {
       try {
         setLoading(true); // Start loading
         setError(null);   // Reset previous errors
 
         // Fetch data from our secured API endpoint
-        const response = await fetch('/api/hui');
+        const response = await fetch('/api/hui?calculateProfit=true');
 
         // Handle non-successful responses
         if (!response.ok) {
@@ -58,8 +60,8 @@ export default function HuiPage() {
   }, []);
 
   const filteredAndSortedHuis = useMemo(() => {
-    // Mock user ID, replace with actual session user ID
-    const userId = 'user_1';
+    const userId = session?.user?.id; // Use actual user ID from session
+    if (!userId) return []; // Return empty if no user ID
 
     return huis
       .filter(hui => {
@@ -77,10 +79,10 @@ export default function HuiPage() {
           return dateB - dateA;
         }
       });
-  }, [huis, statusFilter, sortOrder, searchTerm, viewMode]);
+  }, [huis, statusFilter, sortOrder, searchTerm, viewMode, session]); // Add session to dependency array
 
   // 3. Conditional UI rendering based on the local state
-  if (loading) {
+  if (loading || !session) { // Also show loading while session is being fetched
     return <Loading message="Đang tải danh sách hụi..." />;
   }
 
@@ -228,7 +230,7 @@ export default function HuiPage() {
       {filteredAndSortedHuis.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filteredAndSortedHuis.map(hui => (
-            <HuiCard key={hui.id} hui={hui} />
+            <HuiCard key={hui.id} hui={hui} viewMode={viewMode} />
           ))}
         </div>
       ) : (

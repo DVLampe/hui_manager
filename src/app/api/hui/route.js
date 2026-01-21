@@ -15,24 +15,37 @@ export async function GET(request) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
+  const { searchParams } = new URL(request.url);
+  const calculateProfit = searchParams.get('calculateProfit') === 'true';
 
   try {
-    const huis = await prisma.huiGroup.findMany({
+    const huiGroups = await prisma.huiGroup.findMany({
       where: {
         OR: [
-          { ownerId: userId }, // User is the manager
-          {
-            members: {
-              some: {
-                userId: userId, // User is one of the members
-              },
-            },
-          },
+          { ownerId: userId },
+          { members: { some: { userId: userId } } },
         ],
       },
       include: {
         manager: {
           select: { id: true, name: true, email: true },
+        },
+        members: {
+          include: {
+            user: true,
+          },
+        },
+        payments: {
+          include: {
+            potTakerMember: true,
+            memberContributions: calculateProfit ? {
+              where: {
+                member: {
+                  userId: userId,
+                },
+              },
+            } : false,
+          },
         },
         _count: {
           select: { members: true, payments: true },
@@ -40,29 +53,53 @@ export async function GET(request) {
       },
       orderBy: {
         createdAt: 'desc',
-      }
+      },
     });
 
-    const huisWithDetails = await Promise.all(huis.map(async (hui) => {
-      const payments = await prisma.payment.findMany({
-        where: { huiGroupId: hui.id },
-        orderBy: { period: 'asc' },
-      });
-
+    const huisWithDetails = huiGroups.map(hui => {
+      const payments = hui.payments || [];
       const lastPaidPayment = payments
         .filter(p => p.transactionStatus === 'DA_THANH_TOAN')
         .sort((a, b) => b.period - a.period)[0];
 
       const currentPeriod = lastPaidPayment ? lastPaidPayment.period : 0;
-
       const nextPayment = payments.find(p => p.period === currentPeriod + 1);
 
+      let profit = 0;
+      let totalThao = 0;
+
+      if (calculateProfit) {
+        let huiPaid = 0;
+        let huiReceived = 0;
+
+        payments.forEach(payment => {
+          if (payment.memberContributions) {
+            payment.memberContributions.forEach(contribution => {
+              huiPaid += Number(contribution.amountContributed);
+            });
+          }
+          if (payment.potTakerMember?.userId === userId && payment.amountCollected) {
+            huiReceived += Number(payment.amountCollected);
+          }
+          if (payment.thao) {
+            totalThao += Number(payment.thao);
+          }
+        });
+        profit = huiReceived - huiPaid;
+      }
+
+      // Remove detailed payment/member data before sending to client if not needed
+      const { payments: _, members, ...huiData } = hui;
+
       return {
-        ...hui,
+        ...huiData,
+        members: members.map(m => m.user), // Send simplified member list
         currentPeriod: currentPeriod,
         nextPaymentDate: nextPayment ? nextPayment.dueDate : null,
+        profit: profit,
+        totalThao: totalThao,
       };
-    }));
+    });
 
     return NextResponse.json(huisWithDetails);
   } catch (error) {
