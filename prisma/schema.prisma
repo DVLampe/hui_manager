@@ -102,6 +102,7 @@ model AuditLog {
 
 model HuiGroup {
   id              String        @id @default(cuid())
+  publicId        String?       @unique // For sharing
   name            String
   description     String?
   amount          Decimal       @db.Decimal(10, 2) // Base amount per member per period
@@ -317,8 +318,9 @@ model ChatMessage {
   createdAt  DateTime @default(now())
   chatRoomId String
   chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
+  userId     String? // Can be null for guest users
+  user       User?    @relation(fields: [userId], references: [id])
+  guestName  String?  // For guest users
 
   // Fields for attachments
   fileUrl    String?

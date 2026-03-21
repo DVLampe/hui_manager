@@ -6,8 +6,9 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Hui Manager App",
-  description: "Your trusted Hui management solution",
+  description: "Quản lý hụi dễ dàng và hiệu quả",
 };
+
 
 // This is the root layout. It only contains the providers and basic HTML structure.
 // It no longer contains the Header or Sidebar.
