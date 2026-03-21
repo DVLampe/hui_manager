@@ -49,6 +49,7 @@ export async function GET(request, { params }) {
       ...hui,
       members: hui.members.map(m => ({
         id: m.id,
+        userId: m.userId,
         position: m.position,
         guestName: m.guestName,
         user: m.user ? { name: m.user.name, image: m.user.image } : null,

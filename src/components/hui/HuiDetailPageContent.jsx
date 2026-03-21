@@ -68,6 +68,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
   const [shareableLink, setShareableLink] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [showMobileExport, setShowMobileExport] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -89,6 +90,18 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
     if (!session || !hui || !hui.members) return false;
     return hui.members.some(member => member.userId === session.user.id);
   }, [session, hui, isGuestView]);
+
+  const isActualMember = useMemo(() => {
+    if (!session || !hui?.members || session.user?.role === 'GUEST') return false;
+    return hui.members.some(member => member.userId === session.user.id);
+  }, [session, hui]);
+
+  const chatAccess = useMemo(() => {
+    if (!isGuestView) return 'allowed';
+    if (!session || session.user?.role === 'GUEST') return 'need_login';
+    if (!isActualMember) return 'not_member';
+    return 'allowed';
+  }, [isGuestView, session, isActualMember]);
 
   const memberOptions = useMemo(() => {
     if (!hui?.members) return [];
@@ -510,111 +523,395 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
   const progressPercentage = totalRounds > 0 ? (completedPayments / totalRounds) * 100 : 0;
   const tabItems = [
     { id: 'info', label: 'Thông tin chi tiết' },
-    { id: 'schedules', label: 'Lịch đóng tiền' },
-    { id: 'members', label: 'Thành viên' },
+    { id: 'members', label: 'Danh sách thành viên' },
+    { id: 'schedules', label: 'Lịch thanh toán' },
+    { id: 'detailed_schedules', label: 'Lịch chi tiết' }
   ];
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'info':
-        return <p>Info tab content goes here.</p>;
-      case 'schedules':
-        return (
-          <DetailedPaymentScheduleTable
-            hui={hui}
-            onSaveChanges={handleSavePaymentScheduleChanges}
-            canManage={canManage}
-            isGuestView={isGuestView}
-          />
-        );
-      case 'members':
-        return (
-          <MemberList
-            members={hui.members}
-            ownerId={hui.ownerId}
-            onDeleteMember={handleDeleteMember}
-            canManage={canManage}
-            isGuestView={isGuestView}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div className="container mx-auto p-4">
-      <Toaster />
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{hui.name}</h1>
-        <div className="flex items-center space-x-2 mt-2 md:mt-0">
-          {!isGuestView && (
-            <ActionButton
-              icon={Share2}
-              onClick={handleGenerateShareLink}
-              label="Chia sẻ"
-              loading={isSharing}
-              className="bg-blue-500 hover:bg-blue-600"
-            />
-          )}
-          <ActionButton
-            icon={Download}
-            onClick={() => exportDetailedScheduleToPDF(hui)}
-            label="Xuất PDF"
-            className="bg-red-500 hover:bg-red-600"
-          />
-          <ActionButton
-            icon={FileText}
-            onClick={() => exportDetailedScheduleToExcel(hui)}
-            label="Xuất Excel"
-            className="bg-green-700 hover:bg-green-800"
-          />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
-        {/* Tabs */}
-        <div className="border-b border-gray-200 mb-4">
-          <nav className="-mb-px flex space-x-4 sm:space-x-8" aria-label="Tabs">
-            {tabItems.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm sm:text-base`}
-              >
-                {tab.label}
+    <>
+      {invoiceData && (
+        <Modal
+          isOpen={true}
+          onClose={() => setInvoiceData(null)}
+          title="Hốt tạo hóa đơn"
+          size="4xl"
+          footer={
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button onClick={() => setInvoiceData(null)} className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">Đóng</button>
+              <button onClick={generatePdf} disabled={isSaving} className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2">
+                <Download className="w-5 h-5" />
+                {isSaving ? 'Đang tạo PDF...' : 'Tải xuống PDF'}
               </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Tab Panels */}
-        <div>
-          {renderTabContent()}
-        </div>
-      </div>
-
-      {/* Modals */}
+            </div>
+          }
+        >
+          <div className="max-h-[70vh] overflow-y-auto">
+            <HuiInvoice {...invoiceData} />
+          </div>
+        </Modal>
+      )}
+      <Toaster />
       <Modal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        title="Chia sẻ hụi"
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Xác nhận xóa"
+        footer={
+          <div className="flex justify-end space-x-3">
+            <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)} disabled={loading}>Hủy</Button>
+            <Button variant="danger" onClick={handleDeleteHui} disabled={loading}>
+              {loading ? 'Đang xóa...' : 'Xóa'}
+            </Button>
+          </div>
+        }
       >
+        <p>Bạn có chắc chắn muốn xóa hụi &quot;{hui?.name}&quot; không? Hành động này không thể hoàn tác.</p>
+      </Modal>
+      {isHotHuiModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-800">Hốt Hụi</h2>
+                <button onClick={handleCloseHotHuiModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kỳ hốt</label>
+                <Select id="hotHuiKy" value={hotHuiKy} onChange={(e) => setHotHuiKy(e.target.value)} options={[{ value: '', label: 'Chọn kỳ hốt' }, ...availableKyOptions]} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" disabled={availableKyOptions.length === 0} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Thành viên hốt</label>
+                <Select id="hotHuiMemberId" value={hotHuiMemberId} onChange={(e) => setHotHuiMemberId(e.target.value)} options={[{ value: '', label: 'Chọn thành viên' }, ...memberOptions]} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Thăm kêu</label>
+                  <NumberInput id="hotHuiThamKeu" value={hotHuiThamKeu} onChange={(e) => setHotHuiThamKeu(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Thảo</label>
+                  <NumberInput id="hotHuiThao" value={hotHuiThao} onChange={(e) => setHotHuiThao(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button onClick={handleCloseHotHuiModal} disabled={isSaving} className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">Hủy</button>
+              <button onClick={handleHotHuiAndPrint} disabled={isSaving || !hotHuiKy || !hotHuiMemberId} className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                {isSaving ? 'Loading...' : 'Xem trước hóa đơn'}
+              </button>
+              <button onClick={handleHotHuiSubmitInternal} disabled={isSaving || !hotHuiKy || !hotHuiMemberId} className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">Hốt không hóa đơn</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <PermissionsModal isOpen={isPermissionsModalOpen} onClose={() => setIsPermissionsModalOpen(false)} hui={hui} onSave={async (updatedPermissions) => { const payload = { ...hui, permissions: updatedPermissions }; await handleUpdateHui(payload); setIsPermissionsModalOpen(false); }} />
+      {isWheelModalOpen && (<LuckyWheelModal isOpen={isWheelModalOpen} onClose={() => setIsWheelModalOpen(false)} members={memberOptions} />)}
+      <OwnerBankInfoModal isOpen={showBankInfoModal} onClose={() => setShowBankInfoModal(false)} owner={hui} />
+      <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Chia sẻ hụi">
         <p className="mb-4">Sao chép và chia sẻ link này để người khác xem chi tiết hụi:</p>
-        <Input
-          type="text"
-          value={shareableLink}
-          readOnly
-          className="mb-4"
-        />
+        <Input type="text" value={shareableLink} readOnly className="mb-4" />
         <Button onClick={handleCopyLink}>Sao chép link</Button>
       </Modal>
-    </div>
+
+      {isMobile ? (
+        <div className="pb-24">
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-white rounded-xl p-3 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Số tiền mỗi kỳ</p>
+              <p className="text-lg font-bold text-gray-800">{formatNumber(hui?.amount)}</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Số thành viên</p>
+              <p className="text-lg font-bold text-gray-800">{hui?.members?.length || 0}/{hui?.totalMembers || 0}</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">Tiến độ</span>
+              <span className="text-sm font-bold text-gray-800">Kỳ {completedPayments}/{totalRounds}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-red-600 h-2 rounded-full" style={{width: `${progressPercentage}%`}}></div>
+            </div>
+          </div>
+          <div className={`grid gap-2 mb-6 ${isGuestView ? 'grid-cols-2' : 'grid-cols-3'}`}>
+            {!isGuestView && (
+              <button onClick={handleOpenHotHuiModal} className="flex flex-col items-center gap-2 bg-red-600 text-white rounded-xl p-3">
+                <TrendingUp className="w-5 h-5" />
+                <span className="text-xs font-semibold">Hốt Hụi</span>
+              </button>
+            )}
+            <button onClick={() => setIsWheelModalOpen(true)} className="flex flex-col items-center gap-2 bg-yellow-500 text-white rounded-xl p-3">
+              <Dice5 className="w-5 h-5" />
+              <span className="text-xs font-semibold">Quay hụi</span>
+            </button>
+            <button onClick={() => setShowBankInfoModal(true)} className="flex flex-col items-center gap-2 bg-green-500 text-white rounded-xl p-3">
+              <QrCode className="w-5 h-5" />
+              <span className="text-xs font-semibold">QR</span>
+            </button>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
+            <div className="flex border-b border-gray-200 overflow-x-auto">
+              <button onClick={() => setActiveTab('info')} className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${activeTab === 'info' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-600'}`}>Chi tiết</button>
+              <button onClick={() => setActiveTab('members')} className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${activeTab === 'members' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-600'}`}>Thành viên</button>
+              <button onClick={() => setActiveTab('schedules')} className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${activeTab === 'schedules' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-600'}`}>Lịch</button>
+            </div>
+            <div className="p-4">
+              {activeTab === 'info' && (
+                <div className="space-y-3">
+                  <div><p className="text-xs text-gray-500 mb-1">Tên Hụi</p><p className="text-gray-800 font-medium">{hui?.name}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Ngày bắt đầu</p><p className="text-gray-800 font-medium">{new Date(hui?.startDate).toLocaleDateString('vi-VN')}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Chu kỳ</p><p className="text-gray-800 font-medium">{t(hui?.frequency)}</p></div>
+                </div>
+              )}
+              {activeTab === 'members' && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-semibold text-gray-800">Thành viên ({hui?.members?.length || 0})</h2>
+                    {canManage && (
+                      <Link href={`/members/create?huiId=${hui?.id}`}>
+                        <button className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                          <UserPlus className="w-4 h-4" />
+                          <span className="text-sm font-medium">Thêm</span>
+                        </button>
+                      </Link>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {hui?.members?.map(member => (
+                      <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {member.user ? member.user.name.charAt(0) : member.guestName.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800 text-sm">{member.user ? member.user.name : member.guestName}</p>
+                            <p className="text-xs text-gray-500">{hui.ownerId === member.userId ? 'Chủ hụi' : 'Thành viên'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {activeTab === 'schedules' && (
+                <div>
+                  <div className="relative flex justify-end mb-4">
+                    <button onClick={() => setShowMobileExport(!showMobileExport)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                      <Download className="w-4 h-4" />
+                      <span className="text-sm font-medium">Export</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                    {showMobileExport && (
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg z-20">
+                        <button onClick={() => { exportDetailedScheduleToPDF(hui); setShowMobileExport(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as PDF</button>
+                        <button onClick={() => { exportDetailedScheduleToExcel(hui); setShowMobileExport(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export as Excel</button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {hui?.payments?.map(payment => (
+                      <MobilePaymentPeriod key={payment.id} payment={payment} hui={hui} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <MobileChatModal huiId={hui.id} chatAccess={chatAccess} />
+        </div>
+      ) : (
+        <>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-800">{hui?.name}</h1>
+                  <p className="text-sm text-gray-500">Quản lý chi tiết hụi</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {!isGuestView && (
+                  <button onClick={handleGenerateShareLink} disabled={isSharing} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                    <Share2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">{isSharing ? 'Đang tạo...' : 'Chia sẻ'}</span>
+                  </button>
+                )}
+                {canManage && !isGuestView && (
+                  <button onClick={() => setIsDeleteModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Xóa hụi</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard label="Số tiền mỗi kỳ" value={formatNumber(hui?.amount)} icon={DollarSign} color="red" />
+              <StatCard label="Số thành viên" value={`${hui?.members?.length || 0}/${hui?.totalMembers || 0}`} icon={Users} color="blue" />
+              <StatCard label="Chu kỳ" value={t(hui?.frequency)} icon={Calendar} color="purple" />
+              <StatCard label="Trạng thái hụi" value={t(hui?.status)} icon={CheckCircle} color="green" />
+            </div>
+
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-gray-600">Tiến độ</span>
+                <span className="text-sm font-bold text-gray-800">Kỳ {completedPayments}/{totalRounds}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="bg-gradient-to-r from-red-600 to-red-500 h-3 rounded-full transition-all" style={{ width: `${progressPercentage}%` }}></div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">{Math.round(progressPercentage)}% hoàn thành</p>
+            </div>
+
+            <div className={`grid grid-cols-1 gap-4 ${!isGuestView && (canManage || isHuiMember) ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+              {!isGuestView && (canManage || isHuiMember) && (
+                <ActionButton
+                  onClick={handleOpenHotHuiModal}
+                  disabled={loading || hui?.status !== 'ACTIVE' || availableKyOptions.length === 0}
+                  icon={TrendingUp}
+                  text="Hốt Hụi"
+                  color="red"
+                />
+              )}
+              <ActionButton
+                onClick={() => setIsWheelModalOpen(true)}
+                disabled={loading || hui?.status !== 'ACTIVE' || memberOptions.length === 0}
+                icon={Dice5}
+                text="Quay hụi"
+                color="yellow"
+              />
+              <ActionButton
+                onClick={() => setShowBankInfoModal(true)}
+                disabled={loading}
+                icon={QrCode}
+                text="QR chuyển khoản"
+                color="green"
+              />
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="border-b border-gray-200">
+                <div className="flex gap-1 p-2">
+                  {tabItems.map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        activeTab === tab.id ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-6">
+                {activeTab === 'info' && (
+                  <div>
+                    <div className="flex items-start justify-between mb-6 gap-8">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Chi tiết Hụi</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Tên Hụi</label>
+                            {isEditingInfo ? (
+                              <Input value={editedHui.name} onChange={(e) => setEditedHui({ ...editedHui, name: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                            ) : (
+                              <p className="mt-1 text-gray-800 font-medium">{hui?.name}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Mô tả</label>
+                            {isEditingInfo ? (
+                              <textarea value={editedHui.description} onChange={(e) => setEditedHui({ ...editedHui, description: e.target.value })} rows={3} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                            ) : (
+                              <p className="mt-1 text-gray-800">{hui?.description || 'Không có mô tả'}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Chủ Hụi</label>
+                            <p className="mt-1 text-gray-800 font-medium">{hui?.manager?.name || hui?.ownerGuestName || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Ngày bắt đầu</label>
+                            <p className="mt-1 text-gray-800 font-medium">{new Date(hui?.startDate).toLocaleDateString('vi-VN')}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Ngày kết thúc (dự kiến)</label>
+                            <p className="mt-1 text-gray-800 font-medium">{hui?.endDate ? new Date(hui.endDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}</p>
+                          </div>
+                        </div>
+                        {isEditingInfo && !isGuestView && (
+                          <div className="flex justify-start pt-4 mt-4 border-t border-gray-200">
+                            <button onClick={async () => { await handleUpdateHui(editedHui); setIsEditingInfo(false); }} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                              Lưu thay đổi
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {canManage && !isGuestView && (
+                        <div className="flex-shrink-0 flex flex-col gap-3">
+                          <button onClick={() => setIsEditingInfo(!isEditingInfo)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
+                            <Edit className="w-4 h-4" />
+                            <span className="text-sm font-medium">{isEditingInfo ? 'Hủy' : 'Chỉnh sửa'}</span>
+                          </button>
+                          <button onClick={() => setIsPermissionsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
+                            <Shield className="w-4 h-4" />
+                            <span className="text-sm font-medium">Quản lý quyền</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'members' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-lg font-semibold text-gray-800">Danh sách thành viên ({hui?.members?.length || 0})</h2>
+                      {canManage && !isGuestView && (
+                        <Link href={`/members/create?huiId=${hui?.id}`}>
+                          <button className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                            <UserPlus className="w-4 h-4" />
+                            <span className="text-sm font-medium">Thêm thành viên</span>
+                          </button>
+                        </Link>
+                      )}
+                    </div>
+                    <MemberList members={hui?.members || []} huiId={hui?.id} onDeleteMember={handleDeleteMember} disabled={loading} canManage={canManage && !isGuestView} />
+                  </div>
+                )}
+
+                {activeTab === 'schedules' && (
+                  <div>
+                    {hui ? (
+                      <PaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} onSaveChanges={handleSavePaymentScheduleChanges} disabled={loading || !canManage || isGuestView} />
+                    ) : (
+                      <p>Chưa có thông tin hụi để hiển thị lịch thanh toán.</p>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'detailed_schedules' && (
+                  <div>
+                    {hui ? (
+                      <DetailedPaymentScheduleTable huiGroup={hui} currentDateString={vietnamDateString} />
+                    ) : (
+                      <p>Chưa có thông tin hụi để hiển thị lịch thanh toán chi tiết.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <ChatModal huiId={hui?.id} chatAccess={chatAccess} />
+        </>
+      )}
+    </>
   );
 }
