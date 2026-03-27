@@ -35,17 +35,10 @@ export default function MobilePaymentPeriod({ payment, hui }) {
       m.id !== currentPotTaker.id && membersWhoHaveTakenPotBefore.has(m.id)
     );
 
-    const paidMembers = new Set(payment.details?.filter(d => d.status === 'DA_DONG').map(d => d.memberId));
-    const unpaidMembers = new Set(payment.details?.filter(d => d.status === 'CHUA_DONG').map(d => d.memberId));
-
     return { 
       huiSongMembers: song, 
       huiChetMembers: chet,
-      potTakerDetails: {
-        ...currentPotTaker,
-        paidMembers,
-        unpaidMembers
-      }
+      potTakerDetails: currentPotTaker,
     };
   }, [hui, payment]);
 
@@ -93,18 +86,10 @@ export default function MobilePaymentPeriod({ payment, hui }) {
             <div>
               <p className="font-semibold text-gray-800">Hụi sống ({huiSongMembers.length}) đóng: <span className="font-normal text-green-600">{formatVietnameseCurrency(hui.amount - (payment.thamKeu || 0))}</span></p>
               <p className="text-gray-600 text-[11px] pl-2 mt-1">({huiSongMembers.map(m => m.user?.name || m.guestName).join(', ') || 'Không có'})</p>
-              <div className="pl-2 mt-1">
-                <p className="text-gray-500 text-[11px]">Đã đóng: {huiSongMembers.filter(m => potTakerDetails.paidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
-                <p className="text-gray-500 text-[11px]">Chưa đóng: {huiSongMembers.filter(m => potTakerDetails.unpaidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
-              </div>
             </div>
             <div>
               <p className="font-semibold text-gray-800">Hụi chết ({huiChetMembers.length}) đóng: <span className="font-normal text-blue-600">{formatVietnameseCurrency(hui.amount)}</span></p>
               <p className="text-gray-600 text-[11px] pl-2 mt-1">({huiChetMembers.map(m => m.user?.name || m.guestName).join(', ') || 'Không có'})</p>
-              <div className="pl-2 mt-1">
-                <p className="text-gray-500 text-[11px]">Đã đóng: {huiChetMembers.filter(m => potTakerDetails.paidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
-                <p className="text-gray-500 text-[11px]">Chưa đóng: {huiChetMembers.filter(m => potTakerDetails.unpaidMembers.has(m.id)).map(m => m.user?.name || m.guestName).join(', ') || 'Không có'}</p>
-              </div>
             </div>
           </div>
         </div>

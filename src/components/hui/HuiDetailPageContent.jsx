@@ -18,6 +18,7 @@ import PermissionsModal from '@/components/hui/PermissionsModal';
 import HuiInvoice from '@/components/hui/HuiInvoice';
 import ChatModal from '@/components/chat/ChatModal';
 import OwnerBankInfoModal from '@/components/hui/OwnerBankInfo-Modal';
+import AuctionWindow from '@/components/hui/AuctionWindow';
 import dynamic from 'next/dynamic';
 import { t } from '@/lib/translations';
 import { formatNumber } from '@/lib/utils';
@@ -28,7 +29,7 @@ import MobileChatModal from '@/components/mobile/MobileChatModal';
 import Image from 'next/image';
 import {
   Users, Calendar, DollarSign, Edit, Trash2, Download,
-  ChevronDown, X, QrCode, Dice5, MessageCircle, Shield,
+  ChevronDown, X, QrCode, Dice5, MessageCircle, Shield, Gavel,
   Clock, CheckCircle, AlertCircle, TrendingUp, FileText,
   UserPlus, Eye, Share2
 } from 'lucide-react';
@@ -65,6 +66,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
   const [showChat, setShowChat] = useState(false);
   const [showBankInfoModal, setShowBankInfoModal] = useState(false);
   const [isWheelModalOpen, setIsWheelModalOpen] = useState(false);
+  const [showAuctionWindow, setShowAuctionWindow] = useState(false);
   const [shareableLink, setShareableLink] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -263,7 +265,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
     setHotHuiThao('');
   };
 
-  const handleOpenHotHuiModal = () => {
+  const handleOpenHotHuiModal = (prefill = {}) => {
     if (isGuestView) {
       showToast({ message: "Khách không có quyền thực hiện hành động này.", type: 'warning' });
       return;
@@ -276,6 +278,8 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
     if (availableKyOptions.length > 0) {
       setHotHuiKy(availableKyOptions[0].value);
     }
+    if (prefill.memberId) setHotHuiMemberId(prefill.memberId);
+    if (prefill.thamKeu !== undefined) setHotHuiThamKeu(prefill.thamKeu);
     setIsHotHuiModalOpen(true);
   };
 
@@ -638,7 +642,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
               <div className="bg-red-600 h-2 rounded-full" style={{width: `${progressPercentage}%`}}></div>
             </div>
           </div>
-          <div className={`grid gap-2 mb-6 ${isGuestView ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className={`grid gap-2 mb-6 ${isGuestView ? 'grid-cols-2' : 'grid-cols-4'}`}>
             {!isGuestView && (
               <button onClick={handleOpenHotHuiModal} className="flex flex-col items-center gap-2 bg-red-600 text-white rounded-xl p-3">
                 <TrendingUp className="w-5 h-5" />
@@ -648,6 +652,10 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
             <button onClick={() => setIsWheelModalOpen(true)} className="flex flex-col items-center gap-2 bg-yellow-500 text-white rounded-xl p-3">
               <Dice5 className="w-5 h-5" />
               <span className="text-xs font-semibold">Quay hụi</span>
+            </button>
+            <button onClick={() => setShowAuctionWindow(true)} className="flex flex-col items-center gap-2 bg-purple-500 text-white rounded-xl p-3">
+              <Gavel className="w-5 h-5" />
+              <span className="text-xs font-semibold">Đấu hụi</span>
             </button>
             <button onClick={() => setShowBankInfoModal(true)} className="flex flex-col items-center gap-2 bg-green-500 text-white rounded-xl p-3">
               <QrCode className="w-5 h-5" />
@@ -768,7 +776,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
               <p className="text-xs text-gray-500 mt-2">{Math.round(progressPercentage)}% hoàn thành</p>
             </div>
 
-            <div className={`grid grid-cols-1 gap-4 ${!isGuestView && (canManage || isHuiMember) ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+            <div className={`grid grid-cols-1 gap-4 ${!isGuestView && (canManage || isHuiMember) ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
               {!isGuestView && (canManage || isHuiMember) && (
                 <ActionButton
                   onClick={handleOpenHotHuiModal}
@@ -784,6 +792,13 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
                 icon={Dice5}
                 text="Quay hụi"
                 color="yellow"
+              />
+              <ActionButton
+                onClick={() => setShowAuctionWindow(true)}
+                disabled={loading}
+                icon={Gavel}
+                text="Đấu hụi"
+                color="orange"
               />
               <ActionButton
                 onClick={() => setShowBankInfoModal(true)}
@@ -912,6 +927,14 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
           <ChatModal huiId={hui?.id} chatAccess={chatAccess} />
         </>
       )}
+      <AuctionWindow
+        hui={hui}
+        session={session}
+        isOpen={showAuctionWindow}
+        onClose={() => setShowAuctionWindow(false)}
+        isGuestView={isGuestView}
+        onPrefillHotHui={handleOpenHotHuiModal}
+      />
     </>
   );
 }

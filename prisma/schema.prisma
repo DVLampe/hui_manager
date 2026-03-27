@@ -53,6 +53,8 @@ model User {
   receivedFriendRequests  Friendship[] @relation("receivedRequests")
   chatMessages            ChatMessage[]
   subscription UserSubscription?
+  bids                  Bid[]
+  createdAuctions       Auction[]      @relation("CreatedAuctions")
 
   // removed: takenPots     Payment[]     @relation("PotTakerUser")
 
@@ -124,6 +126,7 @@ model HuiGroup {
   members         HuiMember[]
   permissions     HuiPermission[]
   payments        Payment[] // Represents periods/events in this group
+  auctions        Auction[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   totalMembers    Int           @default(0) @db.SmallInt
@@ -236,6 +239,8 @@ model Payment {
   // Fields to review or remove:
   // scheduleStatus String? // Potentially redundant with transactionStatus
 
+  auction   Auction? @relation("PaymentAuction")
+
   @@unique([huiGroupId, period], name: "unique_period_in_group")
   @@index([potTakerMemberId])
   @@index([userId])
@@ -278,6 +283,53 @@ enum PaymentStatus {
   CHO_THANH_TOAN  // Period is active, awaiting contributions/settlement
   DA_THANH_TOAN   // Period is settled, pot has been paid
   HUY             // Period is cancelled
+}
+
+enum AuctionStatus {
+  PENDING
+  ACTIVE
+  ENDED
+}
+
+model Auction {
+  id              String         @id @default(cuid())
+  huiGroupId      String
+  huiGroup        HuiGroup       @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
+  paymentId       String? @unique
+  payment         Payment?       @relation("PaymentAuction", fields: [paymentId], references: [id])
+  status          AuctionStatus  @default(PENDING)
+  bidStep         Decimal        @db.Decimal(10, 2)
+  potAmount       Decimal?       @db.Decimal(12, 2)
+  durationSeconds Int?
+  roundLabel      String?
+  startTime       DateTime?
+  endTime         DateTime?
+  createdBy       String
+  creator         User           @relation("CreatedAuctions", fields: [createdBy], references: [id])
+  winningBidId    String? @unique
+  winningBid      Bid?           @relation("WinningBid", fields: [winningBidId], references: [id])
+  bids            Bid[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([huiGroupId])
+  @@index([status])
+  @@index([paymentId])
+}
+
+model Bid {
+  id             String    @id @default(cuid())
+  auctionId      String
+  auction        Auction   @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  amount         Decimal   @db.Decimal(12, 2)
+  createdAt      DateTime  @default(now())
+  winningAuction Auction?  @relation("WinningBid")
+
+  @@index([auctionId])
+  @@index([userId])
+  @@index([amount])
 }
 
 
