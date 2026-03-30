@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { MessageSquare, X } from 'lucide-react';
+import { NotebookPen, X } from 'lucide-react';
 import Draggable from 'react-draggable';
 
 const DynamicChat = dynamic(() => import('./Chat'), {
@@ -44,7 +44,7 @@ const ChatModal = ({ huiId, chatAccess = 'allowed' }) => {
         onClick={handleToggle}
         className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-br from-red-600 to-red-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-40"
       >
-        <MessageSquare className="w-6 h-6" />
+        <NotebookPen className="w-6 h-6" />
       </button>
 
       {/* Access Denied Modal */}

@@ -72,10 +72,10 @@ export default function Sidebar() {
 						key={item.name}
 						href={item.href}
 						className={cn(
-							'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                            'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
 							pathname.startsWith(item.href)
 								? 'bg-red-50 text-red-600'
-								: 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
 						)}
 					>
                         <item.icon className="h-5 w-5" />
@@ -93,21 +93,21 @@ export default function Sidebar() {
                             'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
                             pathname.startsWith(item.href)
                                 ? 'bg-red-50 text-red-600'
-                                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                         )}
                     >
                         <item.icon className="h-5 w-5" />
                         {item.name}
                     </Link>
                 ))}
-                <Button
-                    variant="ghost"
+                <button
+                    type="button"
                     onClick={() => signOut({ callbackUrl: '/' })}
-                    className="w-full justify-start !text-gray-700 relative z-50"
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                 >
-                    <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-3" />
+                    <ArrowLeftOnRectangleIcon className="h-5 w-5" />
                     Đăng xuất
-                </Button>
+                </button>
 			</div>
 		</aside>
 	)

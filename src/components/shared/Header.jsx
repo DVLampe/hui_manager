@@ -26,15 +26,14 @@ export default function Header() {
               <UserCircleIcon className="h-5 w-5 text-gray-500" />
               <span>{user.name || user.email}</span>
             </Link>
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={() => signOut({ callbackUrl: '/' })}
-              className="flex items-center"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 hover:bg-gray-100 hover:text-gray-900"
             >
-              <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-1" />
+              <ArrowLeftOnRectangleIcon className="h-5 w-5" />
               Đăng xuất
-            </Button>
+            </button>
           </>
         ) : (
           <>

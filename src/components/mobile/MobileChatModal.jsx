@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { MessageCircle, X } from 'lucide-react';
+import { NotebookPen, X } from 'lucide-react';
 
 const DynamicChat = dynamic(() => import('@/components/chat/Chat'), {
   loading: () => <p className="p-4 text-center text-gray-500">Loading chat...</p>,
@@ -73,7 +73,7 @@ export default function MobileChatModal({ huiId, chatAccess = 'allowed' }) {
           onClick={handleOpen}
           className="fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center z-40"
         >
-          <MessageCircle className="w-6 h-6" />
+          <NotebookPen className="w-6 h-6" />
         </button>
       )}
 

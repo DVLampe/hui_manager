@@ -29,7 +29,7 @@ import MobileChatModal from '@/components/mobile/MobileChatModal';
 import Image from 'next/image';
 import {
   Users, Calendar, DollarSign, Edit, Trash2, Download,
-  ChevronDown, X, QrCode, Dice5, MessageCircle, Shield, Gavel,
+  ChevronDown, X, QrCode, Dice5, Shield, Gavel,
   Clock, CheckCircle, AlertCircle, TrendingUp, FileText,
   UserPlus, Eye, Share2
 } from 'lucide-react';
@@ -616,7 +616,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
       {isWheelModalOpen && (<LuckyWheelModal isOpen={isWheelModalOpen} onClose={() => setIsWheelModalOpen(false)} members={memberOptions} />)}
       <OwnerBankInfoModal isOpen={showBankInfoModal} onClose={() => setShowBankInfoModal(false)} owner={hui} />
       <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Chia sẻ hụi">
-        <p className="mb-4">Sao chép và chia sẻ link này để người khác xem chi tiết hụi:</p>
+        <p className="mb-4">Chia sẻ link để người khác xem chi tiết hụi:</p>
         <Input type="text" value={shareableLink} readOnly className="mb-4" />
         <Button onClick={handleCopyLink}>Sao chép link</Button>
       </Modal>
@@ -798,7 +798,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
                 disabled={loading}
                 icon={Gavel}
                 text="Đấu hụi"
-                color="orange"
+                color="purple"
               />
               <ActionButton
                 onClick={() => setShowBankInfoModal(true)}

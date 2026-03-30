@@ -125,7 +125,8 @@ export default function CreateHuiPage() {
   };
 
   const handleQrCodeChange = (e) => {
-    setQrCodeFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    setQrCodeFile(file || null);
   };
   
   const handleSubmit = async (e) => {
@@ -195,6 +196,12 @@ export default function CreateHuiPage() {
 
   return (
     <div>
+      {isMobile && (
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-800">Tạo Hụi Mới</h1>
+          <p className="text-gray-500 mt-1">Điền thông tin để tạo hụi mới</p>
+        </div>
+      )}
       {!isMobile && (
         <div className="mb-8">
           <Link href="/hui">
@@ -208,7 +215,7 @@ export default function CreateHuiPage() {
       )}
 
       <form onSubmit={handleSubmit}>
-        <div className={`grid grid-cols-1 ${!isMobile ? 'lg:grid-cols-2 gap-8' : 'gap-4'}`}>
+        <div className={`grid grid-cols-1 ${!isMobile ? 'lg:grid-cols-[1.05fr_1.35fr] gap-8' : 'gap-4'}`}>
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-6">Thông tin cơ bản</h2>
             <div className="space-y-5">
@@ -266,10 +273,6 @@ export default function CreateHuiPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ngày bắt đầu <span className="text-red-600">*</span></label>
                   <Input id="startDate" name="startDate" type="date" required value={formData.startDate} onChange={handleChange} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ngày kết thúc</label>
-                  <Input id="endDate" name="endDate" type="date" value={formData.endDate} onChange={handleChange} min={formData.startDate} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
-                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Số kỳ <span className="text-red-600">*</span></label>
@@ -293,7 +296,25 @@ export default function CreateHuiPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh QR Chuyển khoản</label>
-                  <Input id="qrCodeUrl" name="qrCodeUrl" type="file" onChange={handleQrCodeChange} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100" />
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <input
+                      id="qrCodeFile"
+                      name="qrCodeFile"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQrCodeChange}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="qrCodeFile"
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-50 text-red-600 border border-red-200 rounded-md hover:bg-red-100 transition-colors shadow-sm"
+                    >
+                      Chọn QR Code
+                    </label>
+                    <span className="text-sm text-gray-600">
+                      {qrCodeFile?.name || (formData.qrCodeUrl ? 'Đã có tệp QR từ tài khoản' : 'Chưa chọn tệp')}
+                    </span>
+                  </div>
                   {(formData.qrCodeUrl || qrCodeFile) && (
                     <div className="mt-4">
                       <Image src={qrCodeFile ? URL.createObjectURL(qrCodeFile) : formData.qrCodeUrl} alt="QR Code Preview" width={150} height={150} className="rounded-lg border border-gray-200" />
@@ -306,7 +327,7 @@ export default function CreateHuiPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <AddMembersPanel
               onStagedMembersChange={setMembers}
-              totalMembers={formData.numberOfPeriods}
+              totalMembers={Number(formData.numberOfPeriods)}
               friends={friends}
             />
           </div>

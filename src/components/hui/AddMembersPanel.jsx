@@ -4,8 +4,10 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toaster';
 
-const UserListItem = ({ user, onAction, actionLabel, disabled }) => {
+const UserListItem = ({ user, onAction, actionLabel }) => {
   const isRemoveAction = actionLabel.includes("Xóa") || actionLabel.includes("Remove");
+  const removeBtnClasses = 'flex items-center gap-2 px-3 py-1.5 text-sm bg-red-50 text-red-600 border border-red-200 rounded-md hover:bg-red-100 transition-colors shadow-sm';
+  const addBtnClasses = 'flex items-center gap-2 px-3 py-1.5 text-sm bg-yellow-100 text-yellow-700 border border-yellow-300 rounded-md hover:bg-yellow-200 transition-colors shadow-sm';
 
   return (
     <div className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 border-gray-200 hover:bg-gray-100">
@@ -20,9 +22,8 @@ const UserListItem = ({ user, onAction, actionLabel, disabled }) => {
       </div>
       <button 
         type="button" 
-        className={`px-3 py-1 text-sm font-medium rounded-md ${isRemoveAction ? 'text-red-600 hover:bg-red-50' : 'text-yellow-600 hover:bg-yellow-50'}`}
+        className={isRemoveAction ? removeBtnClasses : addBtnClasses}
         onClick={() => onAction(user.id)} 
-        disabled={disabled}
       >
         {actionLabel}
       </button>
@@ -39,6 +40,7 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, e
   const [guestName, setGuestName] = useState('');
   const [guestSuggestions, setGuestSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [banner, setBanner] = useState('');
   const guestInputRef = useRef(null);
 
   useEffect(() => {
@@ -109,31 +111,57 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, e
     }).filter(Boolean);
   }, [allUsers, friends, stagedForAdditionUserIds]);
 
-  const remainingCapacity = totalMembers ? totalMembers - existingMembersCount - stagedForAdditionUserIds.size : Infinity;
+  const totalCapacity = Number(totalMembers);
+  const hasCapacityLimit = Number.isFinite(totalCapacity) && totalCapacity > 0;
+  const remainingCapacity = hasCapacityLimit ? totalCapacity - existingMembersCount - stagedForAdditionUserIds.size : Infinity;
   const canStageMoreUsers = remainingCapacity > 0;
+  const showWarningBanner = (message) => {
+    setBanner(message);
+    showToast?.({ message, type: 'warning' });
+  };
+  const showCapacityWarning = () => {
+    const totalText = hasCapacityLimit ? totalCapacity : 'không giới hạn';
+    const message = hasCapacityLimit
+      ? `Đã hết chỗ. Hụi này chỉ có ${totalText} kỳ.`
+      : 'Đã hết chỗ cho thành viên.';
+    showWarningBanner(message);
+  };
+
+  const isDuplicateGuestName = (candidate) => {
+    const normalized = candidate.trim().toLowerCase();
+    return Array.from(stagedForAdditionUserIds).some(id =>
+      typeof id === 'string' && id.startsWith('guest:') && id.replace('guest:', '').trim().toLowerCase() === normalized
+    );
+  };
 
   const handleStageUser = (userId) => {
     if (canStageMoreUsers) {
+      setBanner('');
       setStagedForAdditionUserIds(prevIds => new Set(prevIds).add(userId));
     } else {
-      showToast({ message: `Không thể thêm thành viên. Hụi này chỉ có ${totalMembers} kỳ và đã có ${existingMembersCount} thành viên.`, type: 'warning' });
+      showCapacityWarning();
     }
   };
 
   const handleAddGuest = (name) => {
     const guestNameToAdd = name || guestName.trim();
-    if (guestNameToAdd && canStageMoreUsers) {
-      const guestId = `guest:${guestNameToAdd}`;
-      if (stagedForAdditionUserIds.has(guestId)) {
-        showToast({ message: `Khách '${guestNameToAdd}' đã có trong danh sách.`, type: 'warning' });
-        return;
-      }
-      setStagedForAdditionUserIds(prevIds => new Set(prevIds).add(guestId));
-      setGuestName('');
-      setShowSuggestions(false);
-    } else if (!canStageMoreUsers) {
-      showToast({ message: `Không thể thêm khách. Hụi này chỉ có ${totalMembers} kỳ và đã có ${existingMembersCount} thành viên.`, type: 'warning' });
+    if (!guestNameToAdd) return;
+
+    if (!canStageMoreUsers) {
+      showCapacityWarning();
+      return;
     }
+
+    if (isDuplicateGuestName(guestNameToAdd)) {
+      showWarningBanner(`Khách '${guestNameToAdd}' đã có trong danh sách.`);
+      return;
+    }
+
+    const guestId = `guest:${guestNameToAdd.trim()}`;
+    setBanner('');
+    setStagedForAdditionUserIds(prevIds => new Set(prevIds).add(guestId));
+    setGuestName('');
+    setShowSuggestions(false);
   };
 
   const handleUnstageUser = (userId) => {
@@ -146,6 +174,11 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, e
 
   return (
     <div className="mt-6">
+      {banner && (
+        <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-medium text-yellow-800">
+          {banner}
+        </div>
+      )}
       {fetchAllUsersError && <p className="text-red-500 text-center mt-4">Lỗi tải người dùng: {fetchAllUsersError}</p>}
       <div className="flex flex-col md:flex-row md:space-x-6">
         <div className="md:w-1/2 bg-white shadow-lg rounded-lg overflow-hidden">
@@ -162,8 +195,7 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, e
                 key={user.id} 
                 user={user} 
                 onAction={handleStageUser} 
-                actionLabel="Thêm vào Hụi ->"
-                disabled={!canStageMoreUsers}
+                actionLabel="Thêm ->"
               />
             ))}
           </div>
@@ -228,7 +260,7 @@ export default function AddMembersPanel({ onStagedMembersChange, totalMembers, e
           type="button"
           className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium"
           onClick={() => handleAddGuest()}
-          disabled={!guestName.trim() || !canStageMoreUsers}
+          disabled={!guestName.trim()}
         >
           Thêm khách
         </button>

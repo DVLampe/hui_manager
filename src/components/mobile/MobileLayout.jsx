@@ -117,7 +117,7 @@ export default function MobileLayout({ children }) {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-gray-50 min-h-screen flex flex-col">
+    <div className="max-w-md mx-auto bg-gradient-to-b from-gray-40 to-gray-100/90 min-h-screen flex flex-col">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
