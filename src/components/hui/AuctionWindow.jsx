@@ -16,7 +16,7 @@ const formatSeconds = (seconds) => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onPrefillHotHui = () => {} }) => {
+const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onPrefillHotHui = () => {}, canManage = false }) => {
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
   const [auctionState, setAuctionState] = useState({ auction: null, history: [] })
   const [bidAmount, setBidAmount] = useState('')
@@ -36,7 +36,6 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
   const bannerTimeoutRef = useRef(null)
   const isMobile = useIsMobile()
 
-  const isOwner = hui?.ownerId === session?.user?.id
   const takenMemberIds = useMemo(
     () => new Set((hui?.payments || []).map((p) => p.potTakerMemberId).filter(Boolean)),
     [hui]
@@ -47,6 +46,13 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
   )
   const isHuiSong = !!myMember && !takenMemberIds.has(myMember?.id)
   const canBid = !isGuestView && !!myMember && isHuiSong
+
+  const canControlAuction = useMemo(() => {
+    if (session?.user?.role === 'ADMIN') return true
+    if (canManage) return true
+    if (hui?.ownerId === session?.user?.id) return true
+    return hui?.permissions?.some((p) => p.userId === session?.user?.id && p.permission === 'MANAGE')
+  }, [canManage, hui?.ownerId, hui?.permissions, session?.user?.id, session?.user?.role])
 
   const highestBid = auctionState.auction?.highestBid
   const winningBid = auctionState.auction?.winningBid
@@ -203,8 +209,8 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
       setError('Không kết nối được máy chủ đấu giá (socket). Kiểm tra NEXT_PUBLIC_SOCKET_URL hoặc mạng nội bộ.')
       return
     }
-    if (!isOwner) {
-      setError('Chỉ chủ hụi được phép mở đấu giá.')
+    if (!canControlAuction) {
+      setError('Chỉ chủ hụi hoặc người quản lý được phép mở đấu giá.')
       return
     }
     setError(null)
@@ -378,12 +384,12 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
                     handlePrefillHotHui()
                     onClose()
                   }}
-                  disabled={!isOwner}
+                  disabled={!canControlAuction}
                   className="whitespace-nowrap bg-red-600 hover:bg-red-700 text-white"
                 >
                   Hốt hụi theo giá thắng
                 </Button>
-                {!isOwner && <span className="text-xs text-gray-500">Chỉ chủ hụi có thể hốt.</span>}
+                {!canControlAuction && <span className="text-xs text-gray-500">Chỉ chủ hụi hoặc người quản lý có thể hốt.</span>}
               </div>
             </div>
           )}
@@ -453,19 +459,22 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
           {activeTab === 'history' && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
               {auctionState.history.length === 0 && <p className="text-sm text-gray-500">Chưa có phiên đấu giá nào kết thúc.</p>}
-              <div className="divide-y divide-gray-200">
-                {auctionState.history.map((item) => (
-                  <div key={item.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-gray-800">{item.roundLabel || 'Phiên đấu giá'}</p>
-                      <p className="text-xs text-gray-500">{item.endedAt ? new Date(item.endedAt).toLocaleString('vi-VN') : ''}</p>
+              <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto pr-2">
+                {auctionState.history.map((item, index) => {
+                  const label = item.roundLabel || `Phiên ${index + 1}`
+                  return (
+                    <div key={item.id} className="py-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800">{label}</p>
+                        <p className="text-xs text-gray-500">{item.endedAt ? new Date(item.endedAt).toLocaleString('vi-VN') : ''}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-700">Giá thắng: {formatNumber(item.winningBid?.amount || 0)}</p>
+                        <p className="text-xs text-gray-500">Người thắng: {item.winningBid?.user?.name || 'N/A'}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-700">Giá thắng: {formatNumber(item.winningBid?.amount || 0)}</p>
-                      <p className="text-xs text-gray-500">Người thắng: {item.winningBid?.user?.name || 'N/A'}</p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -487,7 +496,7 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
                 <div className="flex gap-3 mt-3">
                   <Button
                     onClick={handleStartAuction}
-                    disabled={!isOwner || auctionState.auction?.status === 'ACTIVE'}
+                    disabled={!canControlAuction || auctionState.auction?.status === 'ACTIVE'}
                     className="flex-1"
                   >
                     Bắt đầu đấu giá
@@ -495,13 +504,13 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
                   <Button
                     onClick={handleEndAuction}
                     variant="secondary"
-                    disabled={!isOwner || auctionState.auction?.status !== 'ACTIVE'}
+                    disabled={!canControlAuction || auctionState.auction?.status !== 'ACTIVE'}
                     className="flex-1"
                   >
                     Kết thúc
                   </Button>
                 </div>
-                {!isOwner && <p className="text-xs text-gray-500 mt-2">Chỉ chủ hụi được phép khởi tạo và kết thúc đấu giá.</p>}
+                {!canControlAuction && <p className="text-xs text-gray-500 mt-2">Chỉ chủ hụi hoặc người quản lý được phép khởi tạo và kết thúc đấu giá.</p>}
               </div>
               <div className="bg-white rounded-xl border border-dashed border-gray-300 p-3 text-sm text-gray-600">
                 <p className="font-semibold text-gray-800 mb-2">Luật tóm tắt</p>

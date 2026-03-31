@@ -87,6 +87,14 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
     return userPermission?.permission === 'MANAGE';
   }, [session, hui, isGuestView]);
 
+  const canHotHui = useMemo(() => {
+    if (!session || !hui) return false;
+    if (session.user.role === 'ADMIN') return true;
+    if (hui.ownerId === session.user.id) return true;
+    const userPermission = hui.permissions?.find((p) => p.userId === session.user.id);
+    return userPermission?.permission === 'MANAGE';
+  }, [session, hui]);
+
   const isHuiMember = useMemo(() => {
     if (isGuestView) return true;
     if (!session || !hui || !hui.members) return false;
@@ -142,6 +150,12 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleHotHuiFromLucky = (memberId) => {
+    if (!memberId || !canHotHui) return;
+    setIsWheelModalOpen(false);
+    handleOpenHotHuiModal({ memberId: String(memberId) });
   };
 
   const handleDeleteHui = async () => {
@@ -612,8 +626,36 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
           </div>
         </div>
       )}
-      <PermissionsModal isOpen={isPermissionsModalOpen} onClose={() => setIsPermissionsModalOpen(false)} hui={hui} onSave={async (updatedPermissions) => { const payload = { ...hui, permissions: updatedPermissions }; await handleUpdateHui(payload); setIsPermissionsModalOpen(false); }} />
-      {isWheelModalOpen && (<LuckyWheelModal isOpen={isWheelModalOpen} onClose={() => setIsWheelModalOpen(false)} members={memberOptions} />)}
+      <PermissionsModal
+        isOpen={isPermissionsModalOpen}
+        onClose={() => setIsPermissionsModalOpen(false)}
+        hui={hui}
+        onSave={async (updatedPermissions) => {
+          const uniqueIds = Array.from(new Set((updatedPermissions || []).map((p) => p.userId).filter(Boolean)));
+          // Always keep chủ hụi in the manage list so existing access is preserved
+          if (hui?.ownerId && !uniqueIds.includes(hui.ownerId)) {
+            uniqueIds.push(hui.ownerId);
+          }
+
+          const sanitizedPermissions = uniqueIds.map((userId) => ({ userId, permission: 'MANAGE' }));
+          const payload = { ...hui, permissions: sanitizedPermissions };
+
+          const updated = await handleUpdateHui(payload);
+          if (updated) {
+            await fetchHuiData(); // Re-sync to ensure fresh permissions list
+          }
+          setIsPermissionsModalOpen(false);
+        }}
+      />
+      {isWheelModalOpen && (
+        <LuckyWheelModal
+          isOpen={isWheelModalOpen}
+          onClose={() => setIsWheelModalOpen(false)}
+          members={memberOptions}
+          onHotHui={handleHotHuiFromLucky}
+          canHotHui={canHotHui}
+        />
+      )}
       <OwnerBankInfoModal isOpen={showBankInfoModal} onClose={() => setShowBankInfoModal(false)} owner={hui} />
       <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Chia sẻ hụi">
         <p className="mb-4">Chia sẻ link để người khác xem chi tiết hụi:</p>
@@ -933,6 +975,7 @@ export default function HuiDetailPageContent({ huiData, session, isGuestView, hu
         isOpen={showAuctionWindow}
         onClose={() => setShowAuctionWindow(false)}
         isGuestView={isGuestView}
+        canManage={canManage}
         onPrefillHotHui={handleOpenHotHuiModal}
       />
     </>

@@ -156,24 +156,31 @@ export async function PUT(request, { params }) {
           });
 
           if (newPermissions && Array.isArray(newPermissions)) {
-            // Delete existing MANAGE permissions for this group
-            await tx.huiPermission.deleteMany({
-              where: {
-                groupId: id,
-                permission: 'MANAGE',
-              },
-            });
+            const manageUserIds = newPermissions
+              .map((p) => p.userId)
+              .filter(Boolean);
+
+            // Remove any existing permissions for these users in this group to avoid unique conflicts (VIEW/MANAGE)
+            if (manageUserIds.length > 0) {
+              await tx.huiPermission.deleteMany({
+                where: {
+                  groupId: id,
+                  userId: { in: manageUserIds },
+                },
+              });
+            }
 
             // Create new MANAGE permissions
-            const permissionCreations = newPermissions.map(p => ({
+            const permissionCreations = manageUserIds.map((userId) => ({
               groupId: id,
-              userId: p.userId,
+              userId,
               permission: 'MANAGE',
             }));
 
             if (permissionCreations.length > 0) {
               await tx.huiPermission.createMany({
                 data: permissionCreations,
+                skipDuplicates: true,
               });
             }
           }

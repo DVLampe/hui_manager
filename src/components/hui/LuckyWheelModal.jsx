@@ -5,7 +5,7 @@ import { Wheel } from 'react-custom-roulette';
 import { Modal } from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 
-const LuckyWheelModal = ({ isOpen, onClose, members }) => {
+const LuckyWheelModal = ({ isOpen, onClose, members, onHotHui = () => {}, canHotHui = false }) => {
   const [mustSpin, setMustSpin] = useState(false);
   const [prizeNumber, setPrizeNumber] = useState(0);
   const [winner, setWinner] = useState(null);
@@ -54,6 +54,18 @@ const LuckyWheelModal = ({ isOpen, onClose, members }) => {
           <div className="my-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-center">
             <h3 className="text-xl font-bold">Thành viên may mắn!</h3>
             <p className="text-lg">{winner.label}</p>
+            <div className="mt-3">
+              <Button
+                onClick={() => onHotHui(winner.value)}
+                disabled={!canHotHui}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                Hốt hụi
+              </Button>
+              {!canHotHui && (
+                <p className="text-xs text-gray-500 mt-1">Chỉ chủ hụi hoặc người quản lý mới được hốt.</p>
+              )}
+            </div>
           </div>
         )}
 

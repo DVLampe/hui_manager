@@ -283,13 +283,26 @@ io.on("connection", (socket) => {
     }
 
     try {
-      const hui = await prisma.huiGroup.findUnique({ where: { id: huiId }, include: { members: true } });
+      const [hui, userPermissions, user] = await Promise.all([
+        prisma.huiGroup.findUnique({ where: { id: huiId }, include: { members: true } }),
+        prisma.huiPermission.findFirst({
+          where: { groupId: huiId, userId, permission: 'MANAGE' },
+          select: { id: true },
+        }),
+        prisma.user.findUnique({ where: { id: userId }, select: { role: true } }),
+      ]);
+
       if (!hui) {
         socket.emit("auction:error", { message: "Không tìm thấy hụi." });
         return;
       }
-      if (hui.ownerId !== userId) {
-        socket.emit("auction:error", { message: "Chỉ chủ hụi được phép mở đấu giá." });
+
+      const isOwner = hui.ownerId === userId;
+      const isAdmin = user?.role === 'ADMIN';
+      const isManager = !!userPermissions;
+
+      if (!isOwner && !isManager && !isAdmin) {
+        socket.emit("auction:error", { message: "Chỉ chủ hụi hoặc người quản lý được phép mở đấu giá." });
         return;
       }
 
