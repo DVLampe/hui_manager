@@ -2,24 +2,19 @@ version: '3.8'
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: $IMAGE_TAG # This is a placeholder, the actual tag is set in gitlab-ci
+    image: $IMAGE_TAG
     container_name: hui-manager-app-prod
     restart: unless-stopped
-    # Environment variables will be injected by GitLab CI/CD
-    # For local testing, you can uncomment the line below:
-    # env_file: .env.local
+    env_file: .env
     networks:
       - hui-net
 
   socket:
-    image: $IMAGE_TAG # Use the same image as the app
+    image: $IMAGE_TAG
     container_name: hui-manager-socket-prod
     restart: unless-stopped
-    command: ["node", "server.js"] # Override the default command
-    # env_file: .env.local
+    command: ["node", "server.js"]
+    env_file: .env
     networks:
       - hui-net
 

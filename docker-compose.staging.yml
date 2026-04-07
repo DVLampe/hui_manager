@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  app_staging:
+    image: $IMAGE_TAG
+    container_name: hui-manager-app-staging
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - hui-net-staging
+
+  socket_staging:
+    image: $IMAGE_TAG
+    container_name: hui-manager-socket-staging
+    restart: unless-stopped
+    command: ["node", "server.js"]
+    env_file: .env
+    networks:
+      - hui-net-staging
+
+  nginx_staging:
+    image: nginx:1.25-alpine
+    container_name: hui-manager-nginx-staging
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/staging.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app_staging
+      - socket_staging
+    networks:
+      - hui-net-staging
+
+networks:
+  hui-net-staging:
+    driver: bridge

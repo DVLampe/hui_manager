@@ -41,8 +41,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
-# If you have a custom server for Next.js, copy it here.
-# For the standalone socket.io server, we will use a separate container.
+# Socket.IO server — required for the socket container
+COPY --from=builder /app/server.js ./server.js
+# Prisma schema — required for `prisma migrate deploy` on container start
+COPY --from=builder /app/prisma ./prisma
 
 # Change ownership of the app directory
 USER nextjs

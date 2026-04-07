@@ -1,94 +1,238 @@
-# Define the stages of the CI/CD pipeline
+# ======================================================================================
+# HUI MANAGER — GitLab CI/CD Pipeline
+#
+# Branch strategy:
+#   feature/* ──MR──► dev      → build + deploy to DEV   (автоматически)
+#   dev        ──MR──► release/* → build + deploy to STAGING (автоматически)
+#   release/*  ──MR──► main    → deploy to PROD          (вручную, кнопка ▶)
+#
+# Environments:
+#   DEV      — VPS port 8081  (docker-compose.dev.yml)
+#   STAGING  — VPS port 8080  (docker-compose.staging.yml)
+#   PROD     — VPS port 80/443 (docker-compose.prod.yml + SSL)
+#
+# Required GitLab CI/CD Variables (Settings → CI/CD → Variables):
+#   SSH_PRIVATE_KEY   — приватный ключ для доступа к VPS
+#   VPS_USER          — пользователь на VPS (например: deploy)
+#   VPS_IP            — IP-адрес VPS
+#   PROD_DOMAIN       — домен прода (например: huimanager.com)
+#   STAGING_DOMAIN    — домен стейджинга (или IP:8080)
+#
+#   Переменные окружения приложения задаются непосредственно на VPS
+#   в файле ~/hui-manager-{env}/.env  (см. .env.example)
+# ======================================================================================
+
 stages:
+  - lint
   - build
   - deploy_dev
+  - deploy_staging
   - deploy_prod
 
-# Define variables used across the pipeline
+# ── Глобальные переменные ─────────────────────────────────────────────────────────────
 variables:
-  # The name of the image that will be built and pushed to the GitLab Container Registry
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-  LATEST_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
+  IMAGE_TAG_DEV: $CI_REGISTRY_IMAGE:dev-$CI_COMMIT_SHORT_SHA
+  IMAGE_TAG_STAGING: $CI_REGISTRY_IMAGE:staging-$CI_COMMIT_SHORT_SHA
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
 
-# ======================================================================================
-# BUILD STAGE: Build the Docker image and push it to the GitLab Container Registry
-# ======================================================================================
-build:
-  stage: build
-  # Use the official Docker image to build our image
-  image: docker:20.10.16
-  services:
-    - docker:20.10.16-dind # Docker-in-Docker service
+# ── Переиспользуемые блоки (YAML anchors) ─────────────────────────────────────────────
+.ssh_setup: &ssh_setup
   before_script:
-    # Login to the GitLab Container Registry
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-  script:
-    # Build the image using the Dockerfile in the current directory
-    - docker build -t $IMAGE_TAG -t $LATEST_IMAGE_TAG .
-    # Push the image to the registry
-    - docker push $IMAGE_TAG
-    - docker push $LATEST_IMAGE_TAG
-  # This job runs for all branches, but we don't need it for merge requests
-  except:
-    - merge_requests
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\tServerAliveInterval 30\n" > ~/.ssh/config
+
+.docker_login: &docker_login
+  - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
 
 # ======================================================================================
-# DEPLOY STAGE (DEVELOPMENT): Deploy the application to the development server
+# LINT — быстрая проверка кода ESLint (все ветки, кроме main напрямую)
+# ======================================================================================
+lint:
+  stage: lint
+  image: node:18-alpine
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+  script:
+    - npm ci --prefer-offline
+    - npm run lint
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\//'
+
+# ======================================================================================
+# BUILD DEV — собираем образ при пуше в ветку dev
+# ======================================================================================
+build_dev:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - *docker_login
+  script:
+    - |
+      docker build \
+        --build-arg NEXT_PUBLIC_SOCKET_URL="http://$VPS_IP:8081" \
+        --build-arg NEXT_PUBLIC_BASE_URL="http://$VPS_IP:8081" \
+        -t "$IMAGE_TAG_DEV" \
+        -t "$CI_REGISTRY_IMAGE:dev-latest" .
+    - docker push "$IMAGE_TAG_DEV"
+    - docker push "$CI_REGISTRY_IMAGE:dev-latest"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+
+# ======================================================================================
+# BUILD STAGING — собираем образ при пуше в release/*
+# ======================================================================================
+build_staging:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - *docker_login
+  script:
+    - |
+      docker build \
+        --build-arg NEXT_PUBLIC_SOCKET_URL="http://$VPS_IP:8080" \
+        --build-arg NEXT_PUBLIC_BASE_URL="http://$VPS_IP:8080" \
+        -t "$IMAGE_TAG_STAGING" \
+        -t "$CI_REGISTRY_IMAGE:staging-latest" .
+    - docker push "$IMAGE_TAG_STAGING"
+    - docker push "$CI_REGISTRY_IMAGE:staging-latest"
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release\//'
+
+# ======================================================================================
+# BUILD PROD — собираем образ при пуше в main
+# ======================================================================================
+build_prod:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - *docker_login
+  script:
+    - |
+      docker build \
+        --build-arg NEXT_PUBLIC_SOCKET_URL="https://$PROD_DOMAIN" \
+        --build-arg NEXT_PUBLIC_BASE_URL="https://$PROD_DOMAIN" \
+        -t "$IMAGE_TAG" \
+        -t "$CI_REGISTRY_IMAGE:latest" .
+    - docker push "$IMAGE_TAG"
+    - docker push "$CI_REGISTRY_IMAGE:latest"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ======================================================================================
+# DEPLOY DEV — деплой на dev-окружение (порт 8081)
 # ======================================================================================
 deploy_dev:
   stage: deploy_dev
   image: alpine:latest
-  before_script:
-    # Install necessary tools (ssh client, docker-compose)
-    - apk add --no-cache openssh-client docker-compose
-    # Prepare the SSH key to connect to the server
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  <<: *ssh_setup
   script:
-    # Connect to the dev server and execute deployment commands
-    - ssh $VPS_USER@$VPS_IP "
-        cd ~/hui-manager-dev &&
-        echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY &&
-        export IMAGE_TAG=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA &&
-        docker-compose -f docker-compose.dev.yml pull &&
-        docker-compose -f docker-compose.dev.yml up -d --remove-orphans &&
-        docker image prune -f"
+    - |
+      ssh $VPS_USER@$VPS_IP "
+        set -e
+        mkdir -p ~/hui-manager-dev
+        cd ~/hui-manager-dev
+
+        # Авторизоваться в registry и подтянуть образ
+        echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin '$CI_REGISTRY'
+        export IMAGE_TAG='$IMAGE_TAG_DEV'
+
+        # Скопировать compose-файл если он изменился
+        docker-compose -f docker-compose.dev.yml pull app_dev socket_dev
+        docker-compose -f docker-compose.dev.yml up -d --remove-orphans
+
+        # Применить миграции БД
+        docker-compose -f docker-compose.dev.yml exec -T app_dev npx prisma migrate deploy
+
+        # Удалить устаревшие образы
+        docker image prune -f
+      "
   environment:
     name: development
-    url: http://$VPS_IP:8080
-  # This job runs ONLY for the 'dev' branch
-  only:
-    - dev
+    url: http://$VPS_IP:8081
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
 
 # ======================================================================================
-# DEPLOY STAGE (PRODUCTION): Deploy the application to the production server
+# DEPLOY STAGING — деплой на staging-окружение (порт 8080)
+# ======================================================================================
+deploy_staging:
+  stage: deploy_staging
+  image: alpine:latest
+  <<: *ssh_setup
+  script:
+    - |
+      ssh $VPS_USER@$VPS_IP "
+        set -e
+        mkdir -p ~/hui-manager-staging
+        cd ~/hui-manager-staging
+
+        echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin '$CI_REGISTRY'
+        export IMAGE_TAG='$IMAGE_TAG_STAGING'
+
+        docker-compose -f docker-compose.staging.yml pull app_staging socket_staging
+        docker-compose -f docker-compose.staging.yml up -d --remove-orphans
+
+        docker-compose -f docker-compose.staging.yml exec -T app_staging npx prisma migrate deploy
+
+        docker image prune -f
+      "
+  environment:
+    name: staging
+    url: http://$VPS_IP:8080
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release\//'
+
+# ======================================================================================
+# DEPLOY PROD — деплой на прод (порт 443/80), только вручную
 # ======================================================================================
 deploy_prod:
   stage: deploy_prod
   image: alpine:latest
-  before_script:
-    - apk add --no-cache openssh-client docker-compose
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  <<: *ssh_setup
   script:
-    - ssh $VPS_USER@$VPS_IP "
-        cd ~/hui-manager-prod &&
-        echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY &&
-        export IMAGE_TAG=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA &&
-        docker-compose -f docker-compose.prod.yml pull &&
-        docker-compose -f docker-compose.prod.yml up -d --remove-orphans &&
-        docker image prune -f"
+    - |
+      ssh $VPS_USER@$VPS_IP "
+        set -e
+        mkdir -p ~/hui-manager-prod
+        cd ~/hui-manager-prod
+
+        echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin '$CI_REGISTRY'
+        export IMAGE_TAG='$IMAGE_TAG'
+
+        docker-compose -f docker-compose.prod.yml pull app socket
+
+        # Zero-downtime: поднимаем новые контейнеры, затем убиваем старые
+        docker-compose -f docker-compose.prod.yml up -d --remove-orphans app socket
+
+        # Миграции
+        docker-compose -f docker-compose.prod.yml exec -T app npx prisma migrate deploy
+
+        # Перезагрузить nginx для подхвата новых upstream
+        docker-compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
+
+        docker image prune -f
+      "
   environment:
     name: production
-    url: http://$PROD_DOMAIN # You should define PROD_DOMAIN in GitLab variables
-  # This job runs ONLY for the 'main' branch
-  only:
-    - main
-  # This makes the job require a manual trigger (a "play" button in the UI)
-  when: manual
+    url: https://$PROD_DOMAIN
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual  # ◄ Требует нажатия кнопки ▶ в GitLab UI
+  allow_failure: false

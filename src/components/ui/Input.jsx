@@ -15,7 +15,7 @@ export default function Input({
       )}
       <input
         type={type}
-        className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${className}`}
+        className={`block w-full rounded-md border border-gray-400 shadow-sm transition-colors focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 sm:text-sm ${className}`}
         {...props}
       />
       {error && (

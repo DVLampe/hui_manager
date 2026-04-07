@@ -26,6 +26,12 @@ const serializeBid = (bid) => ({
   createdAt: bid.createdAt,
 });
 
+const resolveMinNextBid = (auction, highestAmount = null) => {
+  const baseMin = highestAmount !== null ? highestAmount + Number(auction.bidStep) : Number(auction.startPrice);
+  if (auction.maxPrice === null || auction.maxPrice === undefined) return baseMin;
+  return Math.min(baseMin, Number(auction.maxPrice));
+};
+
 const mapAuctionState = (auction) => {
   if (!auction) return null;
   const sortedBids = [...auction.bids].sort((a, b) => {
@@ -34,12 +40,14 @@ const mapAuctionState = (auction) => {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
   const highest = sortedBids[0] ? serializeBid(sortedBids[0]) : null;
-  const minNextBid = highest ? Number(highest.amount) + Number(auction.bidStep) : Number(auction.bidStep);
+  const minNextBid = resolveMinNextBid(auction, highest ? Number(highest.amount) : null);
 
   return {
     id: auction.id,
     huiGroupId: auction.huiGroupId,
     status: auction.status,
+    startPrice: Number(auction.startPrice),
+    maxPrice: auction.maxPrice !== null && auction.maxPrice !== undefined ? Number(auction.maxPrice) : null,
     bidStep: Number(auction.bidStep),
     potAmount: auction.potAmount ? Number(auction.potAmount) : null,
     durationSeconds: auction.durationSeconds,
@@ -127,7 +135,7 @@ async function finalizeAuction(auctionId, endedBy = null, txClient = prisma) {
   const huiId = updatedAuction.huiGroupId;
   io.to(auctionRoom(huiId)).emit("auction:ended", {
     auction: mapAuctionState(updatedAuction),
-    reason: endedBy ? "manual" : "timer",
+    reason: endedBy === "timer" ? "timer" : endedBy === "max-price" ? "max-price" : "manual",
   });
   await emitAuctionState(huiId);
   await emitAuctionHistory(huiId);
@@ -275,9 +283,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("auction:start", async (payload) => {
-    const { huiId, userId, bidStep, durationSeconds, roundLabel } = payload || {};
+    const { huiId, userId, bidStep, startPrice, maxPrice, durationSeconds, roundLabel } = payload || {};
 
-    if (!huiId || !userId || bidStep === undefined) {
+    if (!huiId || !userId || bidStep === undefined || startPrice === undefined) {
       socket.emit("auction:error", { message: "Thiếu dữ liệu khởi tạo đấu giá." });
       return;
     }
@@ -313,15 +321,40 @@ io.on("connection", (socket) => {
       }
 
       const bidStepValue = Number(bidStep);
-      const durationValue = durationSeconds ? Number(durationSeconds) : null;
+      const startPriceValue = Number(startPrice);
+      const maxPriceValue = maxPrice !== null && maxPrice !== undefined && maxPrice !== "" ? Number(maxPrice) : null;
+      const durationValue = durationSeconds !== null && durationSeconds !== undefined && durationSeconds !== "" ? Number(durationSeconds) : null;
+
+      if (!Number.isFinite(bidStepValue) || bidStepValue <= 0) {
+        socket.emit("auction:error", { message: "Bước giá phải lớn hơn 0." });
+        return;
+      }
+
+      if (!Number.isFinite(startPriceValue) || startPriceValue <= 0) {
+        socket.emit("auction:error", { message: "Giá khởi điểm phải lớn hơn 0." });
+        return;
+      }
+
+      if (maxPriceValue !== null && (!Number.isFinite(maxPriceValue) || maxPriceValue < startPriceValue)) {
+        socket.emit("auction:error", { message: "Giá tối đa phải lớn hơn hoặc bằng giá khởi điểm." });
+        return;
+      }
+
+      if (durationValue !== null && (!Number.isFinite(durationValue) || durationValue <= 0)) {
+        socket.emit("auction:error", { message: "Thời gian đấu giá phải lớn hơn 0 hoặc để trống." });
+        return;
+      }
+
       const potAmount = hui.amount ? Number(hui.amount) * (hui.totalMembers || hui.members.length || 0) : null;
 
       const newAuction = await prisma.auction.create({
         data: {
           huiGroupId: huiId,
           status: AUCTION_STATUS.ACTIVE,
+          startPrice: startPriceValue,
+          maxPrice: maxPriceValue,
           bidStep: bidStepValue,
-          durationSeconds: durationValue || null,
+          durationSeconds: durationValue,
           roundLabel: roundLabel || `Kỳ ${hui.currentCycle || ""}`.trim(),
           startTime: new Date(),
           endTime: durationValue ? new Date(Date.now() + durationValue * 1000) : null,
@@ -365,7 +398,18 @@ io.on("connection", (socket) => {
           orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
           select: { amount: true },
         });
-        const minNextBid = highest ? Number(highest.amount) + Number(auction.bidStep) : Number(auction.bidStep);
+        const highestAmount = highest ? Number(highest.amount) : null;
+        if (auction.maxPrice !== null && auction.maxPrice !== undefined && highestAmount !== null && highestAmount >= Number(auction.maxPrice)) {
+          await finalizeAuction(auctionId, "max-price", tx);
+          throw new Error("Đấu giá đã chạm giá tối đa và được tự động kết thúc.");
+        }
+
+        const minNextBid = resolveMinNextBid(auction, highestAmount);
+
+        if (auction.maxPrice !== null && auction.maxPrice !== undefined && amountNumber > Number(auction.maxPrice)) {
+          throw new Error(`Giá không được vượt quá mức tối đa ${Number(auction.maxPrice).toLocaleString('vi-VN')}.`);
+        }
+
         if (amountNumber < minNextBid) throw new Error(`Giá phải từ ${minNextBid.toLocaleString('vi-VN')} trở lên.`);
 
         const lastUserBid = await tx.bid.findFirst({
@@ -380,6 +424,11 @@ io.on("connection", (socket) => {
         await tx.bid.create({
           data: { auctionId, userId, amount: amountNumber },
         });
+
+        if (auction.maxPrice !== null && auction.maxPrice !== undefined && amountNumber >= Number(auction.maxPrice)) {
+          await finalizeAuction(auctionId, "max-price", tx);
+          return;
+        }
 
         if (auction.endTime) {
           const diff = auction.endTime.getTime() - Date.now();

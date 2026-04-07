@@ -20,8 +20,10 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
   const [auctionState, setAuctionState] = useState({ auction: null, history: [] })
   const [bidAmount, setBidAmount] = useState('')
+  const [startPrice, setStartPrice] = useState(50000)
   const [startBidStep, setStartBidStep] = useState(50000)
-  const [durationSeconds, setDurationSeconds] = useState(180)
+  const [maxPrice, setMaxPrice] = useState('')
+  const [durationSeconds, setDurationSeconds] = useState('')
   const [activeTab, setActiveTab] = useState('current')
   const [error, setError] = useState(null)
   const [info, setInfo] = useState(null)
@@ -56,12 +58,17 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
 
   const highestBid = auctionState.auction?.highestBid
   const winningBid = auctionState.auction?.winningBid
+  const startPriceValue = Number(auctionState.auction?.startPrice ?? startPrice ?? 0) || 0
+  const maxPriceValue =
+    auctionState.auction?.maxPrice !== undefined && auctionState.auction?.maxPrice !== null
+      ? Number(auctionState.auction?.maxPrice)
+      : null
   const bidStepValue = Number(auctionState.auction?.bidStep ?? startBidStep ?? 0) || 0
   const minNextBid =
     auctionState.auction?.minNextBid !== undefined && auctionState.auction?.minNextBid !== null
       ? Number(auctionState.auction?.minNextBid)
-      : bidStepValue
-  const minBid = Math.max(minNextBid, bidStepValue)
+      : startPriceValue
+  const minBid = maxPriceValue !== null ? Math.min(minNextBid, maxPriceValue) : minNextBid
   const yourBid = useMemo(() => {
     if (!auctionState.auction?.bids || !session?.user?.id) return null
     const myBids = auctionState.auction.bids.filter((b) => b.userId === session.user.id)
@@ -169,9 +176,13 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
     socket.on('auction:started', () => {
       setInfo('Đấu giá đã bắt đầu')
     })
-    socket.on('auction:ended', ({ auction }) => {
+    socket.on('auction:ended', ({ auction, reason }) => {
       setAuctionState((prev) => ({ ...prev, auction }))
-      setInfo('Đấu giá đã kết thúc')
+      if (reason === 'max-price') {
+        setInfo('Đấu giá đã chạm giá tối đa và tự động kết thúc')
+      } else {
+        setInfo('Đấu giá đã kết thúc')
+      }
       persistWinnerBanner(auction)
     })
     socket.on('auction:error', (payload) => {
@@ -213,12 +224,36 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
       setError('Chỉ chủ hụi hoặc người quản lý được phép mở đấu giá.')
       return
     }
+    const startPriceNumber = Number(startPrice)
+    const bidStepNumber = Number(startBidStep)
+    const maxPriceNumber = maxPrice === '' ? null : Number(maxPrice)
+    const durationNumber = durationSeconds === '' ? null : Number(durationSeconds)
+
+    if (!Number.isFinite(startPriceNumber) || startPriceNumber <= 0) {
+      setError('Giá khởi điểm phải lớn hơn 0.')
+      return
+    }
+    if (!Number.isFinite(bidStepNumber) || bidStepNumber <= 0) {
+      setError('Bước giá phải lớn hơn 0.')
+      return
+    }
+    if (maxPriceNumber !== null && (!Number.isFinite(maxPriceNumber) || maxPriceNumber < startPriceNumber)) {
+      setError('Giá tối đa phải lớn hơn hoặc bằng giá khởi điểm.')
+      return
+    }
+    if (durationNumber !== null && (!Number.isFinite(durationNumber) || durationNumber <= 0)) {
+      setError('Thời gian đấu giá phải lớn hơn 0 hoặc để trống.')
+      return
+    }
+
     setError(null)
     socketRef.current.emit('auction:start', {
       huiId: hui.id,
       userId: session.user.id,
-      bidStep: Number(startBidStep),
-      durationSeconds: durationSeconds ? Number(durationSeconds) : null,
+      startPrice: startPriceNumber,
+      bidStep: bidStepNumber,
+      maxPrice: maxPriceNumber,
+      durationSeconds: durationNumber,
       roundLabel: `Phiên ${hui?.currentCycle || ''}`.trim(),
     })
   }
@@ -298,8 +333,16 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
 
           <div className="flex flex-wrap gap-3 mb-4">
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
+              <Gavel className="w-4 h-4 text-red-500" />
+              <span>Giá khởi điểm: {formatNumber(startPriceValue)}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
               <Timer className="w-4 h-4 text-red-500" />
               <span>Tối thiểu kế tiếp: {formatNumber(minNextBid)}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span>Giá tối đa: {maxPriceValue !== null ? formatNumber(maxPriceValue) : 'Không giới hạn'}</span>
             </div>
             <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${connectionInfo.connected ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
               <Activity className="w-4 h-4" />
@@ -434,7 +477,12 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
                     {formatNumber(bidAmount || minBid || 0)}
                   </div>
                   <Button
-                    onClick={() => setBidAmount((prev) => (Number(prev) || minBid) + bidStepValue)}
+                    onClick={() =>
+                      setBidAmount((prev) => {
+                        const nextValue = (Number(prev) || minBid) + bidStepValue
+                        return maxPriceValue !== null ? Math.min(nextValue, maxPriceValue) : nextValue
+                      })
+                    }
                     size="md"
                     disabled={!canBid || auctionState.auction?.status !== 'ACTIVE'}
                     className="w-12 h-11 flex items-center justify-center"
@@ -444,7 +492,13 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
                 </div>
                 <Button
                   onClick={handlePlaceBid}
-                  disabled={!canBid || auctionState.auction?.status !== 'ACTIVE' || !bidAmount || bidAmount < minBid}
+                  disabled={
+                    !canBid ||
+                    auctionState.auction?.status !== 'ACTIVE' ||
+                    !bidAmount ||
+                    Number(bidAmount) < minBid ||
+                    (maxPriceValue !== null && Number(bidAmount) > maxPriceValue)
+                  }
                   className="w-full"
                 >
                   Đặt giá
@@ -483,14 +537,22 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 border border-gray-200 rounded-xl p-4">
               <div className="md:col-span-2">
                 <p className="text-sm text-gray-600 mb-2">Thiết lập phiên đấu giá</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500">Giá khởi điểm tối thiểu</label>
+                    <NumberInput value={startPrice} onChange={(e) => setStartPrice(e.target.value)} className="w-full" />
+                  </div>
                   <div>
                     <label className="text-xs text-gray-500">Bước giá tối thiểu</label>
                     <NumberInput value={startBidStep} onChange={(e) => setStartBidStep(e.target.value)} className="w-full" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500">Tổng thời gian đấu (giây, tùy chọn)</label>
-                    <NumberInput value={durationSeconds} onChange={(e) => setDurationSeconds(e.target.value)} className="w-full" />
+                    <label className="text-xs text-gray-500">Giá tối đa <span className="text-gray-400">(∞ = không giới hạn)</span></label>
+                    <NumberInput value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-full placeholder:text-xl placeholder:pl-0.5" placeholder="∞" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Thời gian đấu (giây) <span className="text-gray-400">(∞ = không giới hạn)</span></label>
+                    <NumberInput value={durationSeconds} onChange={(e) => setDurationSeconds(e.target.value)} className="w-full placeholder:text-xl placeholder:pl-0.5" placeholder="∞" />
                   </div>
                 </div>
                 <div className="flex gap-3 mt-3">
@@ -515,7 +577,9 @@ const AuctionWindow = ({ hui, session, isOpen, onClose, isGuestView = false, onP
               <div className="bg-white rounded-xl border border-dashed border-gray-300 p-3 text-sm text-gray-600">
                 <p className="font-semibold text-gray-800 mb-2">Luật tóm tắt</p>
                 <ul className="list-disc pl-4 space-y-1">
+                  <li>Giá mở đầu từ mức giá khởi điểm.</li>
                   <li>Giá mới = giá cao nhất + bước giá.</li>
+                  <li>Nếu đặt chạm giá tối đa thì phiên tự kết thúc.</li>
                   <li>Đặt trong 10s cuối sẽ cộng thêm 30s.</li>
                   <li>Chỉ hụi sống được đặt giá.</li>
                   <li>Hết giờ sẽ khóa đấu giá.</li>
